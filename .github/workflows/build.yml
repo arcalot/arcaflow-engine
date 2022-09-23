@@ -1,0 +1,77 @@
+name: Build
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v2
+  test:
+    name: go test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+      - name: Set up gotestfmt
+        uses: haveyoudebuggedit/gotestfmt-action@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-test-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-test-
+      - name: Run go test
+        run: |
+          set -euo pipefail
+          go generate
+          go test -coverprofile /tmp/coverage.out -json -v ./... 2>&1 | tee /tmp/gotest.log | gotestfmt
+          echo "# Code coverage summary" > /tmp/coverage.md
+          echo "|File|Type|Coverage|" >> /tmp/coverage.md
+          echo "|----|----|--------|" >> /tmp/coverage.md
+          go tool cover -func /tmp/coverage.out | sed -e 's/\s\s*/|/g' -e 's/^/|/g' -e 's/$/|/g' >> /tmp/coverage.md
+          
+          cat /tmp/coverage.md >> $GITHUB_STEP_SUMMARY
+          echo "::group::Code coverage summary"
+          go tool cover -func /tmp/coverage.out
+          echo "::endgroup::"
+      - name: Upload test log
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: test-results
+          path: |
+            /tmp/gotest.log
+            /tmp/coverage.out
+            /tmp/coverage.md
+          if-no-files-found: error
+  generate:
+    name: go generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-test-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-generate-
+      - name: Run go generate
+        run: ./.github/scripts/gogenerate.sh
