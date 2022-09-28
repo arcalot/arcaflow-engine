@@ -83,6 +83,7 @@ linters-settings:
       - github.com/docker/go-connections
       - github.com/opencontainers/image-spec
       - gopkg.in/yaml.v3
+      - github.com/fxamacker/cbor
   govet:
     enable-all: true
     check-shadowing: false
