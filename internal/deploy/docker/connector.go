@@ -69,7 +69,7 @@ func (c connector) attachContainer(ctx context.Context, cnt *connectorContainer)
 			Stream: true,
 			Stdin:  true,
 			Stdout: true,
-			Stderr: true,
+			Stderr: false,
 			Logs:   true,
 		},
 	)
@@ -80,6 +80,9 @@ func (c connector) attachContainer(ctx context.Context, cnt *connectorContainer)
 		return fmt.Errorf("failed to attach to container %s (%w)", cnt.id, err)
 	}
 	cnt.hijackedResponse = &hijackedResponse
+	cnt.multiplexedReader = multiplexedReader{
+		reader: cnt.hijackedResponse.Reader,
+	}
 	return nil
 }
 
@@ -92,9 +95,13 @@ func (c connector) createContainer(image string) (*connectorContainer, error) {
 	containerConfig.Tty = false
 	containerConfig.AttachStdin = true
 	containerConfig.AttachStdout = true
-	containerConfig.AttachStderr = true
+	containerConfig.AttachStderr = false
 	containerConfig.StdinOnce = true
 	containerConfig.OpenStdin = true
+	containerConfig.Cmd = []string{"--atp"}
+	// Make sure Python is in unbuffered mode to avoid the output getting stuck.
+	containerConfig.Env = append(containerConfig.Env, "PYTHON_UNBUFFERED=1")
+
 	cont, err := c.cli.ContainerCreate(context.TODO(),
 		containerConfig,
 		c.config.Deployment.HostConfig,
