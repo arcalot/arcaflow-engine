@@ -80,6 +80,8 @@ linters-settings:
     packages:
       - go.flow.arcalot.io/
       - github.com/docker/docker
+      - github.com/docker/go-connections
+      - github.com/opencontainers/image-spec
       - gopkg.in/yaml.v3
   govet:
     enable-all: true

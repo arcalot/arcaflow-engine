@@ -11,7 +11,7 @@ import (
 // ConnectorFactory is an abstraction that hides away the complexity of instantiating a Connector. Its main purpose is
 // to provide the configuration schema for the connector and then create an instance of said connector.
 type ConnectorFactory[ConfigType any] interface {
-	ConfigurationSchema() schema.ScopeType[ConfigType]
+	ConfigurationSchema() *schema.TypedScopeSchema[ConfigType]
 	Create(config ConfigType) (Connector, error)
 }
 

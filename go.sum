@@ -45,8 +45,8 @@ github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5Cc
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-go.flow.arcalot.io/pluginsdk v0.0.0-20220923151706-c6838255ea4b h1:Ded1ccROmeqZ5MZK2fSA4+vpo3auv2AVzlK8clI0knE=
-go.flow.arcalot.io/pluginsdk v0.0.0-20220923151706-c6838255ea4b/go.mod h1:oUlmFR4512VpsE/CO+RcWB394/Bgp2CRRSm54EQ3HXo=
+go.flow.arcalot.io/pluginsdk v0.0.0-20220928083008-7fc19cbeeaac h1:Cxbyi0oOYLweTB/8zQ7DZjZYAZQlQYB2tePLPH3RUvI=
+go.flow.arcalot.io/pluginsdk v0.0.0-20220928083008-7fc19cbeeaac/go.mod h1:XzFbtnO5JnMnedVX3mKrxdZ8a80JUJjcIpGhBshMrp0=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
