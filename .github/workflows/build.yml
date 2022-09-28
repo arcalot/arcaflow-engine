@@ -13,6 +13,9 @@ jobs:
         uses: actions/checkout@v2
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v2
+        with:
+          # Hard-coding version due to this bug: https://github.com/golangci/golangci-lint-action/issues/535
+          version: v1.47
   test:
     name: go test
     runs-on: ubuntu-latest

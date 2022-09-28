@@ -20,7 +20,7 @@ func TestSimpleInOut(t *testing.T) {
 
 	factory := docker.NewFactory()
 	schema := factory.ConfigurationSchema()
-	unserializedConfig, err := schema.Unserialize(config)
+	unserializedConfig, err := schema.UnserializeType(config)
 	assert.NoError(t, err)
 	connector, err := factory.Create(unserializedConfig)
 	assert.NoError(t, err)

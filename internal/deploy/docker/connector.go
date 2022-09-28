@@ -15,7 +15,8 @@ import (
 )
 
 type connector struct {
-	cli *client.Client
+	cli    *client.Client
+	config *Config
 }
 
 func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, error) {
@@ -83,14 +84,23 @@ func (c connector) attachContainer(ctx context.Context, cnt *connectorContainer)
 }
 
 func (c connector) createContainer(image string) (*connectorContainer, error) {
+	containerConfig := c.config.Deployment.ContainerConfig
+	if containerConfig == nil {
+		containerConfig = &container.Config{}
+	}
+	containerConfig.Image = image
+	containerConfig.Tty = false
+	containerConfig.AttachStdin = true
+	containerConfig.AttachStdout = true
+	containerConfig.AttachStderr = true
+	containerConfig.StdinOnce = true
+	containerConfig.OpenStdin = true
 	cont, err := c.cli.ContainerCreate(context.TODO(),
-		&container.Config{
-			Image:       image,
-			Tty:         false,
-			AttachStdin: true,
-			StdinOnce:   true,
-			OpenStdin:   true,
-		}, nil, nil, nil, "",
+		containerConfig,
+		c.config.Deployment.HostConfig,
+		c.config.Deployment.NetworkConfig,
+		c.config.Deployment.Platform,
+		"",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container from image %s (%w)", image, err)
