@@ -8,9 +8,8 @@ import (
 )
 
 func TestTokenizer(t *testing.T) {
-	tokenizer := expressions.Tokenizer{}
 	input := "$.steps.read_kubeconfig.output[\"success\"].credentials"
-	tokenizer.Init(input, "tokenizer_test.go")
+	tokenizer := expressions.InitTokenizer(input, "tokenizer_test.go")
 	expected_value := []string{"$", ".", "steps", ".", "read_kubeconfig", ".", "output",
 		"[", "\"success\"", "]", ".", "credentials"}
 	for _, expected := range expected_value {
@@ -22,9 +21,8 @@ func TestTokenizer(t *testing.T) {
 }
 
 func TestTokenizerWithEscapedStr(t *testing.T) {
-	tokenizer := expressions.Tokenizer{}
 	input := `$.output["ab\"|cd"]`
-	tokenizer.Init(input, "tokenizer_test.go")
+	tokenizer := expressions.InitTokenizer(input, "tokenizer_test.go")
 	expected_value := []string{"$", ".", "output", "[", `"ab\"|cd"`, "]"}
 	for _, expected := range expected_value {
 		assert.Equals(t, tokenizer.HasNextToken(), true)
@@ -35,9 +33,8 @@ func TestTokenizerWithEscapedStr(t *testing.T) {
 }
 
 func TestWithFilterType(t *testing.T) {
-	tokenizer := expressions.Tokenizer{}
 	input := "$.steps.foo.outputs[\"bar\"][?(@._type=='x')].a"
-	tokenizer.Init(input, "tokenizer_test.go")
+	tokenizer := expressions.InitTokenizer(input, "tokenizer_test.go")
 	expected_value := []string{"$", ".", "steps", ".", "foo", ".", "outputs",
 		"[", "\"bar\"", "]", "[", "?", "(", "@", ".", "_type", "=", "=", "'x'", ")", "]", ".", "a"}
 	for _, expected := range expected_value {
@@ -49,9 +46,8 @@ func TestWithFilterType(t *testing.T) {
 }
 
 func TestInvalidToken(t *testing.T) {
-	tokenizer := expressions.Tokenizer{}
 	input := "[&"
-	tokenizer.Init(input, "tokenizer_test.go")
+	tokenizer := expressions.InitTokenizer(input, "tokenizer_test.go")
 	assert.Equals(t, tokenizer.HasNextToken(), true)
 	tokenVal, err := tokenizer.GetNext()
 	assert.Nil(t, err)
@@ -66,8 +62,24 @@ func TestInvalidToken(t *testing.T) {
 	if !is_correct_err_type {
 		t.Fatalf("Error is of incorrect type")
 	}
-	assert.Equals(t, invalid_token_result.Column, 2)
-	assert.Equals(t, invalid_token_result.Line, 1)
-	assert.Equals(t, invalid_token_result.Filename, "tokenizer_test.go")
-	assert.Equals(t, invalid_token_result.Token, "&")
+	assert.Equals(t, invalid_token_result.InvalidToken.Column, 2)
+	assert.Equals(t, invalid_token_result.InvalidToken.Line, 1)
+	assert.Equals(t, invalid_token_result.InvalidToken.Filename, "tokenizer_test.go")
+	assert.Equals(t, invalid_token_result.InvalidToken.Value, "&")
+}
+
+func TestIntLiteral(t *testing.T) {
+	input := "90 09"
+	tokenizer := expressions.InitTokenizer(input, "tokenizer_test.go")
+	assert.Equals(t, tokenizer.HasNextToken(), true)
+	tokenVal, err := tokenizer.GetNext()
+	assert.Nil(t, err)
+	assert.Equals(t, tokenVal.Token_id, expressions.IntLiteral)
+	assert.Equals(t, tokenVal.Value, "90")
+	assert.Equals(t, tokenizer.HasNextToken(), true)
+	// Numbers that start with 0 appears
+	tokenVal, err = tokenizer.GetNext()
+	assert.Nil(t, err)
+	assert.Equals(t, tokenVal.Token_id, expressions.IdentifierToken)
+	assert.Equals(t, tokenVal.Value, "09")
 }
