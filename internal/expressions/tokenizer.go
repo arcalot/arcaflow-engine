@@ -16,13 +16,14 @@ const (
 	MapDelimiterEnd   TokenID = "map-delimiter-end"   // the ] in map["key"]
 	ExpressionStart   TokenID = "expression-start"
 	ExpressionEnd     TokenID = "expression-end"
-	ObjectAccess      TokenID = "object-access" // The . in a.b (dot notation)
+	DotObjectAccess   TokenID = "object-access" // The . in a.b (dot notation)
 	RootAccess        TokenID = "root-access"
 	CurrentNodeAccess TokenID = "current-node-access"
 	Equals            TokenID = "equals-sign"
 	Selector          TokenID = "selector"
 	Filter            TokenID = "filter"
 	Negation          TokenID = "negation-sign"
+	Wildcard          TokenID = "wildcard"
 	UnknownToken      TokenID = "error"
 )
 
@@ -57,13 +58,14 @@ var tokenPatterns = []TokenPattern{
 	{MapDelimiterEnd, regexp.MustCompile(`^\]$`)},        // the ] in map["key"]
 	{ExpressionStart, regexp.MustCompile(`^\($`)},        // (
 	{ExpressionEnd, regexp.MustCompile(`^\)$`)},          // )
-	{ObjectAccess, regexp.MustCompile(`^\.$`)},           // .
+	{DotObjectAccess, regexp.MustCompile(`^\.$`)},        // .
 	{RootAccess, regexp.MustCompile(`^\$$`)},             // $
 	{CurrentNodeAccess, regexp.MustCompile(`^@$`)},       // @
 	{Equals, regexp.MustCompile(`^=$`)},                  // =
 	{Selector, regexp.MustCompile(`^\:$`)},               // :
 	{Filter, regexp.MustCompile(`^\?$`)},                 // ?
 	{Negation, regexp.MustCompile(`^\-$`)},               // -
+	{Wildcard, regexp.MustCompile(`^\*$`)},               // *
 }
 
 func InitTokenizer(expression string, source_name string) *Tokenizer {
