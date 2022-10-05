@@ -3,9 +3,30 @@ package expressions_test
 import (
 	"testing"
 
+	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/internal/expressions"
 )
 
+func TestIdentifierParser(t *testing.T) {
+	identifierName := "abc"
+
+	// Create parser
+	p, err := expressions.InitParser(identifierName, "test.go")
+
+	assert.NoError(t, err)
+
+	identifierResult, err := p.ParseIdentifier()
+
+	assert.NoError(t, err)
+	assert.Equals(t, identifierName, identifierResult.IdentifierName)
+
+	// No tokens left, so should error out
+
+	_, err = p.ParseIdentifier()
+	assert.NotNil(t, err)
+}
+
+// Test cases that test the entire parser
 func TestRootVar(t *testing.T) {
 	expression := "$.test"
 
@@ -14,8 +35,19 @@ func TestRootVar(t *testing.T) {
 	root.LeftAccessableNode = &expressions.Identifier{IdentifierName: "$"}
 	root.RightAccessIdentifier = &expressions.Identifier{IdentifierName: "test"}
 
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseRoot()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
 	println(expression)
 	println(root.String())
+	println(parsedResult.String())
 	//assert.Equals(t, expression, root.String())
 }
 
@@ -31,8 +63,19 @@ func TestDotNotation(t *testing.T) {
 	root.LeftAccessableNode = level2
 	root.RightAccessIdentifier = &expressions.Identifier{IdentifierName: "child"}
 
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseRoot()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
 	println(expression)
 	println(root.String())
+	println(parsedResult.String())
 	//assert.Equals(t, expression, root.String())
 }
 
@@ -48,8 +91,19 @@ func TestMapAccess(t *testing.T) {
 	root.LeftNode = level2
 	root.RightKey = &expressions.Key{ /*"key"*/ }
 
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseRoot()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
 	println(expression)
 	println(root.String())
+	println(parsedResult.String())
 	//assert.Equals(t, expression, root.String())
 }
 
@@ -77,8 +131,19 @@ func TestDeepMapAccess(t *testing.T) {
 	root.LeftNode = level2
 	root.RightKey = &expressions.Key{ /*"k"*/ }
 
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseRoot()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
 	println(expression)
 	println(root.String())
+	println(parsedResult.String())
 	//assert.Equals(t, expression, root.String())
 }
 
@@ -106,7 +171,18 @@ func TestCompound(t *testing.T) {
 	root.LeftAccessableNode = level2
 	root.RightAccessIdentifier = &expressions.Identifier{IdentifierName: "d"}
 
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseRoot()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
 	println(expression)
 	println(root.String())
+	println(parsedResult.String())
 	//assert.Equals(t, expression, root.String())
 }

@@ -1,18 +1,5 @@
 package expressions
 
-/*
-Current grammar:
-root: dotnotation
-dotnotation: complex-identifier ObjectAccerss complex-identifier | dotnotation ObjectAccess complex-identifier
-complex-identifier: IdentifierToken | IdentifierToken map-accessor | RootAccess
-map-accessor: MapDelimiterStart key MapDelimiterEnd
-key: literal | sub-expression
-literal: StringLiteral | IntLiteral
-sub-expression: ExpressionStart dotnotation ExpressionEnd
-
-TODO: filtering/querying
-*/
-
 type ASTNode interface {
 	Left() ASTNode
 	Right() ASTNode
@@ -71,7 +58,7 @@ func (i *Identifier) String() string {
 
 type DotNotation struct {
 	// The identifier on the right of the dot
-	RightAccessIdentifier *Identifier
+	RightAccessIdentifier ASTNode
 	// The expression on the left could be one of several nodes.
 	// I.e. An Identifier, a MapAccessor, or another DotNotation
 	LeftAccessableNode ASTNode
@@ -86,5 +73,19 @@ func (d *DotNotation) Left() ASTNode {
 }
 
 func (d *DotNotation) String() string {
-	return d.LeftAccessableNode.String() + "." + d.RightAccessIdentifier.String()
+	if d == nil {
+		return "NIL"
+	}
+	var left, right string
+	if d.LeftAccessableNode != nil {
+		left = d.LeftAccessableNode.String()
+	} else {
+		left = "NIL"
+	}
+	if d.RightAccessIdentifier != nil {
+		right = d.RightAccessIdentifier.String()
+	} else {
+		right = "NIL"
+	}
+	return left + "." + right
 }

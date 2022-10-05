@@ -11,12 +11,12 @@ func (e *InvalidTokenError) Error() string {
 		e.InvalidToken.Value, e.InvalidToken.Filename, e.InvalidToken.Line, e.InvalidToken.Column)
 }
 
-type InvalidGrammarErrr struct {
-	FoundToken    TokenValue
+type InvalidGrammarError struct {
+	FoundToken    *TokenValue
 	ExpectedToken TokenID
 }
 
-func (e *InvalidGrammarErrr) Error() string {
+func (e *InvalidGrammarError) Error() string {
 	return fmt.Sprintf("Token \"%s\" placed in invalid configuration in %s at line %d:%d. Expected \"%s\"",
 		e.FoundToken.Value, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column, e.ExpectedToken)
 }
