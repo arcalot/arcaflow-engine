@@ -1,6 +1,7 @@
 package expressions_test
 
 import (
+	"strings"
 	"testing"
 
 	"go.arcalot.io/assert"
@@ -14,6 +15,7 @@ func TestIdentifierParser(t *testing.T) {
 	p, err := expressions.InitParser(identifierName, "test.go")
 
 	assert.NoError(t, err)
+	assert.NoError(t, p.AdvanceToken())
 
 	identifierResult, err := p.ParseIdentifier()
 
@@ -23,6 +25,118 @@ func TestIdentifierParser(t *testing.T) {
 	// No tokens left, so should error out
 
 	_, err = p.ParseIdentifier()
+	assert.NotNil(t, err)
+}
+
+func TestIdentifierParserInvalidToken(t *testing.T) {
+	identifierName := "["
+
+	// Create parser
+	p, err := expressions.InitParser(identifierName, "test.go")
+
+	assert.NoError(t, err)
+	assert.NoError(t, p.AdvanceToken())
+
+	_, err = p.ParseIdentifier()
+
+	assert.NotNil(t, err)
+}
+
+// Test proper map access
+func TestMapAccessParser(t *testing.T) {
+	expression := "[0]['a']"
+
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+	assert.NoError(t, p.AdvanceToken())
+
+	mapResult, err := p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+
+	assert.NoError(t, err)
+	assert.Equals(t, mapResult.RightKey, &expressions.Key{Literal: &expressions.ASTIntLiteral{IntValue: 0}})
+	assert.Equals(t, mapResult.RightKey.Literal.Value(), 0)
+	assert.Equals(t, mapResult.RightKey.Left(), nil)
+	assert.Equals(t, mapResult.RightKey.Right(), nil)
+
+	mapResult, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+
+	assert.NoError(t, err)
+	assert.Equals(t, mapResult.RightKey, &expressions.Key{Literal: &expressions.ASTStringLiteral{StrValue: "a"}})
+	assert.Equals(t, mapResult.RightKey.Literal.Value(), "a")
+
+	// Test left and right functions
+	assert.Equals(t, mapResult.Right().(*expressions.Key), mapResult.RightKey)
+	assert.Equals(t, mapResult.Left(), mapResult.LeftNode)
+
+	// No tokens left, so should error out
+
+	_, err = p.ParseIdentifier()
+	assert.NotNil(t, err)
+}
+
+// Test invalid key
+func TestInvalidKey(t *testing.T) {
+	blankKey := &expressions.Key{}
+	assert.Equals(t, blankKey.String(), "INVALID")
+}
+
+// Test invalid param
+func TestParseMapAccessInvalidParam(t *testing.T) {
+	identifierName := "[0]"
+
+	// Create parser
+	p, err := expressions.InitParser(identifierName, "test.go")
+
+	assert.NoError(t, err)
+	assert.NoError(t, p.AdvanceToken())
+
+	_, err = p.ParseMapAccess(nil)
+
+	assert.NotNil(t, err)
+}
+
+// Test invalid input
+func TestParseMapAccessInvalidPrefixToken(t *testing.T) {
+	identifierName := "]0]"
+
+	// Create parser
+	p, err := expressions.InitParser(identifierName, "test.go")
+
+	assert.NoError(t, err)
+	assert.NoError(t, p.AdvanceToken())
+
+	_, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+
+	assert.NotNil(t, err)
+}
+
+func TestParseMapAccessInvalidPostfixToken(t *testing.T) {
+	identifierName := "[$]"
+
+	// Create parser
+	p, err := expressions.InitParser(identifierName, "test.go")
+
+	assert.NoError(t, err)
+	assert.NoError(t, p.AdvanceToken())
+
+	_, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+
+	assert.NotNil(t, err)
+}
+
+func TestParseMapAccessInvalidKey(t *testing.T) {
+	identifierName := "[0["
+
+	// Create parser
+	p, err := expressions.InitParser(identifierName, "test.go")
+
+	assert.NoError(t, err)
+	assert.NoError(t, p.AdvanceToken())
+
+	_, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+
 	assert.NotNil(t, err)
 }
 
@@ -40,15 +154,18 @@ func TestRootVar(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	parsedResult, err := p.ParseRoot()
+	parsedResult, err := p.ParseExpression()
 
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	println(expression)
-	println(root.String())
-	println(parsedResult.String())
-	//assert.Equals(t, expression, root.String())
+	assert.Equals(t, expression, root.String())
+
+	parsedRoot, ok := parsedResult.(*expressions.DotNotation)
+	if !ok {
+		t.Fatalf("Output is not of type *DotNotation")
+	}
+	assert.Equals(t, parsedRoot, root)
 }
 
 func TestDotNotation(t *testing.T) {
@@ -59,7 +176,7 @@ func TestDotNotation(t *testing.T) {
 	level2.LeftAccessableNode = &expressions.Identifier{IdentifierName: "$"}
 	level2.RightAccessIdentifier = &expressions.Identifier{IdentifierName: "parent"}
 	// root: <level2>.child
-	root := expressions.DotNotation{}
+	root := &expressions.DotNotation{}
 	root.LeftAccessableNode = level2
 	root.RightAccessIdentifier = &expressions.Identifier{IdentifierName: "child"}
 
@@ -68,15 +185,18 @@ func TestDotNotation(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	parsedResult, err := p.ParseRoot()
+	parsedResult, err := p.ParseExpression()
 
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	println(expression)
-	println(root.String())
-	println(parsedResult.String())
-	//assert.Equals(t, expression, root.String())
+	assert.Equals(t, expression, root.String())
+
+	parsedRoot, ok := parsedResult.(*expressions.DotNotation)
+	if !ok {
+		t.Fatalf("Output is not of type *DotNotation")
+	}
+	assert.Equals(t, parsedRoot, root)
 }
 
 func TestMapAccess(t *testing.T) {
@@ -89,22 +209,25 @@ func TestMapAccess(t *testing.T) {
 	// root: <level2>.["key"]
 	root := &expressions.MapAccessor{}
 	root.LeftNode = level2
-	root.RightKey = &expressions.Key{ /*"key"*/ }
+	root.RightKey = &expressions.Key{Literal: &expressions.ASTStringLiteral{StrValue: "key"}}
 
 	// Create parser
 	p, err := expressions.InitParser(expression, "test.go")
 
 	assert.NoError(t, err)
 
-	parsedResult, err := p.ParseRoot()
+	parsedResult, err := p.ParseExpression()
 
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	println(expression)
-	println(root.String())
-	println(parsedResult.String())
-	//assert.Equals(t, expression, root.String())
+	assert.Equals(t, expression, root.String())
+
+	parsedRoot, ok := parsedResult.(*expressions.MapAccessor)
+	if !ok {
+		t.Fatalf("Output is not of type *MapAccessor")
+	}
+	assert.Equals(t, parsedRoot, root)
 }
 
 func TestDeepMapAccess(t *testing.T) {
@@ -121,7 +244,7 @@ func TestDeepMapAccess(t *testing.T) {
 	// level3: <level4>[0]
 	level3 := &expressions.MapAccessor{}
 	level3.LeftNode = level4
-	level3.RightKey = &expressions.Key{ /*0*/ }
+	level3.RightKey = &expressions.Key{Literal: &expressions.ASTIntLiteral{IntValue: 0}}
 	// level2: <level3>.c
 	level2 := &expressions.DotNotation{}
 	level2.LeftAccessableNode = level3
@@ -129,22 +252,25 @@ func TestDeepMapAccess(t *testing.T) {
 	// root: <level2>["k"]
 	root := &expressions.MapAccessor{}
 	root.LeftNode = level2
-	root.RightKey = &expressions.Key{ /*"k"*/ }
+	root.RightKey = &expressions.Key{Literal: &expressions.ASTStringLiteral{StrValue: "k"}}
 
 	// Create parser
 	p, err := expressions.InitParser(expression, "test.go")
 
 	assert.NoError(t, err)
 
-	parsedResult, err := p.ParseRoot()
+	parsedResult, err := p.ParseExpression()
 
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	println(expression)
-	println(root.String())
-	println(parsedResult.String())
-	//assert.Equals(t, expression, root.String())
+	assert.Equals(t, expression, root.String())
+
+	parsedRoot, ok := parsedResult.(*expressions.MapAccessor)
+	if !ok {
+		t.Fatalf("Output is not of type *MapAccessor")
+	}
+	assert.Equals(t, parsedRoot, root)
 }
 
 func TestCompound(t *testing.T) {
@@ -165,7 +291,7 @@ func TestCompound(t *testing.T) {
 	// level2: <level3>["key"]
 	level2 := &expressions.MapAccessor{}
 	level2.LeftNode = level3
-	level2.RightKey = &expressions.Key{ /* "key" */ }
+	level2.RightKey = &expressions.Key{Literal: &expressions.ASTStringLiteral{StrValue: "key"}}
 	// root: <level2>.d
 	root := &expressions.DotNotation{}
 	root.LeftAccessableNode = level2
@@ -176,13 +302,154 @@ func TestCompound(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	parsedResult, err := p.ParseRoot()
+	parsedResult, err := p.ParseExpression()
 
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	println(expression)
-	println(root.String())
-	println(parsedResult.String())
-	//assert.Equals(t, expression, root.String())
+	assert.Equals(t, expression, root.String())
+
+	parsedRoot, ok := parsedResult.(*expressions.DotNotation)
+	if !ok {
+		t.Fatalf("Output is not of type *DotNotation")
+	}
+	assert.Equals(t, parsedRoot, root)
+}
+
+func TestAllBracketNotation(t *testing.T) {
+	expression := `$["a"]["b"][0]["c"]`
+
+	level4 := &expressions.MapAccessor{}
+	level4.LeftNode = &expressions.Identifier{"$"}
+	level4.RightKey = &expressions.Key{Literal: &expressions.ASTStringLiteral{"a"}}
+	level3 := &expressions.MapAccessor{}
+	level3.LeftNode = level4
+	level3.RightKey = &expressions.Key{Literal: &expressions.ASTStringLiteral{"b"}}
+	level2 := &expressions.MapAccessor{}
+	level2.LeftNode = level3
+	level2.RightKey = &expressions.Key{Literal: &expressions.ASTIntLiteral{0}}
+	root := &expressions.MapAccessor{}
+	root.LeftNode = level2
+	root.RightKey = &expressions.Key{Literal: &expressions.ASTStringLiteral{"c"}}
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.Equals(t, expression, root.String())
+
+	parsedRoot, ok := parsedResult.(*expressions.MapAccessor)
+	if !ok {
+		t.Fatalf("Output is not of type *MapAccessor")
+	}
+	assert.Equals(t, parsedRoot, root)
+}
+
+func TestEmptyExpression(t *testing.T) {
+	expression := ""
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.NotNil(t, err)
+}
+
+func TestMapWithSingleQuotes(t *testing.T) {
+	expression := "$['a']"
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	resultAsString := parsedResult.String()
+	resultAsString = strings.ReplaceAll(resultAsString, "\"", "'")
+	assert.Equals(t, expression, resultAsString)
+}
+
+func TestSubExpression(t *testing.T) {
+	expression := "$[($.a)]"
+
+	right := &expressions.DotNotation{}
+	right.LeftAccessableNode = &expressions.Identifier{IdentifierName: "$"}
+	right.RightAccessIdentifier = &expressions.Identifier{IdentifierName: "a"}
+	root := &expressions.MapAccessor{}
+	root.LeftNode = &expressions.Identifier{IdentifierName: "$"}
+	root.RightKey = &expressions.Key{SubExpression: right}
+
+	// Create parser
+	p, err := expressions.InitParser(expression, "test.go")
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.Equals(t, expression, root.String())
+
+	parsedRoot, ok := parsedResult.(*expressions.MapAccessor)
+	if !ok {
+		t.Fatalf("Output is not of type *MapAccessor")
+	}
+	assert.Equals(t, parsedRoot, root)
+}
+
+func TestExpressionInvalidStart(t *testing.T) {
+	expression := "()"
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.NotNil(t, err)
+}
+
+func TestExpressionInvalidNonRoot(t *testing.T) {
+	expression := "$.$"
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.NotNil(t, err)
+}
+
+func TestExpressionInvalidObjectAccess(t *testing.T) {
+	expression := "@.a"
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.NotNil(t, err)
+}
+
+func TestExpressionInvalidMapAccessGrammar(t *testing.T) {
+	expression := "$[)]" // Invalid due to the )
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.NotNil(t, err)
+}
+
+func TestExpressionInvalidDotNotationGrammar(t *testing.T) {
+	expression := "$)a" // Invalid due to the )
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.NotNil(t, err)
+}
+
+func TestExpressionInvalidIdentifier(t *testing.T) {
+	expression := "$.(" // invalid due to the (
+
+	p, err := expressions.InitParser(expression, "test.go")
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.NotNil(t, err)
 }

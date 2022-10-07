@@ -1,14 +1,47 @@
 package expressions
 
+import "strconv"
+
 type ASTNode interface {
 	Left() ASTNode
 	Right() ASTNode
 	String() string
 }
 
+type ASTValueLiteral interface {
+	Value() interface{}
+	String() string
+}
+
+type ASTStringLiteral struct {
+	StrValue string
+}
+
+func (l *ASTStringLiteral) String() string {
+	return `"` + l.StrValue + `"`
+}
+
+func (l *ASTStringLiteral) Value() interface{} {
+	return l.StrValue
+}
+
+type ASTIntLiteral struct {
+	IntValue int
+}
+
+func (l *ASTIntLiteral) String() string {
+	return strconv.Itoa(l.IntValue)
+}
+
+func (l *ASTIntLiteral) Value() interface{} {
+	return l.IntValue
+}
+
 type Key struct {
 	// A key can be either a literal or
 	// a sub-expression that can be evaluated
+	SubExpression ASTNode
+	Literal       ASTValueLiteral
 }
 
 func (k *Key) Right() ASTNode {
@@ -20,7 +53,13 @@ func (k *Key) Left() ASTNode {
 }
 
 func (k *Key) String() string {
-	return "TODO"
+	if k.Literal != nil {
+		return k.Literal.String()
+	} else if k.SubExpression != nil {
+		return "(" + k.SubExpression.String() + ")"
+	} else {
+		return "INVALID"
+	}
 }
 
 type MapAccessor struct {

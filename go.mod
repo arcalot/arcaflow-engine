@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/docker/docker v20.10.18+incompatible
-	go.arcalot.io/assert v1.0.0
+	go.arcalot.io/assert v1.1.0
 	go.flow.arcalot.io/pluginsdk v0.0.0-20220923151706-c6838255ea4b
 	gopkg.in/yaml.v3 v3.0.1
 )

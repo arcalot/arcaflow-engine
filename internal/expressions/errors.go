@@ -12,11 +12,20 @@ func (e *InvalidTokenError) Error() string {
 }
 
 type InvalidGrammarError struct {
-	FoundToken    *TokenValue
-	ExpectedToken TokenID
+	FoundToken     *TokenValue
+	ExpectedTokens []TokenID // Nil for end, no expected token
 }
 
 func (e *InvalidGrammarError) Error() string {
-	return fmt.Sprintf("Token \"%s\" placed in invalid configuration in %s at line %d:%d. Expected \"%s\"",
-		e.FoundToken.Value, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column, e.ExpectedToken)
+	errorMsg := fmt.Sprintf("Token \"%s\" placed in invalid configuration in %s at line %d:%d.",
+		e.FoundToken.Value, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column)
+	if e.ExpectedTokens == nil || len(e.ExpectedTokens) == 0 {
+		errorMsg += " Expected end of expression."
+	} else if len(e.ExpectedTokens) == 1 {
+		errorMsg += fmt.Sprintf(" Expected token \"%v\"", e.ExpectedTokens[0])
+	} else {
+		errorMsg += fmt.Sprintf(" Expected one of tokens \"%v\"", e.ExpectedTokens)
+	}
+
+	return errorMsg
 }
