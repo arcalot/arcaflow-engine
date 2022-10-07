@@ -91,7 +91,7 @@ var configSchema = schema.NewTypedScopeSchema[*Config](
 		"Timeouts",
 		map[string]*schema.PropertySchema{
 			"http": schema.NewPropertySchema(
-				schema.NewIntSchema(schema.PointerTo(int64(100*time.Millisecond)), nil, &schema.UnitDurationNanoseconds),
+				schema.NewIntSchema(schema.PointerTo(int64(100*time.Millisecond)), nil, schema.UnitDurationNanoseconds),
 				schema.NewDisplayValue(
 					schema.PointerTo("HTTP"),
 					schema.PointerTo("HTTP timeout for the Docker API."),

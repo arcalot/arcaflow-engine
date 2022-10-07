@@ -79,9 +79,9 @@ linters-settings:
     include-go-root: false
     packages:
       - go.flow.arcalot.io/
-      - github.com/docker/docker
-      - github.com/docker/go-connections
-      - github.com/opencontainers/image-spec
+      - go.arcalot.io/
+      - github.com/docker/
+      - github.com/opencontainers/
       - gopkg.in/yaml.v3
       - github.com/fxamacker/cbor
   govet:
