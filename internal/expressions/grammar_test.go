@@ -42,7 +42,7 @@ func TestIdentifierParserInvalidToken(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-// Test proper map access
+// Test proper map access.
 func TestMapAccessParser(t *testing.T) {
 	expression := "[0]['a']"
 
@@ -52,7 +52,7 @@ func TestMapAccessParser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, p.AdvanceToken())
 
-	mapResult, err := p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+	mapResult, err := p.ParseBracketAccess(&expressions.Identifier{IdentifierName: "a"})
 
 	assert.NoError(t, err)
 	assert.Equals(t, mapResult.RightKey, &expressions.Key{Literal: &expressions.ASTIntLiteral{IntValue: 0}})
@@ -60,7 +60,7 @@ func TestMapAccessParser(t *testing.T) {
 	assert.Equals(t, mapResult.RightKey.Left(), nil)
 	assert.Equals(t, mapResult.RightKey.Right(), nil)
 
-	mapResult, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+	mapResult, err = p.ParseBracketAccess(&expressions.Identifier{IdentifierName: "a"})
 
 	assert.NoError(t, err)
 	assert.Equals(t, mapResult.RightKey, &expressions.Key{Literal: &expressions.ASTStringLiteral{StrValue: "a"}})
@@ -76,14 +76,14 @@ func TestMapAccessParser(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-// Test invalid key
+// Test invalid key.
 func TestInvalidKey(t *testing.T) {
 	blankKey := &expressions.Key{}
-	assert.Equals(t, blankKey.String(), "INVALID")
+	assert.Equals(t, blankKey.String(), "INVALID/MISSING")
 }
 
-// Test invalid param
-func TestParseMapAccessInvalidParam(t *testing.T) {
+// Test invalid param.
+func TestParseBracketAccessInvalidParam(t *testing.T) {
 	identifierName := "[0]"
 
 	// Create parser
@@ -92,13 +92,13 @@ func TestParseMapAccessInvalidParam(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, p.AdvanceToken())
 
-	_, err = p.ParseMapAccess(nil)
+	_, err = p.ParseBracketAccess(nil)
 
 	assert.NotNil(t, err)
 }
 
-// Test invalid input
-func TestParseMapAccessInvalidPrefixToken(t *testing.T) {
+// Test invalid input.
+func TestParseBracketAccessInvalidPrefixToken(t *testing.T) {
 	identifierName := "]0]"
 
 	// Create parser
@@ -107,12 +107,12 @@ func TestParseMapAccessInvalidPrefixToken(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, p.AdvanceToken())
 
-	_, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+	_, err = p.ParseBracketAccess(&expressions.Identifier{IdentifierName: "a"})
 
 	assert.NotNil(t, err)
 }
 
-func TestParseMapAccessInvalidPostfixToken(t *testing.T) {
+func TestParseBracketAccessInvalidPostfixToken(t *testing.T) {
 	identifierName := "[$]"
 
 	// Create parser
@@ -121,12 +121,12 @@ func TestParseMapAccessInvalidPostfixToken(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, p.AdvanceToken())
 
-	_, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+	_, err = p.ParseBracketAccess(&expressions.Identifier{IdentifierName: "a"})
 
 	assert.NotNil(t, err)
 }
 
-func TestParseMapAccessInvalidKey(t *testing.T) {
+func TestParseBracketAccessInvalidKey(t *testing.T) {
 	identifierName := "[0["
 
 	// Create parser
@@ -135,12 +135,12 @@ func TestParseMapAccessInvalidKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, p.AdvanceToken())
 
-	_, err = p.ParseMapAccess(&expressions.Identifier{IdentifierName: "a"})
+	_, err = p.ParseBracketAccess(&expressions.Identifier{IdentifierName: "a"})
 
 	assert.NotNil(t, err)
 }
 
-// Test cases that test the entire parser
+// Test cases that test the entire parser.
 func TestRootVar(t *testing.T) {
 	expression := "$.test"
 
