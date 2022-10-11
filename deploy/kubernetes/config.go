@@ -50,7 +50,7 @@ type Timeouts struct {
 	HTTP time.Duration `json:"http,omitempty" yaml:"http"`
 }
 
-// PodSpec contains the specifiucation of the pod to launch.
+// PodSpec contains the specification of the pod to launch.
 type PodSpec struct {
 	v1.PodSpec `json:",inline"`
 
