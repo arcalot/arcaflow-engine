@@ -8,23 +8,28 @@ import (
 	"strings"
 
 	"github.com/docker/docker/client"
+	"go.flow.arcalot.io/engine/deploy/docker"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
 // NewFactory creates a new factory for the Docker deployer.
-func NewFactory() deployer.ConnectorFactory[*Config] {
+func NewFactory() deployer.ConnectorFactory[*docker.Config] {
 	return &factory{}
 }
 
 type factory struct {
 }
 
-func (f factory) ConfigurationSchema() *schema.TypedScopeSchema[*Config] {
-	return configSchema
+func (f factory) ID() string {
+	return "docker"
 }
 
-func (f factory) Create(config *Config) (deployer.Connector, error) {
+func (f factory) ConfigurationSchema() *schema.TypedScopeSchema[*docker.Config] {
+	return docker.Schema
+}
+
+func (f factory) Create(config *docker.Config) (deployer.Connector, error) {
 	httpClient, err := f.getHTTPClient(config)
 	if err != nil {
 		return nil, err
@@ -45,7 +50,7 @@ func (f factory) Create(config *Config) (deployer.Connector, error) {
 	}, nil
 }
 
-func (f factory) getHTTPClient(config *Config) (*http.Client, error) {
+func (f factory) getHTTPClient(config *docker.Config) (*http.Client, error) {
 	var httpClient *http.Client
 	if config.Connection.CACert != "" && config.Connection.Key != "" && config.Connection.Cert != "" {
 		tlsConfig := &tls.Config{

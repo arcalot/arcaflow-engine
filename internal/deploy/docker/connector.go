@@ -11,12 +11,13 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"go.flow.arcalot.io/engine/deploy/docker"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 )
 
 type connector struct {
 	cli    *client.Client
-	config *Config
+	config *docker.Config
 }
 
 func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, error) {
