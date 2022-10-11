@@ -6,7 +6,10 @@ require (
 	github.com/docker/docker v20.10.18+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/opencontainers/image-spec v1.0.2
-	go.flow.arcalot.io/pluginsdk v0.0.0-20221007133428-a9d60a5a9dd8
+	go.arcalot.io/assert v1.1.0
+	go.arcalot.io/lang v1.0.0
+	go.arcalot.io/log v1.1.0
+	go.flow.arcalot.io/pluginsdk v0.0.0-20221007155452-ba5c76da9fc9
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -22,8 +25,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	go.arcalot.io/lang v1.0.0 // indirect
-	go.arcalot.io/log v1.1.0 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9 // indirect

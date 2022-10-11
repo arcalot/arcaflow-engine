@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/internal/deploy/docker"
-	"go.flow.arcalot.io/engine/internal/test/assert"
 )
 
 func TestSimpleInOut(t *testing.T) {
@@ -32,9 +32,9 @@ func TestSimpleInOut(t *testing.T) {
 	})
 
 	var containerInput = []byte("abc\n")
-	assert.NoError2[int](t)(container.Write(containerInput))
+	assert.NoErrorR[int](t)(container.Write(containerInput))
 
 	buf := new(strings.Builder)
-	assert.NoError2[int64](t)(io.Copy(buf, container))
+	assert.NoErrorR[int64](t)(io.Copy(buf, container))
 	assert.Contains(t, buf.String(), "This is what input was received: \"abc\"")
 }
