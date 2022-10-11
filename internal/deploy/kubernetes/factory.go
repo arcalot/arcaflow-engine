@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"fmt"
 
+	"go.arcalot.io/log"
 	kubernetesDeploy "go.flow.arcalot.io/engine/deploy/kubernetes"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 	"go.flow.arcalot.io/pluginsdk/schema"
@@ -28,7 +29,7 @@ func (f factory) ConfigurationSchema() *schema.TypedScopeSchema[*kubernetesDeplo
 	return kubernetesDeploy.Schema
 }
 
-func (f factory) Create(config *kubernetesDeploy.Config) (deployer.Connector, error) {
+func (f factory) Create(config *kubernetesDeploy.Config, logger log.Logger) (deployer.Connector, error) {
 	connectionConfig := f.createConnectionConfig(config)
 
 	cli, err := kubernetes.NewForConfig(&connectionConfig)
@@ -46,6 +47,7 @@ func (f factory) Create(config *kubernetesDeploy.Config) (deployer.Connector, er
 		restClient:       restClient,
 		config:           config,
 		connectionConfig: connectionConfig,
+		logger:           logger,
 	}, nil
 }
 

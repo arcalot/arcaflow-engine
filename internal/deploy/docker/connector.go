@@ -2,15 +2,18 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"os"
+	"regexp"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/deploy/docker"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 )
@@ -18,14 +21,15 @@ import (
 type connector struct {
 	cli    *client.Client
 	config *docker.Config
+	logger log.Logger
 }
 
-func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, error) {
+func (c *connector) Deploy(ctx context.Context, image string) (deployer.Plugin, error) {
 	if err := c.pullImage(ctx, image); err != nil {
 		return nil, err
 	}
 
-	log.Printf("Creating container from image %s...", image)
+	c.logger.Infof("Creating container from image %s...", image)
 
 	cnt, err := c.createContainer(image)
 	if err != nil {
@@ -45,16 +49,16 @@ func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, e
 		return nil, err
 	}
 
-	log.Printf("Container started.")
+	c.logger.Infof("Container started.")
 
 	return cnt, nil
 }
 
-func (c connector) startContainer(ctx context.Context, cnt *connectorContainer) error {
-	log.Printf("Starting container %s...", cnt.id)
+func (c *connector) startContainer(ctx context.Context, cnt *connectorContainer) error {
+	c.logger.Debugf("Starting container %s...", cnt.id)
 	if err := c.cli.ContainerStart(ctx, cnt.id, types.ContainerStartOptions{}); err != nil {
 		if err := cnt.Close(); err != nil {
-			log.Printf("failed to remove previously-created container %s (%v)", cnt.id, err)
+			c.logger.Warningf("failed to remove previously-created container %s (%v)", cnt.id, err)
 		}
 		return fmt.Errorf("failed to start container %s (%w)", cnt.id, err)
 	}
@@ -62,7 +66,7 @@ func (c connector) startContainer(ctx context.Context, cnt *connectorContainer) 
 }
 
 func (c connector) attachContainer(ctx context.Context, cnt *connectorContainer) error {
-	log.Printf("Attaching to container %s...", cnt.id)
+	c.logger.Debugf("Attaching to container %s...", cnt.id)
 	hijackedResponse, err := c.cli.ContainerAttach(
 		ctx,
 		cnt.id,
@@ -70,13 +74,13 @@ func (c connector) attachContainer(ctx context.Context, cnt *connectorContainer)
 			Stream: true,
 			Stdin:  true,
 			Stdout: true,
-			Stderr: false,
+			Stderr: true,
 			Logs:   true,
 		},
 	)
 	if err != nil {
 		if err := cnt.Close(); err != nil {
-			log.Printf("failed to remove previously-created container %s (%v)", cnt.id, err)
+			c.logger.Warningf("failed to remove previously-created container %s (%v)", cnt.id, err)
 		}
 		return fmt.Errorf("failed to attach to container %s (%w)", cnt.id, err)
 	}
@@ -96,8 +100,8 @@ func (c connector) createContainer(image string) (*connectorContainer, error) {
 	containerConfig.Tty = false
 	containerConfig.AttachStdin = true
 	containerConfig.AttachStdout = true
-	containerConfig.AttachStderr = false
-	containerConfig.StdinOnce = true
+	containerConfig.AttachStderr = true
+	containerConfig.StdinOnce = false
 	containerConfig.OpenStdin = true
 	containerConfig.Cmd = []string{"--atp"}
 	// Make sure Python is in unbuffered mode to avoid the output getting stuck.
@@ -121,14 +125,78 @@ func (c connector) createContainer(image string) (*connectorContainer, error) {
 	return cnt, nil
 }
 
+var tagRegexp = regexp.MustCompile("^[a-zA-Z0-9.-]$")
+
 func (c connector) pullImage(ctx context.Context, image string) error {
-	log.Printf("Pulling image image %s...", image)
+	if c.config.Deployment.ImagePullPolicy == docker.ImagePullPolicyNever {
+		return nil
+	}
+	if c.config.Deployment.ImagePullPolicy == docker.ImagePullPolicyIfNotPresent {
+		var imageExists bool
+		if _, _, err := c.cli.ImageInspectWithRaw(ctx, image); err == nil {
+			imageExists = true
+		} else {
+			imageExists = false
+		}
+		parts := strings.Split(image, ":")
+		tag := parts[len(parts)-1]
+		if len(parts) > 1 && tagRegexp.MatchString(tag) && tag != "latest" && imageExists {
+			return nil
+		}
+	}
+	c.logger.Debugf("Pulling image image %s...", image)
 	pullReader, err := c.cli.ImagePull(ctx, image, types.ImagePullOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to pull image %s (%w)", image, err)
 	}
-	if _, err := io.Copy(os.Stdout, pullReader); err != nil {
+	writer := &logWriter{
+		logger: c.logger,
+		buffer: []byte{},
+		lock:   &sync.Mutex{},
+	}
+	if _, err := io.Copy(writer, pullReader); err != nil {
 		return fmt.Errorf("failed to pull image %s (%w)", image, err)
+	}
+	_ = writer.Close()
+	return nil
+}
+
+type logWriter struct {
+	logger log.Logger
+	buffer []byte
+	lock   *sync.Mutex
+}
+
+func (l *logWriter) Write(p []byte) (n int, err error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	l.buffer = append(l.buffer, p...)
+	parts := strings.Split(string(l.buffer), "\n")
+	for i := 0; i < len(parts)-2; i++ {
+		line := map[string]any{}
+		if err := json.Unmarshal([]byte(parts[i]), &line); err != nil {
+			l.logger.Debugf("%s", parts[i])
+		} else {
+			if progress, ok := line["progress"]; ok {
+				l.logger.Debugf("%s %s: %s", line["status"], line["id"], progress)
+			} else if id, ok := line["id"]; ok {
+				l.logger.Debugf("%s: %s", line["status"], id)
+			} else {
+				l.logger.Debugf("%s", line["status"])
+			}
+		}
+
+	}
+	l.buffer = []byte(parts[len(parts)-1])
+	return len(p), nil
+}
+
+func (l *logWriter) Close() error {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	if len(l.buffer) > 0 {
+		l.logger.Debugf("%s", l.buffer)
+		l.buffer = nil
 	}
 	return nil
 }

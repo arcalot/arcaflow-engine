@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"go.arcalot.io/log"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
@@ -13,14 +14,14 @@ import (
 type ConnectorFactory[ConfigType any] interface {
 	ID() string
 	ConfigurationSchema() *schema.TypedScopeSchema[ConfigType]
-	Create(config ConfigType) (Connector, error)
+	Create(config ConfigType, logger log.Logger) (Connector, error)
 }
 
 // AnyConnectorFactory is the untyped version of ConnectorFactory.
 type AnyConnectorFactory interface {
 	ID() string
 	ConfigurationSchema() schema.Object
-	Create(config any) (Connector, error)
+	Create(config any, logger log.Logger) (Connector, error)
 }
 
 // Connector is responsible for deploying a container image on the specified target. Once deployed and ready, the

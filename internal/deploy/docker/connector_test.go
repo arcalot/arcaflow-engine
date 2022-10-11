@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"go.arcalot.io/assert"
+	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/internal/deploy/docker"
 )
 
@@ -22,7 +23,7 @@ func TestSimpleInOut(t *testing.T) {
 	schema := factory.ConfigurationSchema()
 	unserializedConfig, err := schema.UnserializeType(config)
 	assert.NoError(t, err)
-	connector, err := factory.Create(unserializedConfig)
+	connector, err := factory.Create(unserializedConfig, log.NewTestLogger(t))
 	assert.NoError(t, err)
 
 	container, err := connector.Deploy(context.Background(), "quay.io/joconnel/io-test-script")

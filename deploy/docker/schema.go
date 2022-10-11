@@ -203,10 +203,10 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 				nil,
 			),
 			"imagePullPolicy": schema.NewPropertySchema(
-				schema.NewStringEnumSchema(map[string]string{
-					string(ImagePullPolicyAlways):       "Always",
-					string(ImagePullPolicyIfNotPresent): "If not present",
-					string(ImagePullPolicyNever):        "Never",
+				schema.NewStringEnumSchema(map[string]*schema.DisplayValue{
+					string(ImagePullPolicyAlways):       {NameValue: schema.PointerTo("Always")},
+					string(ImagePullPolicyIfNotPresent): {NameValue: schema.PointerTo("If not present")},
+					string(ImagePullPolicyNever):        {NameValue: schema.PointerTo("Never")},
 				}),
 				schema.NewDisplayValue(schema.PointerTo("Image pull policy"), schema.PointerTo("When to pull the plugin image."), nil),
 				false,
@@ -228,7 +228,7 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 				nil,
 				nil,
 				nil,
-				schema.PointerTo(util.JSONEncode(string(ImagePullPolicyIfNotPresent))),
+				nil,
 				nil,
 			),
 			"Domainname": schema.NewPropertySchema(
@@ -238,7 +238,7 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 				nil,
 				nil,
 				nil,
-				schema.PointerTo(util.JSONEncode(string(ImagePullPolicyIfNotPresent))),
+				nil,
 				nil,
 			),
 			"User": schema.NewPropertySchema(
@@ -347,10 +347,10 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 				nil,
 			),
 			"CgroupnsMode": schema.NewPropertySchema(
-				schema.NewStringEnumSchema(map[string]string{
-					"private": "Private",
-					"host":    "Host",
-					"":        "Empty",
+				schema.NewStringEnumSchema(map[string]*schema.DisplayValue{
+					"private": {NameValue: schema.PointerTo("Private")},
+					"host":    {NameValue: schema.PointerTo("Host")},
+					"":        {NameValue: schema.PointerTo("Empty")},
 				}),
 				schema.NewDisplayValue(schema.PointerTo("CGroup namespace mode"), schema.PointerTo("CGroup namespace mode to use for the container."), nil),
 				false,

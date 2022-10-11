@@ -2,6 +2,7 @@ package config
 
 import (
 	"go.arcalot.io/log"
+	"go.flow.arcalot.io/engine/internal/util"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
@@ -64,11 +65,11 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] { //nolint:funlen
 			"LogConfig",
 			map[string]*schema.PropertySchema{
 				"level": schema.NewPropertySchema(
-					schema.NewStringEnumSchema(map[string]string{
-						string(log.LevelDebug):   "Debug",
-						string(log.LevelInfo):    "Informational",
-						string(log.LevelWarning): "Warnings",
-						string(log.LevelError):   "Errors",
+					schema.NewStringEnumSchema(map[string]*schema.DisplayValue{
+						string(log.LevelDebug):   {NameValue: schema.PointerTo("Debug")},
+						string(log.LevelInfo):    {NameValue: schema.PointerTo("Informational")},
+						string(log.LevelWarning): {NameValue: schema.PointerTo("Warnings")},
+						string(log.LevelError):   {NameValue: schema.PointerTo("Errors")},
 					}),
 					schema.NewDisplayValue(
 						schema.PointerTo("Log level"),
@@ -81,12 +82,12 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] { //nolint:funlen
 					nil,
 					nil,
 					nil,
-					schema.PointerTo(`"info"`),
+					schema.PointerTo(util.JSONEncode(log.LevelInfo)),
 					nil,
 				),
 				"destination": schema.NewPropertySchema(
-					schema.NewStringEnumSchema(map[string]string{
-						string(log.DestinationStdout): "Standard output",
+					schema.NewStringEnumSchema(map[string]*schema.DisplayValue{
+						string(log.DestinationStdout): {NameValue: schema.PointerTo("Standard output")},
 					}),
 					schema.NewDisplayValue(
 						schema.PointerTo("Log destination"),
@@ -99,7 +100,7 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] { //nolint:funlen
 					nil,
 					nil,
 					nil,
-					schema.PointerTo(`"stdout"`),
+					schema.PointerTo(util.JSONEncode(log.DestinationStdout)),
 					nil,
 				),
 			},

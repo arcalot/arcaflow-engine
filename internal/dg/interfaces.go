@@ -7,6 +7,8 @@ type DirectedGraph[NodeType any] interface {
 	// GetNodeByID returns a node with the specified ID. If the specified node does not exist, an ErrNodeNotFound is
 	// returned.
 	GetNodeByID(id string) (Node[NodeType], error)
+	// ListNodes lists all nodes in the graph.
+	ListNodes() map[string]Node[NodeType]
 	// ListNodesWithoutInboundConnections lists all nodes that do not have an inbound connection. This is useful for
 	// performing a topological sort.
 	ListNodesWithoutInboundConnections() map[string]Node[NodeType]
@@ -14,6 +16,9 @@ type DirectedGraph[NodeType any] interface {
 	Clone() DirectedGraph[NodeType]
 	// HasCycles performs cycle detection and returns true if the DirectedGraph has cycles.
 	HasCycles() bool
+
+	// Mermaid outputs the graph as a Mermaid string.
+	Mermaid() string
 }
 
 // Node is a single point in a DirectedGraph.

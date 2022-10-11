@@ -1,6 +1,10 @@
 package dg
 
-import "sync"
+import (
+	"fmt"
+	"strings"
+	"sync"
+)
 
 // New creates a new directed acyclic graph.
 func New[NodeType any]() DirectedGraph[NodeType] {
@@ -17,6 +21,17 @@ type directedGraph[NodeType any] struct {
 	nodes               map[string]*node[NodeType]
 	connectionsFromNode map[string]map[string]struct{}
 	connectionsToNode   map[string]map[string]struct{}
+}
+
+func (d *directedGraph[NodeType]) Mermaid() string {
+	result := []string{}
+	result = append(result, "flowchart TD")
+	for source, d := range d.connectionsFromNode {
+		for destination := range d {
+			result = append(result, fmt.Sprintf("%s-->%s", source, destination))
+		}
+	}
+	return strings.Join(result, "\n") + "\n"
 }
 
 func (d *directedGraph[NodeType]) Clone() DirectedGraph[NodeType] {
@@ -113,6 +128,17 @@ func (d *directedGraph[NodeType]) GetNodeByID(id string) (Node[NodeType], error)
 	return n, nil
 }
 
+func (d *directedGraph[NodeType]) ListNodes() map[string]Node[NodeType] {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	result := map[string]Node[NodeType]{}
+	for nodeID, n := range d.nodes {
+		result[nodeID] = n
+	}
+	return result
+}
+
 func (d *directedGraph[NodeType]) ListNodesWithoutInboundConnections() map[string]Node[NodeType] {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -150,7 +176,9 @@ func (d *node[NodeType]) Connect(nodeID string) error {
 		}
 	}
 	if nodeID == d.id {
-		return &ErrCannotConnectToSelf{}
+		return &ErrCannotConnectToSelf{
+			nodeID,
+		}
 	}
 	if _, ok := d.dg.nodes[nodeID]; !ok {
 		return &ErrNodeNotFound{

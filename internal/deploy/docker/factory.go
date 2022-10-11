@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/client"
+	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/deploy/docker"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 	"go.flow.arcalot.io/pluginsdk/schema"
@@ -29,7 +30,7 @@ func (f factory) ConfigurationSchema() *schema.TypedScopeSchema[*docker.Config] 
 	return docker.Schema
 }
 
-func (f factory) Create(config *docker.Config) (deployer.Connector, error) {
+func (f factory) Create(config *docker.Config, logger log.Logger) (deployer.Connector, error) {
 	httpClient, err := f.getHTTPClient(config)
 	if err != nil {
 		return nil, err
@@ -47,6 +48,7 @@ func (f factory) Create(config *docker.Config) (deployer.Connector, error) {
 	return &connector{
 		cli,
 		config,
+		logger,
 	}, nil
 }
 

@@ -10,7 +10,7 @@ import (
 // Config holds the configuration for deployment via the Kubernetes API.
 type Config struct {
 	Connection Connection `json:"connection,omitempty" yaml:"connection,omitempty"`
-	Deployment Deployment `json:"deployment,omitempty" yaml:"deployment,omitempty"`
+	Pod        Pod        `json:"pod,omitempty" yaml:"deployment,omitempty"`
 	Timeouts   Timeouts   `json:"timeouts,omitempty" yaml:"timeouts,omitempty"`
 }
 
@@ -39,8 +39,8 @@ type Connection struct {
 	Burst int64   `json:"burst,omitempty" yaml:"burst,omitempty"`
 }
 
-// Deployment describes the pod to launch.
-type Deployment struct {
+// Pod describes the pod to launch.
+type Pod struct {
 	Metadata metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec     PodSpec           `json:"spec,omitempty" yaml:"spec,omitempty"`
 }

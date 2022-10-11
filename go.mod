@@ -8,9 +8,12 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	go.arcalot.io/assert v1.2.1
 	go.arcalot.io/lang v1.0.0
-	go.arcalot.io/log v1.1.0
-	go.flow.arcalot.io/pluginsdk v0.0.0-20221010204527-c51ba1398aaa
+	go.arcalot.io/log v1.2.0
+	go.flow.arcalot.io/pluginsdk v0.0.0-20221019080109-e8dfaa8c4c43
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/api v0.25.2
+	k8s.io/apimachinery v0.25.2
+	k8s.io/client-go v0.25.2
 )
 
 require (
@@ -21,7 +24,6 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
-	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
@@ -58,9 +60,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.3.0 // indirect
-	k8s.io/api v0.25.2 // indirect
-	k8s.io/apimachinery v0.25.2 // indirect
-	k8s.io/client-go v0.25.2 // indirect
 	k8s.io/klog/v2 v2.70.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect

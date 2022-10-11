@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/internal/deploy/docker"
 	"go.flow.arcalot.io/pluginsdk/atp"
 	"gopkg.in/yaml.v3"
@@ -28,7 +29,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	connector, err := d.Create(defaultConfig)
+	connector, err := d.Create(defaultConfig, log.New(log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}))
 	if err != nil {
 		panic(err)
 	}

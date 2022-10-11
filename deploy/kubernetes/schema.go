@@ -338,10 +338,10 @@ var containerVolumeDevicesProperty = schema.NewPropertySchema(
 )
 var containerImagePullPolicyProperty = schema.NewPropertySchema(
 	schema.NewStringEnumSchema(
-		map[string]string{
-			string(v1.PullAlways):       "Always",
-			string(v1.PullNever):        "Never",
-			string(v1.PullIfNotPresent): "If not present",
+		map[string]*schema.DisplayValue{
+			string(v1.PullAlways):       {NameValue: schema.PointerTo("Always")},
+			string(v1.PullNever):        {NameValue: schema.PointerTo("Never")},
+			string(v1.PullIfNotPresent): {NameValue: schema.PointerTo("If not present")},
 		},
 	),
 	schema.NewDisplayValue(
@@ -477,11 +477,11 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 				nil,
 				nil,
 			),
-			"deployment": schema.NewPropertySchema(
-				schema.NewRefSchema("Deployment", nil),
+			"pod": schema.NewPropertySchema(
+				schema.NewRefSchema("Pod", nil),
 				schema.NewDisplayValue(
-					schema.PointerTo("Deployment"),
-					schema.PointerTo("Deployment configuration for the plugin."),
+					schema.PointerTo("Pod"),
+					schema.PointerTo("Pod configuration for the plugin."),
 					nil,
 				),
 				false,
@@ -704,9 +704,9 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 		},
 	),
 	// endregion
-	// region Deployment
-	schema.NewStructMappedObjectSchema[Deployment](
-		"Deployment",
+	// region Pod
+	schema.NewStructMappedObjectSchema[Pod](
+		"Pod",
 		map[string]*schema.PropertySchema{
 			"metadata": schema.NewPropertySchema(
 				schema.NewRefSchema("ObjectMeta", nil),
@@ -782,11 +782,11 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 					schema.PointerTo("Kubernetes namespace to deploy in."),
 					nil,
 				),
-				true,
+				false,
 				nil,
 				nil,
 				nil,
-				nil,
+				schema.PointerTo("\"default\""),
 				nil,
 			).TreatEmptyAsDefaultValue(),
 			"labels": schema.NewPropertySchema(
@@ -1495,15 +1495,15 @@ var Schema = schema.NewTypedScopeSchema[*Config](
 			),
 			"type": schema.NewPropertySchema(
 				schema.NewStringEnumSchema(
-					map[string]string{
-						string(v1.HostPathUnset):             "Unset",
-						string(v1.HostPathDirectoryOrCreate): "Create directory if not found",
-						string(v1.HostPathDirectory):         "Directory",
-						string(v1.HostPathFileOrCreate):      "Create file if not found",
-						string(v1.HostPathFile):              "File",
-						string(v1.HostPathSocket):            "Socket",
-						string(v1.HostPathCharDev):           "Character device",
-						string(v1.HostPathBlockDev):          "Block device",
+					map[string]*schema.DisplayValue{
+						string(v1.HostPathUnset):             {NameValue: schema.PointerTo("Unset")},
+						string(v1.HostPathDirectoryOrCreate): {NameValue: schema.PointerTo("Create directory if not found")},
+						string(v1.HostPathDirectory):         {NameValue: schema.PointerTo("Directory")},
+						string(v1.HostPathFileOrCreate):      {NameValue: schema.PointerTo("Create file if not found")},
+						string(v1.HostPathFile):              {NameValue: schema.PointerTo("File")},
+						string(v1.HostPathSocket):            {NameValue: schema.PointerTo("Socket")},
+						string(v1.HostPathCharDev):           {NameValue: schema.PointerTo("Character device")},
+						string(v1.HostPathBlockDev):          {NameValue: schema.PointerTo("Block device")},
 					},
 				),
 				schema.NewDisplayValue(

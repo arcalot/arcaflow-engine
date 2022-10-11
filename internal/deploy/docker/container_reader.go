@@ -20,9 +20,13 @@ type multiplexedReader struct {
 //
 // See: https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerAttach
 func (m *multiplexedReader) Read(p []byte) (n int, err error) {
-	if len(p) <= len(m.readBuffer) {
+	if len(m.readBuffer) > 0 {
 		// We don't need to read more, just return what we have.
-		n = len(p)
+		if len(p) < len(m.readBuffer) {
+			n = len(p)
+		} else {
+			n = len(m.readBuffer)
+		}
 		copy(p, m.readBuffer[:n])
 		m.readBuffer = m.readBuffer[n:]
 		return n, nil
@@ -39,23 +43,6 @@ func (m *multiplexedReader) Read(p []byte) (n int, err error) {
 		)
 	}
 	streamType := header[0]
-	switch streamType {
-	case 0:
-		return 0, fmt.Errorf(
-			"unexpected stdin stream frame from Docker daemon",
-		)
-	case 1:
-		// noop
-	case 2:
-		return 0, fmt.Errorf(
-			"unexpected stderr stream frame from Docker daemon",
-		)
-	default:
-		return 0, fmt.Errorf(
-			"unknown stream frame type frame from Docker daemon: %d",
-			streamType,
-		)
-	}
 
 	frameSize := binary.BigEndian.Uint32(header[4:])
 	data := make([]byte, frameSize)
@@ -63,7 +50,25 @@ func (m *multiplexedReader) Read(p []byte) (n int, err error) {
 	if err != nil {
 		return n, err
 	}
-
+	switch streamType {
+	case 0:
+		return 0, fmt.Errorf(
+			"unexpected stdin stream frame from Docker daemon (%s)",
+			data[:n],
+		)
+	case 1:
+		// noop
+	case 2:
+		return 0, fmt.Errorf(
+			"unexpected stderr stream frame from Docker daemon (%s)",
+			data[:n],
+		)
+	default:
+		return 0, fmt.Errorf(
+			"unknown stream frame type frame from Docker daemon: %d",
+			streamType,
+		)
+	}
 	m.readBuffer = append(m.readBuffer, data...)
 	readLen := 0
 	if len(p) > len(m.readBuffer) {

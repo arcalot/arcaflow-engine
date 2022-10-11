@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"go.arcalot.io/assert"
+	"go.arcalot.io/log"
 	kubernetesDeploy "go.flow.arcalot.io/engine/deploy/kubernetes"
 	"go.flow.arcalot.io/engine/internal/deploy/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +47,7 @@ func TestSimpleInOut(t *testing.T) {
 			QPS:         float64(kubeconfig.QPS),
 			Burst:       int64(kubeconfig.Burst),
 		},
-		Deployment: kubernetesDeploy.Deployment{
+		Pod: kubernetesDeploy.Pod{
 			Metadata: metav1.ObjectMeta{
 				Namespace: namespace,
 			},
@@ -59,7 +60,7 @@ func TestSimpleInOut(t *testing.T) {
 	assert.NoError(t, err)
 	unserializedConfig, err := schema.UnserializeType(serializedConfig)
 	assert.NoError(t, err)
-	connector, err := factory.Create(unserializedConfig)
+	connector, err := factory.Create(unserializedConfig, log.NewTestLogger(t))
 	assert.NoError(t, err)
 
 	container, err := connector.Deploy(context.Background(), "quay.io/joconnel/io-test-script")

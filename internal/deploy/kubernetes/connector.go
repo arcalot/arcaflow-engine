@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"go.arcalot.io/log"
 	kubernetesDeploy "go.flow.arcalot.io/engine/deploy/kubernetes"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 	core "k8s.io/api/core/v1"
@@ -27,13 +28,14 @@ type connector struct {
 	restClient       *restclient.RESTClient
 	config           *kubernetesDeploy.Config
 	connectionConfig restclient.Config
+	logger           log.Logger
 }
 
 //nolint:funlen
 func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, error) {
-	podSpec := c.config.Deployment.Spec.PodSpec
+	podSpec := c.config.Pod.Spec.PodSpec
 
-	pluginContainer := c.config.Deployment.Spec.PluginContainer
+	pluginContainer := c.config.Pod.Spec.PluginContainer
 	pluginContainer.Stdin = true
 	pluginContainer.Image = image
 	pluginContainer.Env = append(pluginContainer.Env, core.EnvVar{
@@ -46,13 +48,15 @@ func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, e
 		podSpec.Containers,
 		pluginContainer,
 	)
+	podSpec.RestartPolicy = core.RestartPolicyNever
 
-	meta := c.config.Deployment.Metadata
+	meta := c.config.Pod.Metadata
 	if meta.Name == "" && meta.GenerateName == "" {
 		meta.GenerateName = "arcaflow-plugin-"
 	}
 
-	pod, err := c.cli.CoreV1().Pods(c.config.Deployment.Metadata.Namespace).Create(
+	c.logger.Infof("Deploying pod from image %s...", image)
+	pod, err := c.cli.CoreV1().Pods(c.config.Pod.Metadata.Namespace).Create(
 		ctx,
 		&core.Pod{
 			ObjectMeta: meta,
@@ -63,15 +67,15 @@ func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pod (%w)", err)
 	}
-
+	c.logger.Infof("Waiting for pod %s...", pod.Name)
 	pod, err = c.waitForPod(ctx, pod)
 	if err != nil {
 		_ = c.removePod(ctx, pod, true)
 		return nil, err
 	}
-
+	c.logger.Infof("Attaching to pod...")
 	req := c.restClient.Post().
-		Namespace(c.config.Deployment.Metadata.Namespace).
+		Namespace(c.config.Pod.Metadata.Namespace).
 		Resource("pods").
 		Name(pod.Name).
 		SubResource("attach")
@@ -111,6 +115,8 @@ func (c connector) Deploy(ctx context.Context, image string) (deployer.Plugin, e
 		)
 	}()
 
+	c.logger.Infof("Pod start complete.")
+
 	return &connectorContainer{
 		pod:          pod,
 		connector:    c,
@@ -128,14 +134,14 @@ func (c connector) waitForPod(ctx context.Context, pod *core.Pod) (*core.Pod, er
 			options.FieldSelector = fieldSelector
 			return c.cli.
 				CoreV1().
-				Pods(c.config.Deployment.Metadata.Namespace).
+				Pods(c.config.Pod.Metadata.Namespace).
 				List(ctx, options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = fieldSelector
 			return c.cli.
 				CoreV1().
-				Pods(c.config.Deployment.Metadata.Namespace).
+				Pods(c.config.Pod.Metadata.Namespace).
 				Watch(ctx, options)
 		},
 	}
@@ -180,7 +186,7 @@ func (c connector) removePod(ctx context.Context, pod *core.Pod, force bool) err
 		t := int64(0)
 		gracePeriod = &t
 	}
-	return c.cli.CoreV1().Pods(c.config.Deployment.Metadata.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
+	return c.cli.CoreV1().Pods(c.config.Pod.Metadata.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
 		GracePeriodSeconds: gracePeriod,
 	})
 }

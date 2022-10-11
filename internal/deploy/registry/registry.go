@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
@@ -16,7 +17,7 @@ type Registry interface {
 	Schema() schema.OneOf[string]
 	// Create creates a connector with the given configuration type. The registry must identify the correct deployer
 	// based on the type passed.
-	Create(config any) (deployer.Connector, error)
+	Create(config any, logger log.Logger) (deployer.Connector, error)
 }
 
 type registry struct {
@@ -42,14 +43,14 @@ func (r registry) Schema() schema.OneOf[string] {
 	)
 }
 
-func (r registry) Create(config any) (deployer.Connector, error) {
+func (r registry) Create(config any, logger log.Logger) (deployer.Connector, error) {
 	if config == nil {
 		return nil, fmt.Errorf("the deployer configuration cannot be nil")
 	}
 	reflectedConfig := reflect.ValueOf(config)
 	for _, factory := range r.deployerFactories {
 		if factory.ConfigurationSchema().ReflectedType() == reflectedConfig.Type() {
-			return factory.Create(config)
+			return factory.Create(config, logger)
 		}
 	}
 	return nil, fmt.Errorf("could not identify correct deployer factory for %T", config)

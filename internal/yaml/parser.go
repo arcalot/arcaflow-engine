@@ -11,6 +11,16 @@ func New() Parser {
 	return &parser{}
 }
 
+// EmptyNode returns an empty node.
+func EmptyNode() Node {
+	return &node{
+		typeID:   TypeIDString,
+		tag:      "!!null",
+		contents: nil,
+		value:    "",
+	}
+}
+
 // Parser is a YAML parser that parses into a simplified value structure.
 type Parser interface {
 	// Parse parses the provided value into the simplified node representation.
@@ -38,8 +48,14 @@ type Node interface {
 	// Contents returns the contents as further Node items. For maps, this will contain exactly two nodes, while
 	// for sequences this will contain as many nodes as there are items. For strings, this will contain no items.
 	Contents() []Node
+	// MapKey selects a specific map key. If the node is not a map, this function panics.
+	MapKey(key string) (Node, bool)
+	// MapKeys lists all keys of a map. If the node is not a map, this function panics.
+	MapKeys() []string
 	// Value returns the value in case of a string node.
 	Value() string
+	// Raw outputs the node as raw data without type annotation.
+	Raw() any
 }
 
 type node struct {
@@ -47,6 +63,52 @@ type node struct {
 	tag      string
 	contents []Node
 	value    string
+}
+
+func (n node) MapKeys() []string {
+	if n.typeID != TypeIDMap {
+		panic(fmt.Errorf("node is not a map, cannot call MapKeys"))
+	}
+	result := make([]string, len(n.contents)/2)
+	for i := 0; i < len(n.contents); i += 2 {
+		result[i/2] = n.contents[i].Value()
+	}
+	return result
+}
+
+func (n node) MapKey(key string) (Node, bool) {
+	if n.typeID != TypeIDMap {
+		panic(fmt.Errorf("node is not a map, cannot call MapKey"))
+	}
+	for i := 0; i < len(n.contents); i += 2 {
+		if key == n.contents[i].Raw() {
+			return n.contents[i+1], true
+		}
+	}
+	return nil, false
+}
+
+func (n node) Raw() any {
+	switch n.typeID {
+	case TypeIDString:
+		return n.value
+	case TypeIDMap:
+		result := make(map[any]any, len(n.contents)/2)
+		for i := 0; i < len(n.contents); i += 2 {
+			key := n.contents[i].Raw()
+			value := n.contents[i+1].Raw()
+			result[key] = value
+		}
+		return result
+	case TypeIDSequence:
+		result := make([]any, len(n.contents))
+		for i, item := range n.contents {
+			result[i] = item.Raw()
+		}
+		return result
+	default:
+		panic(fmt.Errorf("bug: unexpected type ID: %s", n.typeID))
+	}
 }
 
 func (n node) Contents() []Node {
@@ -79,6 +141,8 @@ func (p parser) Parse(data []byte) (Node, error) {
 func (p parser) transform(n *yaml.Node) (Node, error) {
 	var t TypeID
 	switch n.Kind {
+	case 0:
+		return nil, fmt.Errorf("empty YAML file given")
 	case yaml.MappingNode:
 		t = TypeIDMap
 	case yaml.SequenceNode:

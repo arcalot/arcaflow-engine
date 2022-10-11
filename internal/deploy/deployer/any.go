@@ -1,6 +1,9 @@
 package deployer
 
-import "go.flow.arcalot.io/pluginsdk/schema"
+import (
+	"go.arcalot.io/log"
+	"go.flow.arcalot.io/pluginsdk/schema"
+)
 
 // Any wraps a factory and creates an anonymous factory from it.
 func Any[T any](factory ConnectorFactory[T]) AnyConnectorFactory {
@@ -21,6 +24,6 @@ func (a anyDeployerFactory[T]) ConfigurationSchema() schema.Object {
 	return a.factory.ConfigurationSchema()
 }
 
-func (a anyDeployerFactory[T]) Create(config any) (Connector, error) {
-	return a.factory.Create(config.(T))
+func (a anyDeployerFactory[T]) Create(config any, logger log.Logger) (Connector, error) {
+	return a.factory.Create(config.(T), logger)
 }
