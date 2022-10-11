@@ -13,7 +13,7 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
-func getDefaultDockerSocket() string {
+func dockerGetDefaultSocket() string {
 	//goland:noinspection GoBoolExpressions
 	if runtime.GOOS == "windows" {
 		return "npipe:////./pipe/docker_engine"
@@ -21,7 +21,8 @@ func getDefaultDockerSocket() string {
 	return "unix:///var/run/docker.sock"
 }
 
-var configSchema = schema.NewTypedScopeSchema[*Config](
+// Schema describes the deployment options of the Docker deployment mechanism.
+var Schema = schema.NewTypedScopeSchema[*Config](
 	schema.NewStructMappedObjectSchema[*Config](
 		"Config",
 		map[string]*schema.PropertySchema{
@@ -102,14 +103,14 @@ var configSchema = schema.NewTypedScopeSchema[*Config](
 				nil,
 				nil,
 				nil,
-				schema.PointerTo(util.JSONEncode(getDefaultDockerSocket())),
+				schema.PointerTo(util.JSONEncode(dockerGetDefaultSocket())),
 				[]string{
 					"'unix:///var/run/docker.sock'",
 					"'npipe:////./pipe/docker_engine'",
 				},
 			),
 			"cacert": schema.NewPropertySchema(
-				schema.NewStringSchema(schema.IntPointer(1), nil, regexp.MustCompile(`^-----BEGIN CERTIFICATE-----\n.*\n-----END CERTIFICATE-----\\s*$`)),
+				schema.NewStringSchema(schema.IntPointer(1), nil, regexp.MustCompile(`^\s*-----BEGIN CERTIFICATE-----(\s*.*\s*)*-----END CERTIFICATE-----\s*$`)),
 				schema.NewDisplayValue(
 					schema.PointerTo("CA certificate"),
 					schema.PointerTo("CA certificate in PEM format to verify the Dockerd server certificate against."),
@@ -125,7 +126,7 @@ var configSchema = schema.NewTypedScopeSchema[*Config](
 				},
 			),
 			"cert": schema.NewPropertySchema(
-				schema.NewStringSchema(schema.IntPointer(1), nil, regexp.MustCompile(`^-----BEGIN CERTIFICATE-----\n.*\n-----END CERTIFICATE-----\\s*$`)),
+				schema.NewStringSchema(schema.IntPointer(1), nil, regexp.MustCompile(`^\s*-----BEGIN CERTIFICATE-----(\s*.*\s*)*-----END CERTIFICATE-----\s*$`)),
 				schema.NewDisplayValue(
 					schema.PointerTo("Client certificate"),
 					schema.PointerTo("Client certificate in PEM format to authenticate against the Dockerd with."),
@@ -141,7 +142,7 @@ var configSchema = schema.NewTypedScopeSchema[*Config](
 				},
 			),
 			"key": schema.NewPropertySchema(
-				schema.NewStringSchema(schema.IntPointer(1), nil, regexp.MustCompile(`^-----BEGIN ([A-Z]+) PRIVATE KEY-----\n.*\n-----END ([A-Z]+) PRIVATE KEY-----\\s*$`)),
+				schema.NewStringSchema(schema.IntPointer(1), nil, regexp.MustCompile(`^\s*-----BEGIN ([A-Z]+) PRIVATE KEY-----(\s*.*\s*)*-----END ([A-Z]+) PRIVATE KEY-----\s*$`)),
 				schema.NewDisplayValue(
 					schema.PointerTo("Client key"),
 					schema.PointerTo("Client private key in PEM format to authenticate against the Dockerd with."),
@@ -435,47 +436,3 @@ var configSchema = schema.NewTypedScopeSchema[*Config](
 		},
 	),
 )
-
-// Config is the configuration structure of the Docker connector.
-type Config struct {
-	Connection Connection `json:"connection"`
-	Deployment Deployment `json:"deployment"`
-	Timeouts   Timeouts   `json:"timeouts"`
-}
-
-// Connection describes how to connect to the Docker daemon.
-type Connection struct {
-	Host   string `json:"host"`
-	CACert string `json:"cacert"`
-	Cert   string `json:"cert"`
-	Key    string `json:"key"`
-}
-
-// ImagePullPolicy drives when an image should be pulled.
-type ImagePullPolicy string
-
-const (
-	// ImagePullPolicyAlways means that the container image will be pulled for every workflow run.
-	ImagePullPolicyAlways ImagePullPolicy = "Always"
-	// ImagePullPolicyIfNotPresent means the image will be pulled if the image is not present locally, an empty tag, or
-	// the "latest" tag was specified.
-	ImagePullPolicyIfNotPresent ImagePullPolicy = "IfNotPresent"
-	// ImagePullPolicyNever means that the image will never be pulled, and if the image is not available locally the
-	// execution will fail.
-	ImagePullPolicyNever ImagePullPolicy = "Never"
-)
-
-// Deployment contains the information about deploying the plugin.
-type Deployment struct {
-	ContainerConfig *container.Config         `json:"container"`
-	HostConfig      *container.HostConfig     `json:"host"`
-	NetworkConfig   *network.NetworkingConfig `json:"network"`
-	Platform        *specs.Platform           `json:"platform"`
-
-	ImagePullPolicy ImagePullPolicy `json:"imagePullPolicy"`
-}
-
-// Timeouts drive the timeouts for various interactions in relation to Docker.
-type Timeouts struct {
-	HTTP time.Duration `json:"http"`
-}
