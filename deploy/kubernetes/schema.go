@@ -1750,12 +1750,12 @@ var identifier = schema.NewStringSchema(
 var imageTag = schema.NewStringSchema(
 	schema.IntPointer(1),
 	nil,
-	regexp.MustCompile(`^[a-zA-Z0-9_\-:.]+$`),
+	regexp.MustCompile(`^[a-zA-Z0-9_\-:./]+$`),
 )
 var labelName = schema.NewStringSchema(
 	nil,
 	nil,
-	regexp.MustCompile(`(|([a-zA-Z](|[a-zA-Z\-.]{0,251}[a-zA-Z0-9]))/)([a-zA-Z](|[a-zA-Z\\-]{0,61}[a-zA-Z0-9]))`),
+	regexp.MustCompile(`^(|([a-zA-Z](|[a-zA-Z\-.]{0,251}[a-zA-Z0-9]))/)([a-zA-Z](|[a-zA-Z\\-]{0,61}[a-zA-Z0-9]))$`),
 )
 var labelValue = schema.NewStringSchema(
 	nil,
@@ -1766,18 +1766,4 @@ var dnsSubdomainName = schema.NewStringSchema(
 	nil,
 	schema.IntPointer(253),
 	regexp.MustCompile(`^[a-z0-9]($|[a-z0-9\-_]*[a-z0-9])$`),
-)
-
-//nolint:deadcode,unused,varcheck
-var rfc1123LabelName = schema.NewStringSchema(
-	nil,
-	schema.IntPointer(63),
-	regexp.MustCompile(`^[a-z0-9]($|[a-z0-9\-]*[a-z0-9])$`),
-)
-
-//nolint:deadcode,unused,varcheck
-var rfc1035LabelName = schema.NewStringSchema(
-	nil,
-	schema.IntPointer(63),
-	regexp.MustCompile(`^[a-z]($|[a-z0-9\-]*[a-z0-9])$`),
 )
