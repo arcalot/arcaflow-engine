@@ -27,7 +27,7 @@ jobs:
         with:
           go-version: 1.18
       - name: Set up gotestfmt
-        uses: haveyoudebuggedit/gotestfmt-action@v2
+        uses: GoTestTools/gotestfmt-action@v2
       - uses: actions/cache@v2
         with:
           path: |
