@@ -219,6 +219,8 @@ github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 go.arcalot.io/assert v1.1.0 h1:HczVLh60SSCMWZA03YllbBE3Iidu2/C6BhuRrWyf54Q=
 go.arcalot.io/assert v1.1.0/go.mod h1:Xy3ScX0p9IMY89gdsgexOKxnmDr0nGHG9dV7p8Uxg7w=
+go.arcalot.io/assert v1.2.1 h1:bopP3PWJdKLQKd44byDwjes6eroqGExwostVaAeYW6w=
+go.arcalot.io/assert v1.2.1/go.mod h1:Xy3ScX0p9IMY89gdsgexOKxnmDr0nGHG9dV7p8Uxg7w=
 go.arcalot.io/lang v1.0.0 h1:mgDaieT4wWdZTnR4V7+/pgYRmzfU7VZZgIzHccuxAbY=
 go.arcalot.io/lang v1.0.0/go.mod h1:ALqfYEhAzC2WoGLaycmJoNJd5NmkR7V1PSKp/c5D278=
 go.arcalot.io/log v1.1.0 h1:BPNXPZak9Ljw1DxqDNJhPrvSLPX0JPsG9lRFOOtAfK0=
