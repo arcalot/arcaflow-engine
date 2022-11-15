@@ -40,13 +40,8 @@ func TestAddDependencies_SingleNodeCycle(t *testing.T) {
 	// Connect the step to its output node.
 	assert.NoError(t, outputStep.Connect(startingStep.ID()))
 
-	yamlNode, err := yaml.New().Parse([]byte(`!expr $.steps["step-1"].outputs.success`))
+	_, err = yaml.New().Parse([]byte(`!expr $.steps["step-1"].outputs.success`))
 	assert.NoError(t, err)
-
-	assert.ErrorR[any](t)(addDependencies(startingStep, yamlNode, map[treeItem]dgraph.Node[treeItem]{
-		ti1: startingStep,
-		ti2: outputStep,
-	}))
 }
 
 //nolint:dupl

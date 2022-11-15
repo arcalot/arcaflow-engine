@@ -42,10 +42,21 @@ func TestReaderOnBuffered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error while reading from multiplexed reader: %v", err)
 	}
-	if n != 12 {
+	if n != 5 {
 		t.Fatalf("Incorrect number of bytes read: %d", n)
 	}
-	if string(readData[:n]) != "Hello world!" {
+	if string(readData[:n]) != "Hello" { // nolint:goconst
+		t.Fatalf("Incorrect data read from multiplexed reader: %s", string(readData[:n]))
+	}
+
+	n, err = r.Read(readData)
+	if err != nil {
+		t.Fatalf("Error while reading from multiplexed reader: %v", err)
+	}
+	if n != 7 {
+		t.Fatalf("Incorrect number of bytes read: %d", n)
+	}
+	if string(readData[:n]) != " world!" { // nolint:goconst
 		t.Fatalf("Incorrect data read from multiplexed reader: %s", string(readData[:n]))
 	}
 }
@@ -77,19 +88,26 @@ func TestReaderOverreadBuffered(t *testing.T) {
 		reader:     bytes.NewReader(data),
 		readBuffer: []byte("Hello"),
 	}
-	readData := make([]byte, 6)
+	readData := make([]byte, 512)
 	n, err := r.Read(readData)
 	if err != nil {
 		t.Fatalf("Error while reading from multiplexed reader: %v", err)
 	}
-	if n != 6 {
+	if n != 5 {
 		t.Fatalf("Incorrect number of bytes read: %d", n)
 	}
-	if string(readData[:n]) != "Hello " {
+	if string(readData[:n]) != "Hello" {
 		t.Fatalf("Incorrect data read from multiplexed reader: %s", string(readData[:n]))
 	}
-	if string(r.readBuffer[:6]) != "world!" {
-		t.Fatalf("Incorrect read buffer contents: %s", string(r.readBuffer[:7]))
+	n, err = r.Read(readData)
+	if err != nil {
+		t.Fatalf("Error while reading from multiplexed reader: %v", err)
+	}
+	if n != 7 {
+		t.Fatalf("Incorrect number of bytes read: %d", n)
+	}
+	if string(readData[:n]) != " world!" {
+		t.Fatalf("Incorrect data read from multiplexed reader: %s", string(readData[:n]))
 	}
 }
 
