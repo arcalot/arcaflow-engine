@@ -6,7 +6,8 @@ require (
 	github.com/docker/docker v20.10.18+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/opencontainers/image-spec v1.0.2
-	go.arcalot.io/assert v1.2.1
+	go.arcalot.io/assert v1.3.0
+	go.arcalot.io/dgraph v1.0.0
 	go.arcalot.io/lang v1.0.0
 	go.arcalot.io/log v1.2.0
 	go.flow.arcalot.io/pluginsdk v0.0.0-20221019080109-e8dfaa8c4c43

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"go.arcalot.io/dgraph"
 	"go.arcalot.io/lang"
-	"go.flow.arcalot.io/engine/internal/dg"
 	"go.flow.arcalot.io/engine/internal/expressions"
 	"go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/workflow"
@@ -28,9 +28,9 @@ const inputKey = "input"
 // deploy parameters to be prepared as yaml.Node instances. The returned steps contain the resolved raw data and the
 // AST nodes if an expression was found.
 //nolint:funlen,gocognit
-func buildDependencyTree(inputSchema *schema.ScopeSchema, steps map[string]*workflow.PluginStep, stepSchemas map[string]schema.Step, output yaml.Node) (dg.DirectedGraph[treeItem], map[string]*workflow.PluginStep, any, error) {
-	dag := dg.New[treeItem]()
-	selectableItems := map[treeItem]dg.Node[treeItem]{}
+func buildDependencyTree(inputSchema *schema.ScopeSchema, steps map[string]*workflow.PluginStep, stepSchemas map[string]schema.Step, output yaml.Node) (dgraph.DirectedGraph[treeItem], map[string]*workflow.PluginStep, any, error) {
+	dag := dgraph.New[treeItem]()
+	selectableItems := map[treeItem]dgraph.Node[treeItem]{}
 	for propertyID := range inputSchema.Properties() {
 		nodeID := fmt.Sprintf("%s.%s", inputKey, propertyID)
 		item := treeItem{inputKey, propertyID, ""}
@@ -56,7 +56,7 @@ func buildDependencyTree(inputSchema *schema.ScopeSchema, steps map[string]*work
 				return nil, nil, nil, fmt.Errorf("failed to add node %s to the dependency tree (%w)", nodeID, err)
 			}
 			if err := n.Connect(no.ID()); err != nil {
-				decodedErr := &dg.ErrConnectionAlreadyExists{}
+				decodedErr := &dgraph.ErrConnectionAlreadyExists{}
 				if !errors.As(err, &decodedErr) {
 					return nil, nil, nil, fmt.Errorf(
 						"failed to connect node %s to node %s in the dependency tree (%w)",
@@ -117,9 +117,9 @@ func buildDependencyTree(inputSchema *schema.ScopeSchema, steps map[string]*work
 // If no expression is found, the raw data is returned.
 //nolint:funlen,gocognit
 func addDependencies(
-	node dg.Node[treeItem],
+	node dgraph.Node[treeItem],
 	data yaml.Node,
-	selectableItems map[treeItem]dg.Node[treeItem],
+	selectableItems map[treeItem]dgraph.Node[treeItem],
 ) (any, error) {
 	ast, err := tryParseExpression(data)
 	if err != nil {
@@ -166,7 +166,7 @@ func addDependencies(
 	if len(stack) < 2 || (stack[0] == stepsKey && len(stack) < 4) {
 		return nil, fmt.Errorf("expression too short, please write a more specific expression")
 	}
-	items := map[treeItem]dg.Node[treeItem]{}
+	items := map[treeItem]dgraph.Node[treeItem]{}
 	for k, v := range selectableItems {
 		if v.Item().Type != stack[0] {
 			continue
@@ -190,7 +190,7 @@ func addDependencies(
 
 	for _, v := range items {
 		if err := v.Connect(node.ID()); err != nil {
-			decodedErr := &dg.ErrConnectionAlreadyExists{}
+			decodedErr := &dgraph.ErrConnectionAlreadyExists{}
 			if !errors.As(err, &decodedErr) {
 				return nil, err
 			}

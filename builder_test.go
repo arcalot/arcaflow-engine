@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"go.arcalot.io/assert"
-	"go.flow.arcalot.io/engine/internal/dg"
+	"go.arcalot.io/dgraph"
 	"go.flow.arcalot.io/engine/internal/expressions"
 	"go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/workflow"
@@ -12,7 +12,7 @@ import (
 )
 
 func TestAddDependencies_SingleNode(t *testing.T) {
-	dag := dg.New[treeItem]()
+	dag := dgraph.New[treeItem]()
 
 	ti := treeItem{"steps", "step-1", ""}
 	startingStep, err := dag.AddNode("steps.step-1", ti)
@@ -21,13 +21,13 @@ func TestAddDependencies_SingleNode(t *testing.T) {
 	yamlNode, err := yaml.New().Parse([]byte(`test`))
 	assert.NoError(t, err)
 
-	assert.NoErrorR[any](t)(addDependencies(startingStep, yamlNode, map[treeItem]dg.Node[treeItem]{
+	assert.NoErrorR[any](t)(addDependencies(startingStep, yamlNode, map[treeItem]dgraph.Node[treeItem]{
 		ti: startingStep,
 	}))
 }
 
 func TestAddDependencies_SingleNodeCycle(t *testing.T) {
-	dag := dg.New[treeItem]()
+	dag := dgraph.New[treeItem]()
 
 	// Define the step node
 	ti1 := treeItem{"steps", "step-1", ""}
@@ -43,7 +43,7 @@ func TestAddDependencies_SingleNodeCycle(t *testing.T) {
 	yamlNode, err := yaml.New().Parse([]byte(`!expr $.steps["step-1"].outputs.success`))
 	assert.NoError(t, err)
 
-	assert.ErrorR[any](t)(addDependencies(startingStep, yamlNode, map[treeItem]dg.Node[treeItem]{
+	assert.ErrorR[any](t)(addDependencies(startingStep, yamlNode, map[treeItem]dgraph.Node[treeItem]{
 		ti1: startingStep,
 		ti2: outputStep,
 	}))
@@ -51,7 +51,7 @@ func TestAddDependencies_SingleNodeCycle(t *testing.T) {
 
 //nolint:dupl
 func TestAddDependencies_TwoNodes(t *testing.T) {
-	dag := dg.New[treeItem]()
+	dag := dgraph.New[treeItem]()
 
 	ti1 := treeItem{"steps", "step1", "success"}
 	startingStep, err := dag.AddNode("steps.step1.outputs.success", ti1)
@@ -63,7 +63,7 @@ func TestAddDependencies_TwoNodes(t *testing.T) {
 	yamlNode, err := yaml.New().Parse([]byte(`!expr $.steps.step1.outputs.success`))
 	assert.NoError(t, err)
 
-	assert.NoErrorR[any](t)(addDependencies(step2, yamlNode, map[treeItem]dg.Node[treeItem]{
+	assert.NoErrorR[any](t)(addDependencies(step2, yamlNode, map[treeItem]dgraph.Node[treeItem]{
 		ti1: startingStep,
 		ti2: step2,
 	}))
@@ -76,7 +76,7 @@ func TestAddDependencies_TwoNodes(t *testing.T) {
 
 //nolint:dupl
 func TestAddDependencies_TwoNodesMapAccessor(t *testing.T) {
-	dag := dg.New[treeItem]()
+	dag := dgraph.New[treeItem]()
 
 	ti1 := treeItem{"steps", "step-1", "success"}
 	startingStep, err := dag.AddNode("steps.step-1.outputs.success", ti1)
@@ -88,7 +88,7 @@ func TestAddDependencies_TwoNodesMapAccessor(t *testing.T) {
 	yamlNode, err := yaml.New().Parse([]byte(`!expr $.steps["step-1"].outputs.success`))
 	assert.NoError(t, err)
 
-	assert.NoErrorR[any](t)(addDependencies(step2, yamlNode, map[treeItem]dg.Node[treeItem]{
+	assert.NoErrorR[any](t)(addDependencies(step2, yamlNode, map[treeItem]dgraph.Node[treeItem]{
 		ti1: startingStep,
 		ti2: step2,
 	}))
@@ -101,7 +101,7 @@ func TestAddDependencies_TwoNodesMapAccessor(t *testing.T) {
 
 //nolint:dupl
 func TestAddDependencies_TwoNodesMapAccessorFirst(t *testing.T) {
-	dag := dg.New[treeItem]()
+	dag := dgraph.New[treeItem]()
 
 	ti1 := treeItem{"steps", "step1", "success"}
 	startingStep, err := dag.AddNode("steps.step1.outputs.success", ti1)
@@ -113,7 +113,7 @@ func TestAddDependencies_TwoNodesMapAccessorFirst(t *testing.T) {
 	yamlNode, err := yaml.New().Parse([]byte(`!expr $["steps"].step1.outputs.success`))
 	assert.NoError(t, err)
 
-	assert.NoErrorR[any](t)(addDependencies(step2, yamlNode, map[treeItem]dg.Node[treeItem]{
+	assert.NoErrorR[any](t)(addDependencies(step2, yamlNode, map[treeItem]dgraph.Node[treeItem]{
 		ti1: startingStep,
 		ti2: step2,
 	}))

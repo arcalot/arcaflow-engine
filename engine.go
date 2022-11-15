@@ -6,11 +6,11 @@ import (
 	"strings"
 	"sync"
 
+	"go.arcalot.io/dgraph"
 	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/deploy/deployer"
 	"go.flow.arcalot.io/engine/internal/deploy/registry"
-	"go.flow.arcalot.io/engine/internal/dg"
 	"go.flow.arcalot.io/engine/internal/expand"
 	"go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/workflow"
@@ -99,7 +99,7 @@ func (w workflowEngine) RunWorkflow(
 
 	w.logger.Infof("Building dependency tree...")
 	// Now we have the YAML tags replaced, let's construct a dependency tree.
-	var depTree dg.DirectedGraph[treeItem]
+	var depTree dgraph.DirectedGraph[treeItem]
 	depTree, wf.Steps, wf.Output, err = buildDependencyTree(
 		inputSchema,
 		wf.Steps,
@@ -126,8 +126,8 @@ func (w workflowEngine) RunWorkflow(
 		"steps": map[string]any{},
 	}
 
-	finishedSteps := make(chan dg.Node[treeItem], len(wf.Steps))
-	finishedOutputs := make(chan dg.Node[treeItem], len(wf.Steps))
+	finishedSteps := make(chan dgraph.Node[treeItem], len(wf.Steps))
+	finishedOutputs := make(chan dgraph.Node[treeItem], len(wf.Steps))
 	runningSteps := map[string]struct{}{}
 
 	for _, node := range depTree.ListNodes() {
@@ -169,7 +169,7 @@ func (w workflowEngine) RunWorkflow(
 
 mainloop:
 	for {
-		var nodesWithoutInboundConnections map[string]dg.Node[treeItem]
+		var nodesWithoutInboundConnections map[string]dgraph.Node[treeItem]
 		for {
 			nodesWithoutInboundConnections = filterStepNodes(depTree.ListNodesWithoutInboundConnections(), runningSteps)
 			if len(nodesWithoutInboundConnections) == 0 {
@@ -320,8 +320,8 @@ mainloop:
 	return d, err
 }
 
-func filterStepNodes(connections map[string]dg.Node[treeItem], runningSteps map[string]struct{}) map[string]dg.Node[treeItem] {
-	result := map[string]dg.Node[treeItem]{}
+func filterStepNodes(connections map[string]dgraph.Node[treeItem], runningSteps map[string]struct{}) map[string]dgraph.Node[treeItem] {
+	result := map[string]dgraph.Node[treeItem]{}
 	for k, v := range connections {
 		if v.Item().Type != stepsKey || v.Item().Output != "" {
 			continue
