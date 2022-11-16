@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"go.arcalot.io/assert"
-	"go.flow.arcalot.io/engine/internal/expressions"
+	"go.flow.arcalot.io/expressions"
 )
 
 var testData = map[string]struct {

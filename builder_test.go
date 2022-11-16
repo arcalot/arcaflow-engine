@@ -5,7 +5,7 @@ import (
 
 	"go.arcalot.io/assert"
 	"go.arcalot.io/dgraph"
-	"go.flow.arcalot.io/engine/internal/expressions"
+	"go.flow.arcalot.io/expressions"
 	"go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/workflow"
 	"go.flow.arcalot.io/pluginsdk/schema"

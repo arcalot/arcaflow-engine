@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"go.flow.arcalot.io/engine/internal/expressions"
+	"go.flow.arcalot.io/expressions"
 )
 
 // Datastructure traverses an entire YAML data structure and processes any expression nodes with the baseData passed.

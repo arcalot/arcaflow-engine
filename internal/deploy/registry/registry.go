@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"go.arcalot.io/log"
-	"go.flow.arcalot.io/engine/internal/deploy/deployer"
+	"go.flow.arcalot.io/deployer"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 

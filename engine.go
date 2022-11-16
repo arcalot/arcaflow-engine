@@ -9,7 +9,7 @@ import (
 	"go.arcalot.io/dgraph"
 	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/config"
-	"go.flow.arcalot.io/engine/internal/deploy/deployer"
+	"go.flow.arcalot.io/deployer"
 	"go.flow.arcalot.io/engine/internal/deploy/registry"
 	"go.flow.arcalot.io/engine/internal/expand"
 	"go.flow.arcalot.io/engine/internal/yaml"
@@ -154,6 +154,9 @@ func (w workflowEngine) RunWorkflow(
 		output := <-finishedOutputs
 		lock.Lock()
 		w.logger.Infof("Step %s has finished with output %s.", step.Item().Item, output.Item().Output)
+		if output.Item().Output == "error" {
+			w.logger.Warningf("Step %s had error output: %s", step.Item().Item, step.Item().Output)
+		}
 		w.logger.Debugf("Removing dependency tree node %s...", step.ID())
 		if err := step.Remove(); err != nil {
 			return err
@@ -273,6 +276,7 @@ mainloop:
 				defer func() {
 					finishedSteps <- node
 				}()
+				w.logger.Infof("Step %s is now executing ATP...", item.Item)
 				outputID, outputData, err := atpClient.Execute(ctx, selectedStep, expandedInput)
 				if err != nil {
 					panic(err)
