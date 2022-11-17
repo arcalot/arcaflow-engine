@@ -1,8 +1,0 @@
-log:
-  level: debug
-deployer:
-  type: docker
-  deployment:
-    host:
-      NetworkMode: "host"
-    imagePullPolicy: Always
