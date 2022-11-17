@@ -193,17 +193,16 @@ mainloop:
 		for {
 			// Make sure we filter out the nodes that are not step nodes. We can only execute step nodes.
 			nodesWithoutInboundConnections = filterStepNodes(depTree.ListNodesWithoutInboundConnections(), runningSteps)
-			if len(nodesWithoutInboundConnections) == 0 {
-				if len(runningSteps) == 0 {
-					// No running steps left, no nodes to execute, break the loop.
-					break mainloop
-				}
-				// No nodes to execute, but still steps running, we need for something to finish.
-				if err := waitForFinish(); err != nil {
-					return nil, err
-				}
-			} else {
+			if len(nodesWithoutInboundConnections) != 0 {
 				break
+			}
+			if len(runningSteps) == 0 {
+				// No running steps left, no nodes to execute, break the loop.
+				break mainloop
+			}
+			// No nodes to execute, but still steps running, we need for something to finish.
+			if err := waitForFinish(); err != nil {
+				return nil, err
 			}
 		}
 		// Make a set with a cheap lookup
