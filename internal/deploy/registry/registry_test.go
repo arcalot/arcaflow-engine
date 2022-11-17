@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"go.arcalot.io/assert"
+	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/internal/deploy/registry"
 )
 
@@ -56,7 +57,7 @@ func testRegistryCreateCorrectCreation(t *testing.T) {
 	r := registry.New(
 		&testNewFactory{},
 	)
-	connector, err := r.Create(testConfig{})
+	connector, err := r.Create(testConfig{}, log.NewTestLogger(t))
 	assert.NoError(t, err)
 	if _, ok := connector.(*testConnector); !ok {
 		t.Fatalf("Incorrect connector returned: %T", connector)
@@ -71,7 +72,7 @@ func testRegistryCreateIncorrectConfigType(t *testing.T) {
 	r := registry.New(
 		&testNewFactory{},
 	)
-	_, err := r.Create(testStruct{})
+	_, err := r.Create(testStruct{}, log.NewTestLogger(t))
 	if err == nil {
 		t.Fatalf("expected error, no error returned")
 	}
@@ -82,7 +83,7 @@ func testRegistryCreateNilConfig(t *testing.T) {
 	r := registry.New(
 		&testNewFactory{},
 	)
-	_, err := r.Create(nil)
+	_, err := r.Create(nil, log.NewTestLogger(t))
 	if err == nil {
 		t.Fatalf("expected error, no error returned")
 	}

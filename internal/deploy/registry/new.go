@@ -3,7 +3,7 @@ package registry
 import (
 	"fmt"
 
-	"go.flow.arcalot.io/engine/internal/deploy/deployer"
+	"go.flow.arcalot.io/deployer"
 )
 
 // New creates a new registry with the given factories.

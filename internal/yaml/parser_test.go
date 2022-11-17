@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"go.arcalot.io/assert"
 )
 
 func assertEqualsYAML(t *testing.T, got Node, expected Node, path ...string) {
@@ -68,6 +70,7 @@ var testData = map[string]struct {
 	input          string
 	error          bool
 	expectedOutput *node
+	raw            any
 }{
 	"simple-key": {
 		input: `message: Hello world!`,
@@ -89,6 +92,42 @@ var testData = map[string]struct {
 				},
 			},
 		},
+		raw: map[any]any{"message": "Hello world!"},
+	},
+	"double-key": {
+		input: `message: Hello world!
+test: foo`,
+		expectedOutput: &node{
+			typeID: TypeIDMap,
+			tag:    "!!map",
+			contents: []Node{
+				&node{
+					TypeIDString,
+					"!!str",
+					nil,
+					"message",
+				},
+				&node{
+					TypeIDString,
+					"!!str",
+					nil,
+					"Hello world!",
+				},
+				&node{
+					TypeIDString,
+					"!!str",
+					nil,
+					"test",
+				},
+				&node{
+					TypeIDString,
+					"!!str",
+					nil,
+					"foo",
+				},
+			},
+		},
+		raw: map[any]any{"message": "Hello world!", "test": "foo"},
 	},
 	"simple-key-tag": {
 		input: `message: !!test |-
@@ -109,6 +148,7 @@ var testData = map[string]struct {
 				},
 			},
 		},
+		raw: map[any]any{"message": "Hello world!"},
 	},
 	"sequence": {
 		input: `- test`,
@@ -123,6 +163,7 @@ var testData = map[string]struct {
 				},
 			},
 		},
+		raw: []any{"test"},
 	},
 	"sequence-tags": {
 		input: `- !!test |-
@@ -139,6 +180,7 @@ var testData = map[string]struct {
 				},
 			},
 		},
+		raw: []any{"test"},
 	},
 	"string": {
 		input: `test`,
@@ -147,6 +189,7 @@ var testData = map[string]struct {
 			tag:    "!!str",
 			value:  "test",
 		},
+		raw: "test",
 	},
 	"int": {
 		input: `1`,
@@ -155,6 +198,7 @@ var testData = map[string]struct {
 			tag:    "!!int",
 			value:  "1",
 		},
+		raw: "1",
 	},
 	"bool": {
 		input: `true`,
@@ -163,6 +207,7 @@ var testData = map[string]struct {
 			tag:    "!!bool",
 			value:  "true",
 		},
+		raw: "true",
 	},
 	"float": {
 		input: `1.0`,
@@ -171,6 +216,7 @@ var testData = map[string]struct {
 			tag:    "!!float",
 			value:  "1.0",
 		},
+		raw: "1.0",
 	},
 	"null": {
 		input: `null`,
@@ -179,6 +225,7 @@ var testData = map[string]struct {
 			tag:    "!!null",
 			value:  "null",
 		},
+		raw: "null",
 	},
 	"map-int-key": {
 		input: `1: test`,
@@ -198,6 +245,7 @@ var testData = map[string]struct {
 				},
 			},
 		},
+		raw: map[any]any{"1": "test"},
 	},
 }
 
@@ -216,6 +264,31 @@ func TestYAMLParsing(t *testing.T) {
 				t.Fatalf("Unexpected error returned: %v", err)
 			}
 			assertEqualsYAML(t, output, testCase.expectedOutput)
+
+			if testCase.raw != nil {
+				assert.Equals(t, output.Raw(), testCase.raw)
+			}
 		})
 	}
+}
+
+func TestMapKey(t *testing.T) {
+	parsed, err := New().Parse([]byte(`foo: test
+bar: test2
+`))
+	assert.NoError(t, err)
+	n, ok := parsed.MapKey("bar")
+	assert.Equals(t, ok, true)
+	assert.Equals(t, n.Raw(), "test2")
+
+	_, ok = parsed.MapKey("nonexistent")
+	assert.Equals(t, ok, false)
+}
+
+func TestMapKeys(t *testing.T) {
+	parsed, err := New().Parse([]byte(`foo: test
+bar: test2
+`))
+	assert.NoError(t, err)
+	assert.Equals(t, parsed.MapKeys(), []string{"foo", "bar"})
 }

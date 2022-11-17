@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"go.flow.arcalot.io/engine/internal/deploy/deployer"
+	"go.arcalot.io/log"
+	"go.flow.arcalot.io/deployer"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
@@ -27,7 +28,7 @@ func (t testNewFactory) ConfigurationSchema() schema.Object {
 	)
 }
 
-func (t testNewFactory) Create(_ any) (deployer.Connector, error) {
+func (t testNewFactory) Create(_ any, _ log.Logger) (deployer.Connector, error) {
 	return &testConnector{}, nil
 }
 
