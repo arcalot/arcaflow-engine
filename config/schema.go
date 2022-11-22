@@ -1,13 +1,14 @@
 package config
 
 import (
+	"regexp"
+
 	log "go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/internal/util"
 	"go.flow.arcalot.io/pluginsdk/schema"
-	"regexp"
 )
 
-func getConfigSchema() *schema.TypedScopeSchema[*Config] { //nolint:funlen
+func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 	return schema.NewTypedScopeSchema[*Config](
 		schema.NewStructMappedObjectSchema[*Config](
 			"Config",

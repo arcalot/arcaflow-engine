@@ -2,7 +2,6 @@ package engine
 
 import (
 	log "go.arcalot.io/log/v2"
-	"go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
 )
 
@@ -10,12 +9,20 @@ import (
 // providing deployment plugins.
 func New(
 	config *config.Config,
-	deployerRegistry registry.Registry,
 ) (WorkflowEngine, error) {
 	logger := log.New(config.Log)
+	stepRegistry, err := NewDefaultStepRegistry(
+		logger,
+		DefaultDeployerRegistry,
+		config.LocalDeployer,
+	)
+	if err != nil {
+		return nil, err
+	}
 	return &workflowEngine{
 		logger:           logger,
 		config:           config,
-		deployerRegistry: deployerRegistry,
+		stepRegistry:     stepRegistry,
+		deployerRegistry: DefaultDeployerRegistry,
 	}, nil
 }

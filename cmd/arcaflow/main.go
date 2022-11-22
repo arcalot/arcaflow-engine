@@ -1,20 +1,21 @@
+// Package main provides the main entrypoint for Arcaflow.
 package main
 
 import (
 	"context"
 	"flag"
 	"fmt"
-	"go.arcalot.io/log/v2"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"go.arcalot.io/log/v2"
 
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
 	"gopkg.in/yaml.v3"
 )
 
-//nolint:funlen
 func main() {
 	tempLogger := log.New(log.Config{
 		Level:       log.LevelInfo,
@@ -102,7 +103,7 @@ Options:
 		os.Exit(1)
 	}
 
-	flow, err := engine.New(cfg, engine.DefaultDeployerRegistry)
+	flow, err := engine.New(cfg)
 	if err != nil {
 		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 		flag.Usage()

@@ -93,9 +93,9 @@ func (n node) Raw() any {
 	case TypeIDString:
 		return n.value
 	case TypeIDMap:
-		result := make(map[any]any, len(n.contents)/2)
+		result := make(map[string]any, len(n.contents)/2)
 		for i := 0; i < len(n.contents); i += 2 {
-			key := n.contents[i].Raw()
+			key := n.contents[i].Raw().(string)
 			value := n.contents[i+1].Raw()
 			result[key] = value
 		}
