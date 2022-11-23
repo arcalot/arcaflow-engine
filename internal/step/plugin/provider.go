@@ -31,7 +31,7 @@ func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerCon
 	}, nil
 }
 
-func (p pluginProvider) Kind() string {
+func (p *pluginProvider) Kind() string {
 	return "plugin"
 }
 
@@ -51,14 +51,20 @@ type pluginProvider struct {
 	logger           log.Logger
 }
 
+// StageID is the constant that holds valid plugin stage IDs.
 type StageID string
 
 const (
-	StageIDDeploy       StageID = "deploy"
+	// StageIDDeploy is the stage when the plugin container gets deployd.
+	StageIDDeploy StageID = "deploy"
+	// StageIDDeployFailed is the stage after a plugin container deployment failed.
 	StageIDDeployFailed StageID = "deploy_failed"
-	StageIDRunning      StageID = "running"
-	StageIDFinished     StageID = "finished"
-	StageIDCrashed      StageID = "crashed"
+	// StageIDRunning is a stage that indicates that a plugin is now working.
+	StageIDRunning StageID = "running"
+	// StageIDFinished is a stage that indicates that the plugin has completed working successfully.
+	StageIDFinished StageID = "finished"
+	// StageIDCrashed is a stage that indicates that the plugin has quit unexpectedly.
+	StageIDCrashed StageID = "crashed"
 )
 
 var deployingLifecycleStage = step.LifecycleStage{
@@ -91,7 +97,7 @@ var crashedLifecycleStage = step.LifecycleStage{
 	FinishedKeyword: "crashed",
 }
 
-func (p pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
+func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	return step.Lifecycle[step.LifecycleStage]{
 		InitialStage: string(StageIDDeploy),
 		Stages: []step.LifecycleStage{
@@ -104,7 +110,7 @@ func (p pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	}
 }
 
-func (p pluginProvider) PreLoadSchema() *schema.TypedObjectSchema[SchemaInput] {
+func (p *pluginProvider) PreLoadSchema() *schema.TypedObjectSchema[SchemaInput] {
 	return schema.NewTypedObject[SchemaInput](
 		"PluginProviderSchemaInput",
 		map[string]*schema.PropertySchema{
@@ -126,7 +132,7 @@ func (p pluginProvider) PreLoadSchema() *schema.TypedObjectSchema[SchemaInput] {
 	)
 }
 
-func (p pluginProvider) LoadSchema(input SchemaInput) (step.RunnableStep[RunInput], error) {
+func (p *pluginProvider) LoadSchema(input SchemaInput) (step.RunnableStep[RunInput], error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	plugin, err := p.localDeployer.Deploy(ctx, input.Plugin)
@@ -162,7 +168,7 @@ type runnableStep struct {
 	schemas          schema.Schema[schema.Step]
 }
 
-func (r runnableStep) RunSchema() *schema.TypedObjectSchema[RunInput] {
+func (r *runnableStep) RunSchema() *schema.TypedObjectSchema[RunInput] {
 	return schema.NewTypedObject[RunInput](
 		"PluginProviderRunInput",
 		map[string]*schema.PropertySchema{
@@ -256,7 +262,7 @@ type runningStep struct {
 }
 
 //nolint:funlen
-func (r runningStep) Lifecycle() step.Lifecycle[step.LifecycleStageWithSchema] {
+func (r *runningStep) Lifecycle() step.Lifecycle[step.LifecycleStageWithSchema] {
 	return step.Lifecycle[step.LifecycleStageWithSchema]{
 		InitialStage: "deploying",
 		Stages: []step.LifecycleStageWithSchema{
@@ -333,7 +339,7 @@ func (r runningStep) Lifecycle() step.Lifecycle[step.LifecycleStageWithSchema] {
 	}
 }
 
-func (r runningStep) ProvideStageInput(stage string, input any) error {
+func (r *runningStep) ProvideStageInput(stage string, input any) error {
 	r.lock.Lock()
 
 	switch stage {
@@ -369,19 +375,19 @@ func (r runningStep) ProvideStageInput(stage string, input any) error {
 	}
 }
 
-func (r runningStep) CurrentStage() string {
+func (r *runningStep) CurrentStage() string {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	return string(r.currentStage)
 }
 
-func (r runningStep) Close() error {
+func (r *runningStep) Close() error {
 	r.cancel()
 	<-r.done
 	return nil
 }
 
-func (r runningStep) run() {
+func (r *runningStep) run() {
 	defer close(r.done)
 	container, err := r.deployStage()
 	if err != nil {
@@ -398,7 +404,7 @@ func (r runningStep) run() {
 	}
 }
 
-func (r runningStep) deployStage() (deployer.Plugin, error) {
+func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	var deployerConfig any
 	select {
 	case deployerConfig = <-r.deployInput:
@@ -417,7 +423,7 @@ func (r runningStep) deployStage() (deployer.Plugin, error) {
 	return container, nil
 }
 
-func (r runningStep) runStage(container deployer.Plugin) error {
+func (r *runningStep) runStage(container deployer.Plugin) error {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDRunning
@@ -477,7 +483,7 @@ func (r runningStep) runStage(container deployer.Plugin) error {
 	return nil
 }
 
-func (r runningStep) deployFailed(err error) {
+func (r *runningStep) deployFailed(err error) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDDeployFailed
@@ -501,7 +507,7 @@ func (r runningStep) deployFailed(err error) {
 	)
 }
 
-func (r runningStep) runFailed(err error) {
+func (r *runningStep) runFailed(err error) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDCrashed

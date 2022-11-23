@@ -42,7 +42,12 @@ type StageChangeHandler interface {
 
 	// OnStepComplete is called when the step has completed a final stage in its lifecycle and communicates the output.
 	// The previous output may be nil if the previous stage did not declare any outputs.
-	OnStepComplete(step RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any)
+	OnStepComplete(
+		step RunningStep,
+		previousStage string,
+		previousStageOutputID *string,
+		previousStageOutput *any,
+	)
 }
 
 // RunnableStep is a step that already has a schema and can be run.
