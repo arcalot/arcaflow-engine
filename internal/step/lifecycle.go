@@ -71,10 +71,12 @@ type LifecycleStage struct {
 	Fatal bool
 }
 
+// Identifier is a helper function for getting the ID.
 func (l LifecycleStage) Identifier() string {
 	return l.ID
 }
 
+// NextStageIDs is a helper function that returns the next possible stages.
 func (l LifecycleStage) NextStageIDs() []string {
 	return l.NextStages
 }
