@@ -51,39 +51,49 @@ type pluginProvider struct {
 	logger           log.Logger
 }
 
+type StageID string
+
+const (
+	StageIDDeploy       StageID = "deploy"
+	StageIDDeployFailed StageID = "deploy_failed"
+	StageIDRunning      StageID = "running"
+	StageIDFinished     StageID = "finished"
+	StageIDCrashed      StageID = "crashed"
+)
+
 var deployingLifecycleStage = step.LifecycleStage{
 	ID:              "deploying",
 	FinishedKeyword: "deployed",
-	InputKeyword:    "deploy",
+	InputKeyword:    string(StageIDDeploy),
 	NextStages: []string{
 		"running", "deploy_failed",
 	},
 	Fatal: false,
 }
 var deployFailedLifecycleStage = step.LifecycleStage{
-	ID:              "deploy_failed",
+	ID:              string(StageIDDeployFailed),
 	FinishedKeyword: "deploy_failed",
 	Fatal:           true,
 }
 var runningLifecycleStage = step.LifecycleStage{
-	ID:              "running",
+	ID:              string(StageIDRunning),
 	FinishedKeyword: "completed",
 	NextStages: []string{
 		"finished", "crashed",
 	},
 }
 var finishedLifecycleStage = step.LifecycleStage{
-	ID:              "finished",
+	ID:              string(StageIDFinished),
 	FinishedKeyword: "finished",
 }
 var crashedLifecycleStage = step.LifecycleStage{
-	ID:              "crashed",
+	ID:              string(StageIDCrashed),
 	FinishedKeyword: "crashed",
 }
 
 func (p pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	return step.Lifecycle[step.LifecycleStage]{
-		InitialStage: "deploying",
+		InitialStage: string(StageIDDeploy),
 		Stages: []step.LifecycleStage{
 			deployingLifecycleStage,
 			deployFailedLifecycleStage,
@@ -204,21 +214,45 @@ func (r *runnableStep) Start(input RunInput, stageChangeHandler step.StageChange
 		)
 	}
 
-	return &runningStep{
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s := &runningStep{
 		stageChangeHandler: stageChangeHandler,
 		stepSchema:         stepSchema,
 		deployerRegistry:   r.deployerRegistry,
-		stage:              "deploying",
+		currentStage:       StageIDDeploy,
 		lock:               &sync.Mutex{},
-	}, nil
+		ctx:                ctx,
+		cancel:             cancel,
+		done:               make(chan struct{}),
+		deployInput:        make(chan any, 1),
+		runInput:           make(chan any, 1),
+		logger:             r.logger,
+		image:              r.image,
+		step:               *input.Step,
+	}
+
+	go s.run()
+
+	return s, nil
 }
 
 type runningStep struct {
-	deployerRegistry   registry.Registry
-	stepSchema         schema.Step
-	stageChangeHandler step.StageChangeHandler
-	stage              string
-	lock               *sync.Mutex
+	deployerRegistry     registry.Registry
+	stepSchema           schema.Step
+	stageChangeHandler   step.StageChangeHandler
+	lock                 *sync.Mutex
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	done                 chan struct{}
+	deployInput          chan any
+	deployInputAvailable bool
+	runInput             chan any
+	runInputAvailable    bool
+	logger               log.Logger
+	currentStage         StageID
+	image                string
+	step                 string
 }
 
 //nolint:funlen
@@ -300,10 +334,193 @@ func (r runningStep) Lifecycle() step.Lifecycle[step.LifecycleStageWithSchema] {
 }
 
 func (r runningStep) ProvideStageInput(stage string, input any) error {
-	// TODO implement me
-	panic("implement me")
+	r.lock.Lock()
+
+	switch stage {
+	case string(StageIDDeploy):
+		if r.deployInputAvailable {
+			r.lock.Unlock()
+			return fmt.Errorf("deployment information provided more than once")
+		}
+		unserializedDeployerConfig, err := r.deployerRegistry.Schema().Unserialize(input)
+		if err != nil {
+			r.lock.Unlock()
+			return fmt.Errorf("invalid deployment information (%w)", err)
+		}
+		r.deployInputAvailable = true
+		r.lock.Unlock()
+		r.deployInput <- unserializedDeployerConfig
+		return nil
+	case string(StageIDRunning):
+		if r.runInputAvailable {
+			r.lock.Unlock()
+			return fmt.Errorf("input provided more than once")
+		}
+		if _, err := r.stepSchema.Input().Unserialize(input); err != nil {
+			r.lock.Unlock()
+			return err
+		}
+		r.runInputAvailable = true
+		r.lock.Unlock()
+		r.runInput <- input
+		return nil
+	default:
+		return fmt.Errorf("bug: invalid stage: %s", stage)
+	}
 }
 
 func (r runningStep) CurrentStage() string {
-	return r.stage
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return string(r.currentStage)
+}
+
+func (r runningStep) Close() error {
+	r.cancel()
+	<-r.done
+	return nil
+}
+
+func (r runningStep) run() {
+	defer close(r.done)
+	container, err := r.deployStage()
+	if err != nil {
+		r.deployFailed(err)
+		return
+	}
+	defer func() {
+		if err := container.Close(); err != nil {
+			r.logger.Errorf("failed to remove deployed container (%w)", err)
+		}
+	}()
+	if err := r.runStage(container); err != nil {
+		r.runFailed(err)
+	}
+}
+
+func (r runningStep) deployStage() (deployer.Plugin, error) {
+	var deployerConfig any
+	select {
+	case deployerConfig = <-r.deployInput:
+	case <-r.ctx.Done():
+		return nil, fmt.Errorf("step closed before deployment config could be obtained")
+	}
+
+	stepDeployer, err := r.deployerRegistry.Create(deployerConfig, r.logger)
+	if err != nil {
+		return nil, err
+	}
+	container, err := stepDeployer.Deploy(r.ctx, r.image)
+	if err != nil {
+		return nil, err
+	}
+	return container, nil
+}
+
+func (r runningStep) runStage(container deployer.Plugin) error {
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentStage = StageIDRunning
+	r.lock.Unlock()
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(StageIDDeployFailed),
+		r.runInputAvailable,
+	)
+	var runInput any
+	select {
+	case runInput = <-r.runInput:
+	case <-r.ctx.Done():
+		return fmt.Errorf("step closed while waiting for run configuration")
+	}
+	atpClient := atp.NewClientWithLogger(container, r.logger)
+
+	inputSchema, err := atpClient.ReadSchema()
+	if err != nil {
+		return err
+	}
+	steps := inputSchema.Steps()
+	stepSchema, ok := steps[r.step]
+	if !ok {
+		return fmt.Errorf("schema mismatch between local and remote deployed plugin, no stepSchema named %s found in remote", r.step)
+	}
+	if _, err := stepSchema.Input().Unserialize(runInput); err != nil {
+		return fmt.Errorf("schema mismatch between local and remote deployed plugin, unserializing input failed (%w)", err)
+	}
+
+	outputID, outputData, err := atpClient.Execute(r.ctx, r.step, runInput)
+	if err != nil {
+		return err
+	}
+
+	// Execution complete, move to finished stage.
+	r.lock.Lock()
+	previousStage = string(r.currentStage)
+	r.currentStage = StageIDFinished
+	r.lock.Unlock()
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(r.currentStage),
+		false)
+	r.stageChangeHandler.OnStepComplete(
+		r,
+		string(r.currentStage),
+		&outputID,
+		&outputData,
+	)
+	return nil
+}
+
+func (r runningStep) deployFailed(err error) {
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentStage = StageIDDeployFailed
+	r.lock.Unlock()
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(StageIDDeployFailed),
+		false)
+	outputID := "error"
+	output := any(DeployFailed{
+		Error: err.Error(),
+	})
+	r.stageChangeHandler.OnStepComplete(
+		r,
+		string(r.currentStage),
+		&outputID,
+		&output,
+	)
+}
+
+func (r runningStep) runFailed(err error) {
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentStage = StageIDCrashed
+	r.lock.Unlock()
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(r.currentStage),
+		false)
+	outputID := "error"
+	output := any(Crashed{
+		Output: err.Error(),
+	})
+	r.stageChangeHandler.OnStepComplete(
+		r,
+		string(r.currentStage),
+		&outputID,
+		&output,
+	)
 }

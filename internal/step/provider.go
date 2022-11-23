@@ -29,8 +29,20 @@ type StageChangeHandler interface {
 	// the specified output. It indicates which next stage the provider moved to, and if it is waiting for input to
 	// be provided via ProvideStageInput.
 	//
-	// The previous stage may be nil if the callback is called on the first stage the provider enters.
-	OnStageChange(step RunningStep, previousStage *string, previousStageOutput *any, stage string, waitingForInput bool)
+	// The previous stage may be nil if the callback is called on the first stage the provider enters. The output of the
+	// previous stage may also be nil if the stage did not declare any outputs.
+	OnStageChange(
+		step RunningStep,
+		previousStage *string,
+		previousStageOutputID *string,
+		previousStageOutput *any,
+		stage string,
+		waitingForInput bool,
+	)
+
+	// OnStepComplete is called when the step has completed a final stage in its lifecycle and communicates the output.
+	// The previous output may be nil if the previous stage did not declare any outputs.
+	OnStepComplete(step RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any)
 }
 
 // RunnableStep is a step that already has a schema and can be run.
@@ -55,4 +67,6 @@ type RunningStep interface {
 	ProvideStageInput(stage string, input any) error
 	// CurrentStage returns the current stage.
 	CurrentStage() string
+	// Close shuts down the step and cleans up the resources associated with the step.
+	Close() error
 }
