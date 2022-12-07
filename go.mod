@@ -46,6 +46,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	go.flow.arcalot.io/podmandeployer v0.0.0-20221202213048-6fcfec5b3902 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/oauth2 v0.2.0 // indirect
