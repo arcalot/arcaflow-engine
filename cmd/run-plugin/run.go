@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"go.arcalot.io/log"
-	"go.flow.arcalot.io/dockerdeployer"
+	docker "go.flow.arcalot.io/dockerdeployer"
 	"go.flow.arcalot.io/pluginsdk/atp"
 	"gopkg.in/yaml.v3"
 )
