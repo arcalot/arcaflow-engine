@@ -12,6 +12,7 @@ require (
 	go.flow.arcalot.io/expressions v0.0.0-20221115232532-4d7fa005c94b
 	go.flow.arcalot.io/kubernetesdeployer v0.0.0-20221116174546-f56b920e76d3
 	go.flow.arcalot.io/pluginsdk v0.0.0-20221025073845-be663ec22293
+	go.flow.arcalot.io/podmandeployer v0.0.0-20221219194456-db2df44d5e66
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -46,7 +47,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	go.flow.arcalot.io/podmandeployer v0.0.0-20221202213048-6fcfec5b3902 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/oauth2 v0.2.0 // indirect
