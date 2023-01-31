@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v3
         with:
           # Hard-coding version due to this bug: https://github.com/golangci/golangci-lint-action/issues/535
           version: v1.47
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -52,7 +52,7 @@ jobs:
           go tool cover -func /tmp/coverage.out
           echo "::endgroup::"
       - name: Upload test log
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: test-results
@@ -104,7 +104,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and release
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v4
         if: startsWith(github.event.ref, 'refs/tags/')
         with:
           distribution: goreleaser
@@ -112,15 +112,20 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOPROXY: direct
+          GOSUMDB: off
       - name: Build
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v4
         if: ${{ !startsWith(github.event.ref, 'refs/tags/') }}
         with:
           distribution: goreleaser
           version: latest
           args: build --snapshot
+        env:
+          GOPROXY: direct
+          GOSUMDB: off
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: dist
