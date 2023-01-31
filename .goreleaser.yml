@@ -23,9 +23,9 @@ archives:
 dockers:
   - dockerfile: Dockerfile
     image_templates:
-      - ghcr.io/arcalot/arcaflow-engine:{{ .Tag }}
-      - ghcr.io/arcalot/arcaflow-engine:v{{ .Major }}
-      - ghcr.io/arcalot/arcaflow-engine:latest
+      - quay.io/arcalot/arcaflow-engine:{{ .Tag }}
+      - quay.io/arcalot/arcaflow-engine:v{{ .Major }}
+      - quay.io/arcalot/arcaflow-engine:latest
 gomod:
   proxy: true
   env:
