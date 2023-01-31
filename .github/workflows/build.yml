@@ -96,13 +96,13 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: 1.18
-      - name: Login to GitHub Container Registry
+      - name: Login to Quay.io
         uses: docker/login-action@v1
         if: startsWith(github.event.ref, 'refs/tags/')
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
       - name: Build and release
         uses: goreleaser/goreleaser-action@v4
         if: startsWith(github.event.ref, 'refs/tags/')
