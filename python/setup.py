@@ -8,8 +8,7 @@ setup(
         'arcaflow':['bin/arcaflow*']
     },
     description="Arcaflow engine python wrapper",
-    author="Tullio Sebastiani",
-    author_email="tsebasti@redhat.com",
+    author="Arcalot Contributors",
     license="Apache",
     packages=['arcaflow'],
     url="https://arcalot.io/arcaflow/"
