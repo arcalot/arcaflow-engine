@@ -36,8 +36,8 @@ build_windows:
 all: build_unix build_windows
 
 clean:
-	rm -rf dist/*
+	rm -rf ${CURDIR}/dist/*
 	rm -rf ${BIN_PATH}/*
-	rm -rf *egg-info
-	rm -rf build/*
+	rm -rf ${CURDIR}/*egg-info
+	rm -rf ${BUILD_PATH}/*
 
