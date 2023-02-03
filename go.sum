@@ -161,8 +161,8 @@ go.flow.arcalot.io/expressions v0.0.0-20221115232532-4d7fa005c94b h1:YXBg4jugNTq
 go.flow.arcalot.io/expressions v0.0.0-20221115232532-4d7fa005c94b/go.mod h1:FA11tAWKkmXV1fSBkOu0t2X7Uxzg/7ATJyLqd9Ml9ww=
 go.flow.arcalot.io/kubernetesdeployer v0.0.0-20221116174546-f56b920e76d3 h1:HIYsrMFf1HSux3UgK8ciEez/+jQZ3bEGlPLF62P/xWs=
 go.flow.arcalot.io/kubernetesdeployer v0.0.0-20221116174546-f56b920e76d3/go.mod h1:bXvYOCMpo9iRGiSVzAiUSXtSfA3VQOHQwK8dKAyjQdc=
-go.flow.arcalot.io/pluginsdk v0.0.0-20221025073845-be663ec22293 h1:tuCGnU+3L8vZzt3FJKz0q2tX7W2eGvEUzRQzhPM1tgI=
-go.flow.arcalot.io/pluginsdk v0.0.0-20221025073845-be663ec22293/go.mod h1:iblQl4Bx9gteegDXLD4WvU7S4Au0vkK6yKTc9mX00ls=
+go.flow.arcalot.io/pluginsdk v0.0.0-20230202161241-fa865b25b052 h1:vOSOElry3nKzcebckQgF5f7632FhVahbqMdrI8ofulo=
+go.flow.arcalot.io/pluginsdk v0.0.0-20230202161241-fa865b25b052/go.mod h1:iblQl4Bx9gteegDXLD4WvU7S4Au0vkK6yKTc9mX00ls=
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
