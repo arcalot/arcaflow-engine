@@ -22,6 +22,7 @@ build_unix:
 	declare -a unix_archs=("linux_amd64" "linux_arm64" "darwin_amd64" "darwin_arm64") ;\
 	for i in $${unix_archs[@]};\
 	do cp ${ARTIFACTS_PATH}/arcaflow_$${i}*/arcaflow ${BIN_PATH};\
+	chmod +x ${BIN_PATH}/arcaflow;\
 	python3.9 setup.py bdist_wheel --plat-name $${!i};\
 	rm -rf ${BIN_PATH}/*;\
 	rm -rf ${BUILD_PATH}/*;\
