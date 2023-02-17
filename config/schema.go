@@ -4,6 +4,7 @@ import (
 	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/internal/util"
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"regexp"
 )
 
 func getConfigSchema() *schema.TypedScopeSchema[*Config] { //nolint:funlen
@@ -57,6 +58,56 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] { //nolint:funlen
 					nil,
 					nil,
 					schema.PointerTo("{\"type\":\"docker\"}"),
+					nil,
+				),
+				"logged_outputs": schema.NewPropertySchema(
+					schema.NewMapSchema(
+						schema.NewStringSchema(
+							schema.IntPointer(1),
+							schema.IntPointer(255),
+							regexp.MustCompile("^[$@a-zA-Z0-9-_]+$")),
+						schema.NewRefSchema("StepOutputLogConfig", nil),
+						nil,
+						nil,
+					),
+					schema.NewDisplayValue(
+						schema.PointerTo("Logged Outputs"),
+						schema.PointerTo(
+							"Step output types to log. Make sure output log level is equal to or greater than the minimum log value.",
+						),
+						nil,
+					),
+					false,
+					nil,
+					nil,
+					nil,
+					schema.PointerTo("{}"),
+					nil,
+				),
+			},
+		),
+		schema.NewStructMappedObjectSchema[*StepOutputLogConfig](
+			"StepOutputLogConfig",
+			map[string]*schema.PropertySchema{
+				"level": schema.NewPropertySchema(
+					schema.NewStringEnumSchema(map[string]*schema.DisplayValue{
+						string(log.LevelDebug):   {NameValue: schema.PointerTo("Debug")},
+						string(log.LevelInfo):    {NameValue: schema.PointerTo("Informational")},
+						string(log.LevelWarning): {NameValue: schema.PointerTo("Warnings")},
+						string(log.LevelError):   {NameValue: schema.PointerTo("Errors")},
+					}),
+					schema.NewDisplayValue(
+						schema.PointerTo("Log level"),
+						schema.PointerTo(
+							"The level to log matching step outputs. Must be greater than the minimum log level.",
+						),
+						nil,
+					),
+					false,
+					nil,
+					nil,
+					nil,
+					schema.PointerTo(util.JSONEncode(log.LevelInfo)),
 					nil,
 				),
 			},

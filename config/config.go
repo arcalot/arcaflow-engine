@@ -4,6 +4,12 @@ import (
 	"go.arcalot.io/log"
 )
 
+// StepOutputLogConfig is a config value for step output logging
+type StepOutputLogConfig struct {
+	// The log level if output is encountered
+	LogLevel log.Level `json:"level" yaml:"level"`
+}
+
 // Config is the main configuration structure that configures the engine for execution. It is not identical to the
 // workflow being executed.
 type Config struct {
@@ -15,4 +21,6 @@ type Config struct {
 	LocalDeployer any `json:"deployer" yaml:"deployer"`
 	// Log configures logging for workflow runs.
 	Log log.Config `json:"log" yaml:"log"`
+	// StepOutputLogging allows logging of step output
+	LoggedOutputConfigs map[string]*StepOutputLogConfig `json:"logged_outputs" yaml:"logged_outputs"`
 }

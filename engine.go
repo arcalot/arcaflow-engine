@@ -166,10 +166,7 @@ func (w workflowEngine) RunWorkflow(
 		step := <-finishedSteps
 		output := <-finishedOutputs
 		lock.Lock()
-		w.logger.Infof("Step %s has finished with output %s.", step.Item().Item, output.Item().Output)
-		if output.Item().Output == "error" {
-			w.logger.Warningf("Step %s had error output: %s", step.Item().Item, step.Item().Output)
-		}
+		w.logger.Infof("Step \"%s\" has finished with output %s.", step.Item().Item, output.Item().Output)
 		// Remove the step node from the dependency tree.
 		w.logger.Debugf("Removing dependency tree node %s...", step.ID())
 		if err := step.Remove(); err != nil {
@@ -307,6 +304,16 @@ mainloop:
 				outputID, outputData, err := atpClient.Execute(ctx, selectedStep, expandedInput)
 				if err != nil {
 					panic(err)
+				}
+				stepLogConfig := w.config.LoggedOutputConfigs[outputID]
+				if stepLogConfig != nil {
+					w.logger.Writef(
+						stepLogConfig.LogLevel,
+						"Output ID for step \"%s\" is \"%s\".\nOutput data: \"%s\"",
+						item.Item,
+						outputID,
+						outputData,
+					)
 				}
 				lock.Lock()
 				defer lock.Unlock()
