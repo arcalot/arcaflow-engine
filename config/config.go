@@ -4,7 +4,7 @@ import (
 	"go.arcalot.io/log"
 )
 
-// StepOutputLogConfig is a config value for step output logging
+// StepOutputLogConfig is a config value for step output logging.
 type StepOutputLogConfig struct {
 	// The log level if output is encountered
 	LogLevel log.Level `json:"level" yaml:"level"`
