@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - v*
   pull_request:
 jobs:
   golangci-lint:
@@ -12,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v3
         with:
           # Hard-coding version due to this bug: https://github.com/golangci/golangci-lint-action/issues/535
           version: v1.47
@@ -21,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -50,7 +52,7 @@ jobs:
           go tool cover -func /tmp/coverage.out
           echo "::endgroup::"
       - name: Upload test log
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: test-results
@@ -81,6 +83,8 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - golangci-lint
       - test
@@ -94,15 +98,15 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: 1.18
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
+      - name: Login to Quay.io
+        uses: docker/login-action@v2
         if: startsWith(github.event.ref, 'refs/tags/')
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
       - name: Build and release
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v4
         if: startsWith(github.event.ref, 'refs/tags/')
         with:
           distribution: goreleaser
@@ -110,15 +114,76 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOPROXY: direct
+          GOSUMDB: off
       - name: Build
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v4
         if: ${{ !startsWith(github.event.ref, 'refs/tags/') }}
         with:
           distribution: goreleaser
           version: latest
           args: build --snapshot
+        env:
+          GOPROXY: direct
+          GOSUMDB: off
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: dist
+  build_python_wheel:
+    name: build python wheel
+    runs-on: ubuntu-latest
+    needs:
+      - release 
+    steps:
+      - name: version format check
+        if: startsWith(github.event.ref, 'refs/tags/')
+        shell: bash
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          [[  ${VERSION//[[:blank:]]/} =~ ^v[[:digit:]]+\.[[:digit:]]\.[[:digit:]]$ ]] && export OK="[INF] version format accepted" 
+          [[ -z $OK ]] && echo "[ERR] wrong version format: $VERSION" && exit 1
+          echo $OK
+      - name: Check out code
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: binaries
+          path: python/artifacts
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          architecture: 'x64'
+      - name: Grab the License file
+        run: |
+          cp LICENSE python/
+      - name: Fetch python dependencies
+        working-directory: python
+        shell: bash
+        run: |
+          make setup
+      - name: Bump version
+        working-directory: python
+        if: startsWith(github.event.ref, 'refs/tags/')
+        env:
+          VERSION: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          sed -ri "s/^(.+version=')(.+)('.*)/\1${VERSION/v/}\3/g" setup.py
+      - name: Build python wheel
+        working-directory: python
+        run: |
+          make all
+      - name: Push to pypi
+        working-directory: python
+        if: startsWith(github.event.ref, 'refs/tags/')
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{secrets.PYPI_TOKEN}}
+        run: |
+          twine upload dist/*
+
+      
