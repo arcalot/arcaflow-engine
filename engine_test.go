@@ -3,10 +3,10 @@ package engine_test
 import (
 	"context"
 	"errors"
+	log "go.arcalot.io/log/v2"
 	"testing"
 
 	"go.arcalot.io/assert"
-	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
 )

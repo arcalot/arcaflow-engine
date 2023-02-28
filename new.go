@@ -1,9 +1,9 @@
 package engine
 
 import (
-	"go.arcalot.io/log"
+	log "go.arcalot.io/log/v2"
+	"go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
-	"go.flow.arcalot.io/engine/internal/deploy/registry"
 )
 
 // New creates a new workflow engine with the provided configuration. The passed deployerRegistry is responsible for

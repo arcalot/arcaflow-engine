@@ -4,12 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
-
-	"go.arcalot.io/log"
+	log "go.arcalot.io/log/v2"
 	docker "go.flow.arcalot.io/dockerdeployer"
 	"go.flow.arcalot.io/pluginsdk/atp"
 	"gopkg.in/yaml.v3"
+	"os"
 )
 
 //nolint:funlen
