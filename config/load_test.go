@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"go.arcalot.io/log/v2"
 	"testing"
 
 	"go.arcalot.io/lang"
