@@ -1,8 +1,6 @@
 package config
 
-import (
-	"go.arcalot.io/log"
-)
+import log "go.arcalot.io/log/v2"
 
 // StepOutputLogConfig is a config value for step output logging.
 type StepOutputLogConfig struct {

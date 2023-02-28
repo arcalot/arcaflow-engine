@@ -4,11 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go.arcalot.io/log/v2"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
 	"gopkg.in/yaml.v3"

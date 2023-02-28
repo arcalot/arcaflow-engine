@@ -3,14 +3,14 @@ package engine
 import (
 	"context"
 	"fmt"
+	log "go.arcalot.io/log/v2"
 	"strings"
 	"sync"
 
 	"go.arcalot.io/dgraph"
-	"go.arcalot.io/log"
 	"go.flow.arcalot.io/deployer"
+	"go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
-	"go.flow.arcalot.io/engine/internal/deploy/registry"
 	"go.flow.arcalot.io/engine/internal/expand"
 	"go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/workflow"

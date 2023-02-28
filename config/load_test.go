@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"go.arcalot.io/lang"
-	"go.arcalot.io/log"
 	"go.flow.arcalot.io/engine/config"
 	"gopkg.in/yaml.v3"
 )
