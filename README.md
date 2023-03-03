@@ -54,7 +54,7 @@ name: Arca Lot
 If you have a local Docker / Moby setup installed, you can run it immediately:
 
 ```
-arcaflow -input input.yaml
+./arcaflow -input input.yaml
 ```
 
 If you don't have a local Docker setup, you can also create a `config.yaml` with the following structure:
