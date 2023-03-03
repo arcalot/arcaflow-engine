@@ -2,12 +2,16 @@
 
 The Arcaflow Engine allows you to run workflows using container engines, such as Docker or Kubernetes. The plugins must be built with the [Arcaflow SDK](https://arcalot.io/arcaflow/creating-plugins/python/).
 
+## Pre-build binaries
+
+If you want to use our prebuilt binaries, you can find them in the [releases section](https://github.com/arcalot/arcaflow-engine/releases).
+
 ## Building from source
 
 This system requires at least Go 1.18 to run and can be built from source:
 
 ```
-go build cmd/arcaflow/main.go
+go build -o arcaflow cmd/arcaflow/main.go
 ```
 
 This binary can then be used to run Arcaflow workflows.
