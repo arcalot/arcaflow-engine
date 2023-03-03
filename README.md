@@ -2,9 +2,9 @@
 
 The Arcaflow Engine allows you to run workflows using container engines, such as Docker or Kubernetes. The plugins must be built with the [Arcaflow SDK](https://arcalot.io/arcaflow/creating-plugins/python/).
 
-## Pre-build binaries
+## Pre-built binaries
 
-If you want to use our prebuilt binaries, you can find them in the [releases section](https://github.com/arcalot/arcaflow-engine/releases).
+If you want to use our pre-built binaries, you can find them in the [releases section](https://github.com/arcalot/arcaflow-engine/releases).
 
 ## Building from source
 
