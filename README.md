@@ -18,7 +18,7 @@ This binary can then be used to run Arcaflow workflows.
 
 ## Building a simple workflow
 
-The simplest workflow is the example plugin workflow:
+The simplest workflow is the example plugin workflow: (save it to workflow.yaml)
 
 ```yaml
 input:
@@ -45,7 +45,7 @@ output:
 
 As you can see, it has an input, a list of steps, and an output definition. These can be linked together using JSONPath expressions (not all features are supported). The expressions also determine the execution order of plugins.
 
-You can now create an input YAML for this workflow:
+You can now create an input YAML for this workflow: (save it to input.yaml)
 
 ```yaml
 name: Arca Lot
