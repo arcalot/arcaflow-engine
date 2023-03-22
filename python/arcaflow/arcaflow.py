@@ -1,7 +1,7 @@
 import os, sys, subprocess, platform
 from .engineargs import EngineArgs
 
-def run(arg: EngineArgs):
+def run(arg: EngineArgs) -> int:
     args = []
     if arg.config != None:
         if os.path.isfile(arg.config):
@@ -32,8 +32,8 @@ def run(arg: EngineArgs):
     binary_name="arcaflow"
     if is_windows:
         binary_name="arcaflow.exe"
-    sys.exit(subprocess.call([
+    return subprocess.call([
         os.path.join(os.path.dirname(__file__), "bin",binary_name),
         *args
-    ]))
+    ])
 
