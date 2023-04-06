@@ -16,6 +16,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// These variables are filled using ldflags during the build process with Goreleaser.
+// See https://goreleaser.com/cookbooks/using-main.version/
+var (
+	version = "development"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
 	tempLogger := log.New(log.Config{
 		Level:       log.LevelInfo,
@@ -27,7 +35,9 @@ func main() {
 	input := ""
 	dir := "."
 	workflow := "workflow.yaml"
+	printVersion := false
 
+	flag.BoolVar(&printVersion, "version", printVersion, "Print Arcaflow Engine version and exit.")
 	flag.StringVar(
 		&configFile,
 		"config",
@@ -60,6 +70,8 @@ The Arcaflow engine will read the current directory and use it as a context
 for executing the workflow.
 
 Options:
+
+  -version            Print the Arcaflow Engine version and exit.
 
   -config FILENAME    The Arcaflow configuration file to load, if any.
 
@@ -108,6 +120,20 @@ Options:
 		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if printVersion {
+		fmt.Printf(
+			"Arcaflow Engine\n"+
+				"===============\n"+
+				"Version: %s\n"+
+				"Commit: %s\n"+
+				"Date: %s\n"+
+				"Apache 2.0 license\n"+
+				"Copyright (c) Arcalot Contributors",
+			version, commit, date,
+		)
+		return
 	}
 
 	var inputData []byte
