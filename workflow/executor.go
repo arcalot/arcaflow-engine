@@ -575,7 +575,10 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 						return fmt.Errorf("failed to find input node (%w)", err)
 					}
 					if err := inputNode.Connect(currentNode.ID()); err != nil {
-						return fmt.Errorf("failed to connect input to %s (%w)", currentNode.ID(), err)
+						decodedErr := &dgraph.ErrConnectionAlreadyExists{}
+						if !errors.As(err, &decodedErr) {
+							return fmt.Errorf("failed to connect input to %s (%w)", currentNode.ID(), err)
+						}
 					}
 				case "steps":
 					prevNodeID := dependency[1:5].String()
@@ -584,7 +587,10 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 						return fmt.Errorf("failed to find depending node %s (%w)", prevNodeID, err)
 					}
 					if err := prevNode.Connect(currentNode.ID()); err != nil {
-						return fmt.Errorf("failed to connect DAG node (%w)", err)
+						decodedErr := &dgraph.ErrConnectionAlreadyExists{}
+						if !errors.As(err, &decodedErr) {
+							return fmt.Errorf("failed to connect DAG node (%w)", err)
+						}
 					}
 				default:
 					return fmt.Errorf("bug: invalid dependency kind: %s", dependencyKind)
