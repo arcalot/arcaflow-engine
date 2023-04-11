@@ -43,18 +43,18 @@ func TestSharedInput(t *testing.T) {
 
 	executor, err := workflow.NewExecutor(logger, stepRegistry)
 	if err != nil {
-		panic(err)
+		t.Fatalf("Failed to create Executor, %e", err)
 	}
 
 	yamlConverter := workflow.NewYAMLConverter(stepRegistry)
 	decodedWorkflow, err := yamlConverter.FromYAML([]byte(sharedInputWorkflowYAML))
 	if err != nil {
-		panic(err)
+		t.Fatalf("Failed to load workflow from YAML, %e", err)
 	}
 
 	preparedWorkflow, err := executor.Prepare(decodedWorkflow, nil)
 	if err != nil {
-		panic(err)
+		t.Fatalf("Failed to prepare workflow, %e", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -63,7 +63,7 @@ func TestSharedInput(t *testing.T) {
 		"name": "Arca Lot",
 	})
 	if err != nil {
-		panic(err)
+		t.Fatalf("Error while executing workflow, %e", err)
 	}
 	fmt.Println(outputData.(map[any]any)["message"])
 	// Output: Hello Arca Lot!
