@@ -8,6 +8,7 @@ import (
 	log "go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/workflow"
+	"go.flow.arcalot.io/pluginsdk/schema"
 
 	"go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
@@ -16,18 +17,42 @@ import (
 
 // WorkflowEngine is responsible for executing workflows and returning their result.
 type WorkflowEngine interface {
-	// RunWorkflow executes a workflow from the passed workflow files as parameters. One of the files must be designated
-	// as a workflow file, which will be parsed from the YAML format. Additional files may be passed so that the
-	// workflow may access them (e.g. a kubeconfig file). The workflow input is passed as a separate file.
+	// RunWorkflow is a simplified shortcut to parse and immediately run a workflow.
 	RunWorkflow(
 		ctx context.Context,
 		input []byte,
-		files map[string][]byte,
+		workflowContext map[string][]byte,
+		workflowFileName string,
+	) (outputID string, outputData any, outputError bool, err error)
+
+	// Parse ingests a workflow context as a map of files to their contents and a workflow file name and
+	// parses the data into an executable workflow.
+	Parse(
+		workflowContext map[string][]byte,
 		workflowFileName string,
 	) (
-		outputData any,
+		workflow Workflow,
 		err error,
 	)
+}
+
+// Workflow is a runnable, queryable workflow. You can execute it, or query it for schema information.
+type Workflow interface {
+	// Run executes the workflow with the passed, YAML-formatted input data.
+	Run(
+		ctx context.Context,
+		input []byte,
+	) (
+		outputID string,
+		outputData any,
+		outputIsError bool,
+		err error,
+	)
+
+	// InputSchema returns the requested input schema for the workflow.
+	InputSchema() schema.Scope
+	// Outputs returns the list of possible outputs and their schema for the workflow.
+	Outputs() map[string]schema.StepOutput
 }
 
 type workflowEngine struct {
@@ -37,16 +62,18 @@ type workflowEngine struct {
 	config           *config.Config
 }
 
-func (w workflowEngine) RunWorkflow(
-	ctx context.Context,
-	// The input file is a YAML data structure already read from a file (or stdin)
-	input []byte,
-	// The files are a map of files and their contents read from the workflow directory. This allows
-	// the workflow to reference other files within the workflow directory.
+func (w workflowEngine) RunWorkflow(ctx context.Context, input []byte, workflowContext map[string][]byte, workflowFileName string) (outputID string, outputData any, outputError bool, err error) {
+	wf, err := w.Parse(workflowContext, workflowFileName)
+	if err != nil {
+		return "", nil, true, err
+	}
+	return wf.Run(ctx, input)
+}
+
+func (w workflowEngine) Parse(
 	files map[string][]byte,
-	// The workflow file name specifies which file is the actual workflow within the workflow directory.
 	workflowFileName string,
-) (outputData any, err error) {
+) (Workflow, error) {
 	if workflowFileName == "" {
 		workflowFileName = "workflow.yaml"
 	}
@@ -71,10 +98,41 @@ func (w workflowEngine) RunWorkflow(
 		return nil, err
 	}
 
+	return &engineWorkflow{
+		workflow: preparedWorkflow,
+	}, nil
+}
+
+type engineWorkflow struct {
+	workflow workflow.ExecutableWorkflow
+}
+
+func (e engineWorkflow) Run(ctx context.Context, input []byte) (outputID string, outputData any, outputIsError bool, err error) {
 	decodedInput, err := yaml.New().Parse(input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to YAML decode input (%w)", err)
+		return "", nil, true, fmt.Errorf("failed to YAML decode input (%w)", err)
 	}
 
-	return preparedWorkflow.Execute(ctx, decodedInput.Raw())
+	outputID, outputData, err = e.workflow.Execute(ctx, decodedInput.Raw())
+	if err != nil {
+		return "", nil, true, err
+	}
+	outputSchema, ok := e.workflow.OutputSchema()[outputID]
+	if !ok {
+		return "", nil, true, fmt.Errorf("bug: the output schema has no output named '%s'", outputID)
+	}
+	return outputID, outputData, outputSchema.Error(), nil
+}
+
+func (e engineWorkflow) InputSchema() schema.Scope {
+	return e.workflow.Input()
+}
+
+func (e engineWorkflow) Outputs() map[string]schema.StepOutput {
+	outputSchema := e.workflow.OutputSchema()
+	outputs := make(map[string]schema.StepOutput, len(outputSchema))
+	for outputID, output := range outputSchema {
+		outputs[outputID] = output
+	}
+	return outputs
 }

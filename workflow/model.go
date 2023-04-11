@@ -17,8 +17,17 @@ type Workflow struct {
 	// Steps contains the possible steps in this workflow. The data set must contain a valid step structure where the
 	// inputs to stages may consist only of primitive types and expressions.
 	Steps map[string]any `json:"steps"`
-	// Output creates an actual output data structure (not a schema), which can contain expressions to construct the
-	// output.
+	// Outputs lets you define one or more outputs. The outputs should be keyed by their output ID (e.g. "success") and
+	// the value should be the data you wish to output. The data may contain expressions to construct the output.
+	Outputs map[string]any `json:"outputs"`
+	// OutputSchema is an optional override for the automatically inferred output schema from the Outputs data and
+	// expressions. The keys must be the output IDs from Outputs and the values must be a StepOutputSchema object as
+	// per the Arcaflow schema.
+	OutputSchema map[string]any `json:"outputSchema"`
+	// Output is the legay way to define a single output. It conflicts the "outputs" field and if filled, will create a
+	// "success" output.
+	//
+	// Deprecated: use Outputs instead.
 	Output any `json:"output"`
 }
 
@@ -69,13 +78,59 @@ func getSchema() *schema.TypedScopeSchema[*Workflow] {
 					newAnySchemaWithExpressions(),
 					schema.NewDisplayValue(
 						schema.PointerTo("Output"),
-						schema.PointerTo("Output data structure with expressions to pull in output data from steps."),
+						schema.PointerTo("Create a single output data structure for this workflow using expressions. This option is deprecated, use 'outputs' instead to create multiple possible outputs."),
 						nil,
 					),
-					true,
+					false,
+					nil,
+					[]string{"outputs"},
+					[]string{"outputs", "outputSchema"},
 					nil,
 					nil,
+				),
+				"outputs": schema.NewPropertySchema(
+					schema.NewMapSchema(
+						schema.NewStringSchema(
+							schema.PointerTo[int64](1),
+							nil,
+							regexp.MustCompile("^[$@a-zA-Z0-9-_]+$"),
+						),
+						newAnySchemaWithExpressions(),
+						schema.PointerTo[int64](1),
+						nil,
+					),
+					schema.NewDisplayValue(
+						schema.PointerTo("Outputs"),
+						schema.PointerTo("Output data, possibly containing expressions."),
+						nil,
+					),
+					false,
+					[]string{"outputSchema"},
+					[]string{"output"},
+					[]string{"output"},
 					nil,
+					nil,
+				),
+				"outputSchema": schema.NewPropertySchema(
+					schema.NewMapSchema(
+						schema.NewStringSchema(
+							schema.PointerTo[int64](1),
+							nil,
+							regexp.MustCompile("^[$@a-zA-Z0-9-_]+$"),
+						),
+						schema.DescribeStepOutput(),
+						schema.PointerTo[int64](1),
+						nil,
+					),
+					schema.NewDisplayValue(
+						schema.PointerTo("Output schema"),
+						schema.PointerTo("Explicitly override the schema of the outputs. The schema for outputs that are not explicitly specified here will be inferred."),
+						nil,
+					),
+					false,
+					nil,
+					nil,
+					[]string{"output"},
 					nil,
 					nil,
 				),
@@ -108,10 +163,12 @@ type DAGItem struct {
 	StageID string
 	// OutputID is the ID of the output of the step stage.
 	OutputID string
-	// Input is the processed input containing expressions.
-	Input any
-	// InputSchema is the corresponding schema for the Input once the expressions are resolved.
-	InputSchema schema.Type
+	// OutputSchema contains the output-specific schema for this item.
+	OutputSchema schema.StepOutput
+	// Data is the processed input containing expressions.
+	Data any
+	// DataSchema is the corresponding schema for the Data once the expressions are resolved.
+	DataSchema schema.Type
 	// Provider is the runnable step from the step provider that can be executed.
 	Provider step.RunnableStep
 }
@@ -122,7 +179,7 @@ func (d DAGItem) String() string {
 	case DAGItemKindInput:
 		return "input"
 	case DAGItemKindOutput:
-		return "output"
+		return fmt.Sprintf("outputs.%s", d.OutputID)
 	default:
 		if d.OutputID != "" {
 			return GetOutputNodeID(d.StepID, d.StageID, d.OutputID)

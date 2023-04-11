@@ -26,8 +26,9 @@ steps:
   say_hi:
     kind: dummy
     name: !expr $.input.name
-output:
-  message: !expr $.steps.say_hi.greet.success.message
+outputs:
+  success:
+    message: !expr $.steps.say_hi.greet.success.message
 `
 
 func ExampleExecutor() {
@@ -54,12 +55,12 @@ func ExampleExecutor() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	outputData, err := preparedWorkflow.Execute(ctx, map[string]any{
+	outputID, outputData, err := preparedWorkflow.Execute(ctx, map[string]any{
 		"name": "Arca Lot",
 	})
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(outputData.(map[any]any)["message"])
-	// Output: Hello Arca Lot!
+	fmt.Printf("%s: %s\n", outputID, outputData.(map[any]any)["message"])
+	// Output: success: Hello Arca Lot!
 }

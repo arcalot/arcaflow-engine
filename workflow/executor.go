@@ -9,6 +9,7 @@ import (
 
 	"go.arcalot.io/dgraph"
 	"go.arcalot.io/log/v2"
+	"go.flow.arcalot.io/engine/internal/infer"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/expressions"
 	"go.flow.arcalot.io/pluginsdk/schema"
@@ -62,7 +63,10 @@ type ExecutableWorkflow interface {
 	Execute(
 		ctx context.Context,
 		input any,
-	) (outputData any, err error)
+	) (outputID string, outputData any, err error)
+
+	// OutputSchema returns the schema for the possible outputs of this workflow.
+	OutputSchema() map[string]*schema.StepOutputSchema
 }
 
 type executor struct {
@@ -119,19 +123,47 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	}
 
 	// Stage 5: The output data model
-	outputNode, err := dag.AddNode("output", &DAGItem{
-		Kind:        DAGItemKindOutput,
-		Input:       workflow.Output,
-		InputSchema: newAnySchemaWithExpressions(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to add output node to DAG (%w)", err)
+	//goland:noinspection GoDeprecation
+	if workflow.Output != nil {
+		if len(workflow.Outputs) > 0 {
+			return nil, fmt.Errorf("both 'output' and 'outputs' is provided, please provide one")
+		}
+		//goland:noinspection GoDeprecation
+		workflow.Outputs = map[string]any{
+			"success": workflow.Output,
+		}
 	}
-	if workflow.Output == nil {
+	if len(workflow.Outputs) == 0 {
 		return nil, fmt.Errorf("no output provided for workflow")
 	}
-	if err := e.prepareDependencies(workflowContext, workflow.Output, outputNode, internalDataModel, dag); err != nil {
-		return nil, fmt.Errorf("failed to build dependency tree for output (%w)", err)
+	outputsSchema := map[string]*schema.StepOutputSchema{}
+	for outputID, outputData := range workflow.Outputs {
+		var outputSchema *schema.StepOutputSchema
+		if workflow.OutputSchema != nil && workflow.OutputSchema[outputID] != nil {
+			outputSchemaData, err := schema.DescribeStepOutput().Unserialize(workflow.OutputSchema[outputID])
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode workflow output schema %s (%w)", outputID, err)
+			}
+			outputSchema = outputSchemaData.(*schema.StepOutputSchema)
+		}
+		outputSchema, err = infer.OutputSchema(outputData, outputID, outputSchema, internalDataModel, workflowContext)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read/infer workflow output schema for output %s (%w)", outputID, err)
+		}
+		outputsSchema[outputID] = outputSchema
+		output := &DAGItem{
+			Kind:         DAGItemKindOutput,
+			OutputID:     outputID,
+			Data:         outputData,
+			OutputSchema: outputSchema,
+		}
+		outputNode, err := dag.AddNode(output.String(), output)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add workflow output node %s to DAG (%w)", outputID, err)
+		}
+		if err := e.prepareDependencies(workflowContext, outputData, outputNode, internalDataModel, dag); err != nil {
+			return nil, fmt.Errorf("failed to build dependency tree for output (%w)", err)
+		}
 	}
 
 	// We don't like cycles as we can't execute them properly. Maybe we can improve this later to actually output the
@@ -150,6 +182,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 		internalDataModel: internalDataModel,
 		runnableSteps:     runnableSteps,
 		lifecycles:        stepLifecycles,
+		outputSchema:      outputsSchema,
 	}, nil
 }
 
@@ -277,9 +310,9 @@ func (e *executor) connectStepDependencies(
 					return fmt.Errorf("failed to build dependency tree for %s (%w)", currentStageNode.ID(), err)
 				}
 			}
-			currentStageNode.Item().Input = stageData
+			currentStageNode.Item().Data = stageData
 			if len(stage.InputSchema) > 0 {
-				currentStageNode.Item().InputSchema = schema.NewObjectSchema(
+				currentStageNode.Item().DataSchema = schema.NewObjectSchema(
 					"input",
 					stage.InputSchema,
 				)
