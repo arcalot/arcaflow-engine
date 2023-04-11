@@ -480,15 +480,21 @@ func (r *runningStep) CurrentStage() string {
 
 func (r *runningStep) Close() error {
 	r.cancel()
-	if err := r.container.Close(); err != nil {
-		return fmt.Errorf("failed to stop container (%w)", err)
+	r.lock.Lock()
+	if r.container != nil {
+		if err := r.container.Close(); err != nil {
+			return fmt.Errorf("failed to stop container (%w)", err)
+		}
 	}
+	r.container = nil
+	r.lock.Unlock()
 	<-r.done
 	return nil
 }
 
 func (r *runningStep) run() {
 	defer func() {
+		r.cancel()
 		close(r.done)
 	}()
 	container, err := r.deployStage()
@@ -496,7 +502,18 @@ func (r *runningStep) run() {
 		r.deployFailed(err)
 		return
 	}
-	r.container = container
+	r.lock.Lock()
+	select {
+	case <-r.ctx.Done():
+		if err := container.Close(); err != nil {
+			r.logger.Warningf("failed to remove deployed container for step %s", r.step)
+		}
+		r.lock.Unlock()
+		return
+	default:
+		r.container = container
+	}
+	r.lock.Unlock()
 	if err := r.runStage(container); err != nil {
 		r.runFailed(err)
 	}
