@@ -430,11 +430,13 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		} else {
 			r.useLocalDeployer = true
 		}
+		// Make sure we transition the state before unlocking so there are no race conditions.
 		r.deployInputAvailable = true
 		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
 			r.state = step.RunningStepStateRunning
 		}
 		r.lock.Unlock()
+		// Feed the deploy step its input.
 		r.deployInput <- unserializedDeployerConfig
 		return nil
 	case string(StageIDRunning):
@@ -450,12 +452,13 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			r.lock.Unlock()
 			return err
 		}
+		// Make sure we transition the state before unlocking so there are no race conditions.
 		r.runInputAvailable = true
 		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDRunning {
 			r.state = step.RunningStepStateRunning
 		}
-
 		r.lock.Unlock()
+		// Feed the run step its input.
 		r.runInput <- input["input"]
 		return nil
 	case string(StageIDDeployFailed):

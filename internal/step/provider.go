@@ -88,6 +88,8 @@ const (
 // RunningStep is the representation of a step that is currently executing.
 type RunningStep interface {
 	// ProvideStageInput gives you the opportunity to provide input for a stage so that it may continue.
+	// The ProvideStageInput must ensure that it only returns once the provider has transitioned to the next
+	// stage based on the input, otherwise race conditions may happen.
 	ProvideStageInput(stage string, input map[string]any) error
 	// CurrentStage returns the stage the step provider is currently in, no matter if it is finished or not.
 	CurrentStage() string
