@@ -36,7 +36,7 @@ output:
 // and one step-output going into two step-outputs.
 // These cause duplicate connections to be made, which need to be handled properly.
 func TestSharedInput(t *testing.T) {
-	logger := log.NewLogger(log.LevelDebug, log.NewGoLogWriter())
+	logger := log.NewLogger(log.LevelDebug, log.NewTestWriter(t))
 	stepRegistry := lang.Must2(registry.New(
 		dummy.New(),
 	))
