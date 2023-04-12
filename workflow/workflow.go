@@ -134,7 +134,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 		e.logger.Debugf("Output complete.")
 		return outputData, nil
 	case <-ctx.Done():
-		e.logger.Debugf("Workflow execution aborted.")
+		e.logger.Debugf("Workflow execution aborted. %s", l.lastError)
 		if l.lastError != nil {
 			return nil, l.lastError
 		}
@@ -211,8 +211,9 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 	defer l.lock.Unlock()
 
 	nodesWithoutInbound := l.dag.ListNodesWithoutInboundConnections()
-	l.logger.Debugf("Currently %d DAG nodes have no inbound connection.", len(nodesWithoutInbound))
+	l.logger.Debugf("Currently %d DAG nodes have no inbound connection. Now processing them.", len(nodesWithoutInbound))
 	for nodeID, node := range nodesWithoutInbound {
+		l.logger.Debugf("Processing step node %s", nodeID)
 		if _, ok := l.inputsNotified[nodeID]; ok {
 			continue
 		}
@@ -284,7 +285,30 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			l.logger.Debugf("Step %s is currently starting.", stepID)
 		case step.RunningStepStateWaitingForInput:
 			stats.waiting++
-			l.logger.Debugf("Step %s is currently waiting for input.", stepID)
+
+			connectionsMsg := ""
+			dagNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, runningStep.CurrentStage()))
+			if err != nil {
+				l.logger.Warningf("Failed to get DAG node for the debug message, %s", err)
+			} else if dagNode == nil {
+				l.logger.Warningf("Failed to get DAG node for the debug message. Returned nil", err)
+			} else {
+				inboundConnections, err := dagNode.ListInboundConnections()
+				if err != nil {
+					l.logger.Warningf("Error while listing inbound connections.", err)
+				}
+
+				i := 0
+				for k := range inboundConnections {
+					if i > 0 {
+						connectionsMsg += ", "
+					}
+					connectionsMsg += k
+					i++
+				}
+			}
+
+			l.logger.Debugf("Step %s, stage %s, is currently waiting for input from '%s'.", stepID, runningStep.CurrentStage(), connectionsMsg)
 		case step.RunningStepStateRunning:
 			stats.running++
 			l.logger.Debugf("Step %s is currently running.", stepID)
@@ -306,7 +330,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		for i := range inbound {
 			unmetDependencies = append(unmetDependencies, i)
 		}
-		l.logger.Errorf("No steps running, no more executable steps, cannot construct output (has the following unment dependencies: %s)", strings.Join(unmetDependencies, ", "))
+		l.logger.Errorf("No steps running, no more executable steps, cannot construct output (has the following unmet dependencies: %s)", strings.Join(unmetDependencies, ", "))
 		l.lastError = fmt.Errorf("no steps running, no more executable steps, cannot construct output (has the following unment dependencies: %s)", strings.Join(unmetDependencies, ", "))
 		l.cancel()
 	}
