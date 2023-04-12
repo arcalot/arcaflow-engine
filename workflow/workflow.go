@@ -91,7 +91,11 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput)
 			},
 			onStepComplete: func(step step.RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any) {
-				e.logger.Debugf("Step %s complete...", stepID)
+				if previousStageOutputID != nil {
+					e.logger.Debugf("Step %s completed with stage %s output %s...", stepID, previousStage, previousStageOutputID)
+				} else {
+					e.logger.Debugf("Step %s completed with stage %s...", stepID, previousStage)
+				}
 				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput)
 			},
 		}
