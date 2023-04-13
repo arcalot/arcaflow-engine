@@ -300,11 +300,12 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 
 			connectionsMsg := ""
 			dagNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, runningStep.CurrentStage()))
-			if err != nil {
+			switch {
+			case err != nil:
 				l.logger.Warningf("Failed to get DAG node for the debug message (%w)", err)
-			} else if dagNode == nil {
+			case dagNode == nil:
 				l.logger.Warningf("Failed to get DAG node for the debug message. Returned nil", err)
-			} else {
+			default:
 				inboundConnections, err := dagNode.ListInboundConnections()
 				if err != nil {
 					l.logger.Warningf("Error while listing inbound connections. (%w)", err)
@@ -319,7 +320,6 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 					i++
 				}
 			}
-
 			l.logger.Debugf("Step %s, stage %s, is currently waiting for input from '%s'.", stepID, runningStep.CurrentStage(), connectionsMsg)
 		case step.RunningStepStateRunning:
 			counters.running++
