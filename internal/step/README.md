@@ -103,3 +103,6 @@ Finally, you will need to implement the running step construct. It has the follo
 - `ProvideStageInput()` gives you the opportunity to provide input for a stage so that it may continue.
 - `CurrentStage()` returns the stage the step provider is currently in, no matter if it is finished or not. 
 - `Close()` shuts down the step and cleans up the resources associated with the step.
+## Important things to note
+
+The plugin provider is called from multiple goroutines and must be thread-safe. The stage and state variables MUST be consistent at all times and the provider MUST advance through the states properly (e.g. it must not skip over the "running" state.)

@@ -284,7 +284,6 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 					),
 				},
-				Outputs: stepSchema.Outputs(),
 			},
 			{
 				LifecycleStage: finishedLifecycleStage,
@@ -457,17 +456,23 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDRunning {
 			r.state = step.RunningStepStateRunning
 		}
+		// Unlock before passing the data over the channel to prevent a deadlock.
+		// The other end of the channel needs to be unlocked to read the data.
 		r.lock.Unlock()
-		// Feed the run step its input.
+		// Feed the run step its input over the channel.
 		r.runInput <- input["input"]
 		return nil
 	case string(StageIDDeployFailed):
+		r.lock.Unlock()
 		return nil
 	case string(StageIDCrashed):
+		r.lock.Unlock()
 		return nil
 	case string(StageIDOutput):
+		r.lock.Unlock()
 		return nil
 	default:
+		r.lock.Unlock()
 		return fmt.Errorf("bug: invalid stage: %s", stage)
 	}
 }
@@ -610,9 +615,13 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 
 	// Execution complete, move to finished stage.
 	r.lock.Lock()
+	// Be careful that everything here is set correctly.
+	// Else it will cause undesired behavior.
 	previousStage = string(r.currentStage)
 	r.currentStage = StageIDOutput
-	r.state = step.RunningStepStateFinished
+	// First running, then state change, then finished.
+	// This is so it properly steps through all the stages it needs to.
+	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
 	r.stageChangeHandler.OnStageChange(
 		r,
@@ -621,12 +630,16 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		nil,
 		string(r.currentStage),
 		false)
+	r.lock.Lock()
+	r.state = step.RunningStepStateFinished
+	r.lock.Unlock()
 	r.stageChangeHandler.OnStepComplete(
 		r,
 		string(r.currentStage),
 		&outputID,
 		&outputData,
 	)
+
 	return nil
 }
 
@@ -634,7 +647,11 @@ func (r *runningStep) deployFailed(err error) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDDeployFailed
+	// Don't forget to update this, or else it will behave very oddly.
+	// First running, then finished. You can't skip states.
+	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
+	r.logger.Warningf("Plugin %s deploy failed. %v", r.step, err)
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -643,6 +660,12 @@ func (r *runningStep) deployFailed(err error) {
 		string(StageIDDeployFailed),
 		false,
 	)
+
+	// Now it's done.
+	r.lock.Lock()
+	r.state = step.RunningStepStateFinished
+	r.lock.Unlock()
+
 	outputID := "error"
 	output := any(DeployFailed{
 		Error: err.Error(),
@@ -659,7 +682,11 @@ func (r *runningStep) runFailed(err error) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDCrashed
+	// Don't forget to update this, or else it will behave very oddly.
+	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
+	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
+
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -667,6 +694,12 @@ func (r *runningStep) runFailed(err error) {
 		nil,
 		string(r.currentStage),
 		false)
+
+	// Now it's done.
+	r.lock.Lock()
+	r.state = step.RunningStepStateFinished
+	r.lock.Unlock()
+
 	outputID := "error"
 	output := any(Crashed{
 		Output: err.Error(),
