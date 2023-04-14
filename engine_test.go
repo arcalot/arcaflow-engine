@@ -3,11 +3,13 @@ package engine_test
 import (
 	"context"
 	"errors"
-	log "go.arcalot.io/log/v2"
 	"testing"
 
-	"go.arcalot.io/assert"
+	log "go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
+	"go.flow.arcalot.io/engine/workflow"
+
+	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/config"
 )
 
@@ -18,7 +20,6 @@ func createTestEngine(t *testing.T) engine.WorkflowEngine {
 	cfg.Log.Destination = log.DestinationTest
 	flow, err := engine.New(
 		cfg,
-		engine.DefaultDeployerRegistry,
 	)
 	assert.NoError(t, err)
 	return flow
@@ -47,7 +48,7 @@ func TestEmptyWorkflowFile(t *testing.T) {
 		"",
 	)
 	assert.Error(t, err)
-	if !errors.Is(err, engine.ErrEmptyWorkflowFile) {
+	if !errors.Is(err, workflow.ErrEmptyWorkflowFile) {
 		t.Fatalf("Incorrect error returned.")
 	}
 }
@@ -63,7 +64,7 @@ func TestInvalidYAML(t *testing.T) {
 		"",
 	)
 	assert.Error(t, err)
-	var invalidYAML engine.ErrInvalidWorkflowYAML
+	var invalidYAML *workflow.ErrInvalidWorkflowYAML
 	if !errors.As(err, &invalidYAML) {
 		t.Fatalf("Incorrect error returned.")
 	}
@@ -79,7 +80,7 @@ func TestInvalidWorkflow(t *testing.T) {
 		"",
 	)
 	assert.Error(t, err)
-	var invalidYAML engine.ErrInvalidWorkflow
+	var invalidYAML *workflow.ErrInvalidWorkflow
 	if !errors.As(err, &invalidYAML) {
 		t.Fatalf("Incorrect error returned.")
 	}

@@ -17,7 +17,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           # Hard-coding version due to this bug: https://github.com/golangci/golangci-lint-action/issues/535
-          version: v1.47
+          version: v1.52.2
   test:
     name: go test
     runs-on: ubuntu-latest

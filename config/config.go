@@ -1,3 +1,4 @@
+// Package config provides the Engine configuration structure.
 package config
 
 import log "go.arcalot.io/log/v2"

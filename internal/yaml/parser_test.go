@@ -92,7 +92,7 @@ var testData = map[string]struct {
 				},
 			},
 		},
-		raw: map[any]any{"message": "Hello world!"},
+		raw: map[string]any{"message": "Hello world!"},
 	},
 	"double-key": {
 		input: `message: Hello world!
@@ -127,7 +127,7 @@ test: foo`,
 				},
 			},
 		},
-		raw: map[any]any{"message": "Hello world!", "test": "foo"},
+		raw: map[string]any{"message": "Hello world!", "test": "foo"},
 	},
 	"simple-key-tag": {
 		input: `message: !!test |-
@@ -148,7 +148,7 @@ test: foo`,
 				},
 			},
 		},
-		raw: map[any]any{"message": "Hello world!"},
+		raw: map[string]any{"message": "Hello world!"},
 	},
 	"sequence": {
 		input: `- test`,
@@ -245,7 +245,7 @@ test: foo`,
 				},
 			},
 		},
-		raw: map[any]any{"1": "test"},
+		raw: map[string]any{"1": "test"},
 	},
 }
 

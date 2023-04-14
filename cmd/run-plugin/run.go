@@ -1,17 +1,18 @@
+// Package main provides a simple script to run a plugin as a standalone.
 package main
 
 import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+
 	log "go.arcalot.io/log/v2"
 	docker "go.flow.arcalot.io/dockerdeployer"
 	"go.flow.arcalot.io/pluginsdk/atp"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
-//nolint:funlen
 func main() {
 	var image string
 	var file string

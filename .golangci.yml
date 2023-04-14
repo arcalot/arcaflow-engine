@@ -52,9 +52,6 @@ linters:
     - dupl
     # Check for pointers in loops. This is a typical bug source.
     - exportloopref
-    # Enforce a reasonable function length of 60 lines or 40 instructions. In very rare cases you may want to disable
-    # this with // nolint:funlen if there is absolutely no way to split the function in question.
-    - funlen
     # Prevent dogsledding (mass-ignoring return values). This typically indicates missing error handling.
     - dogsled
     # Enforce consistent import aliases across all files.
