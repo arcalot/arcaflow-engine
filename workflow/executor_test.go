@@ -3,6 +3,7 @@ package workflow_test
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/config"
 	"testing"
 
 	"go.arcalot.io/lang"
@@ -41,7 +42,7 @@ func TestSharedInput(t *testing.T) {
 		dummy.New(),
 	))
 
-	executor, err := workflow.NewExecutor(logger, stepRegistry)
+	executor, err := workflow.NewExecutor(logger, &config.Config{}, stepRegistry)
 	if err != nil {
 		t.Fatalf("Failed to create Executor, %e", err)
 	}

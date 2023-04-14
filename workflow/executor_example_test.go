@@ -3,6 +3,7 @@ package workflow_test
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/config"
 
 	"go.arcalot.io/lang"
 	"go.arcalot.io/log/v2"
@@ -35,7 +36,7 @@ func ExampleExecutor() {
 		dummy.New(),
 	))
 
-	executor, err := workflow.NewExecutor(logger, stepRegistry)
+	executor, err := workflow.NewExecutor(logger, &config.Config{}, stepRegistry)
 	if err != nil {
 		panic(err)
 	}

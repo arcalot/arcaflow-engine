@@ -4,6 +4,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/config"
 	"reflect"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 // run.
 type executableWorkflow struct {
 	logger            log.Logger
+	config            *config.Config
 	dag               dgraph.DirectedGraph[*DAGItem]
 	input             schema.Scope
 	stepRunData       map[string]map[string]any
@@ -53,6 +55,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 
 	l := &loopState{
 		logger: e.logger,
+		config: e.config,
 		lock:   &sync.Mutex{},
 		data: map[string]any{
 			"input": unserializedInput,
@@ -155,6 +158,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 
 type loopState struct {
 	logger            log.Logger
+	config            *config.Config
 	lock              *sync.Mutex
 	data              map[string]any
 	dag               dgraph.DirectedGraph[*DAGItem]
@@ -201,6 +205,18 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 			l.cancel()
 			return
 		}
+		// Handle custom logging
+		stepLogConfig := l.config.LoggedOutputConfigs[*previousStageOutputID]
+		if stepLogConfig != nil {
+			l.logger.Writef(
+				stepLogConfig.LogLevel,
+				"Output ID for step \"%s\" is \"%s\".\nOutput data: \"%s\"",
+				stepID,
+				*previousStageOutputID,
+				*previousStageOutput,
+			)
+		}
+
 		// Placing data from the output into the general data structure
 		l.data["steps"].(map[string]any)[stepID].(map[string]any)[*previousStage] = map[string]any{}
 		l.data["steps"].(map[string]any)[stepID].(map[string]any)[*previousStage].(map[string]any)[*previousStageOutputID] = *previousStageOutput

@@ -61,7 +61,7 @@ func (w workflowEngine) RunWorkflow(
 		return nil, err
 	}
 
-	executor, err := workflow.NewExecutor(w.logger, w.stepRegistry)
+	executor, err := workflow.NewExecutor(w.logger, w.config, w.stepRegistry)
 	if err != nil {
 		return nil, err
 	}

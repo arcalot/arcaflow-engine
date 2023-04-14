@@ -12,11 +12,14 @@ import (
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/expressions"
 	"go.flow.arcalot.io/pluginsdk/schema"
+
+	"go.flow.arcalot.io/engine/config"
 )
 
 // NewExecutor creates a new executor instance for workflows.
 func NewExecutor(
 	logger log.Logger,
+	config *config.Config,
 	stepRegistry step.Registry,
 ) (Executor, error) {
 	if logger == nil {
@@ -28,6 +31,7 @@ func NewExecutor(
 	return &executor{
 		logger:       logger,
 		stepRegistry: stepRegistry,
+		config:       config,
 	}, nil
 }
 
@@ -63,6 +67,7 @@ type ExecutableWorkflow interface {
 
 type executor struct {
 	logger       log.Logger
+	config       *config.Config
 	stepRegistry step.Registry
 }
 
@@ -137,6 +142,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 
 	return &executableWorkflow{
 		logger:            e.logger,
+		config:            e.config,
 		dag:               dag,
 		input:             typedInput,
 		stepRunData:       stepRunData,
