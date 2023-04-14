@@ -22,7 +22,7 @@ To create your own pluggable step, you must first implement the `Provider` inter
 
 - `Kind()`: this function must return a globally unique value the user will have to supply in the `kind` field of their workflow.
 - `Lifecycle()`: this function must return a lifecycle object structure that describes which lifecycle stages the step can go through. You won't have to provide a schema for these lifecycle stages just yet. (See lifecycles below for more details.)
-- `ProviderKeyword()`: this function must return the keyword the user will have to enter in their workflow file to configure the provider. For example, the `plugin` provider uses `plugin` as a provider keyword and the user is expected to provider a plugin container image here. Be careful though, this must be unique within this provider and cannot be the same as any lifecycle keywords!
+- `ProviderKeyword()`: this function must return the keyword the user will have to enter in their workflow file to configure the provider. For example, the `plugin` provider uses `plugin` as a provider keyword and the user is expected to provide a plugin container image here. Be careful though, this must be unique within this provider and cannot be the same as any lifecycle keywords!
 - `ProviderSchema()`: this function returns structure which describes the schema associated with the provider keyword. You must ensure that this schema matches the expected type for the `LoadSchema()` function.
 - `RunKeyword()`: this function returns a keyword that holds the configuration when the step is run. For example, the `plugin` provider uses this to let users specify the `step` which to run, in case there are multiple steps provided by a plugin.
 - `LoadSchema()`: this function takes the value from the provider keyword as input and loads the schema. It returns a runnable step, which already holds the schema information about the step being run.
@@ -61,7 +61,7 @@ var lifecycle = step.Lifecycle[step.LifecycleStage]{
 }
 ```
 
-Later on, you will need to provider a lifecycle with schema, which you can do as follows:
+Later on, you will need to provide a lifecycle with schema, which you can do as follows:
 
 ```go
 var lifecycleStageWithSchema = step.LifecycleStageWithSchema{
@@ -83,7 +83,7 @@ var lifecycleStageWithSchema = step.LifecycleStageWithSchema{
 
 ### Runnable steps
 
-Next, you need to create a runnable step. This must have two functions:
+Next, you need to create a runnable step. This must have three functions:
 
 - `RunSchema()` provides a schema that describes the properties that are required to run the step provided by this provider. For example, the `plugin` provider uses this to specify the `step` a user should choose if the plugin provides more than one.
 - `Lifecycle()` must return a lifecycle, but this time with the schema information (see above).

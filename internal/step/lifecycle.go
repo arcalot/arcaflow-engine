@@ -10,7 +10,7 @@ import (
 
 // Lifecycle describes the lifecycle of a step.
 // Each stage in the lifecycle can, but is not required to have an input schema and an output schema.
-// The stage can alsop declare the next possible stages.
+// The stage can also declare the next possible stages.
 //
 // This lifecycle information is used to build the dependency tree of this step.
 type Lifecycle[StageType lifecycleStage] struct {
