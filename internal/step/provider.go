@@ -5,11 +5,6 @@ import "go.flow.arcalot.io/pluginsdk/schema"
 // Provider is the description of an item that fits in a workflow. Its implementation provide the
 // basis for workflow execution.
 type Provider interface {
-
-	// Register notifies the provider of the step registry it belongs to. This function is called directly after
-	// creation.
-	Register(registry Registry)
-
 	// Kind returns the identifier that uniquely identifies this provider.
 	// e.g. "plugin"
 	Kind() string

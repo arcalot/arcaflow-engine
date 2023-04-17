@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"go.arcalot.io/log/v2"
-	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/workflow"
 	"go.flow.arcalot.io/pluginsdk/schema"
@@ -16,11 +15,13 @@ import (
 // New creates a new loop provider.
 func New(
 	logger log.Logger,
-	config *config.Config,
+	yamlParserFactory func() (workflow.YAMLConverter, error),
+	executorFactory func(logger log.Logger) (workflow.Executor, error),
 ) (step.Provider, error) {
 	return &forEachProvider{
-		logger: logger,
-		config: config,
+		logger:            logger,
+		yamlParserFactory: yamlParserFactory,
+		executorFactory:   executorFactory,
 	}, nil
 }
 
@@ -70,13 +71,9 @@ var errorLifecycleStage = step.LifecycleStage{
 }
 
 type forEachProvider struct {
-	logger   log.Logger
-	registry step.Registry
-	config   *config.Config
-}
-
-func (l *forEachProvider) Register(registry step.Registry) {
-	l.registry = registry
+	logger            log.Logger
+	yamlParserFactory func() (workflow.YAMLConverter, error)
+	executorFactory   func(logger log.Logger) (workflow.Executor, error)
 }
 
 func (l *forEachProvider) Kind() string {
@@ -149,13 +146,16 @@ func (l *forEachProvider) LoadSchema(inputs map[string]any, workflowContext map[
 		)
 	}
 
-	yamlConverter := workflow.NewYAMLConverter(l.registry)
+	yamlConverter, err := l.yamlParserFactory()
+	if err != nil {
+		return nil, err
+	}
 	wf, err := yamlConverter.FromYAML(workflowContents)
 	if err != nil {
 		return nil, err
 	}
 
-	executor, err := workflow.NewExecutor(l.logger, l.config, l.registry)
+	executor, err := l.executorFactory(l.logger)
 	if err != nil {
 		return nil, err
 	}
