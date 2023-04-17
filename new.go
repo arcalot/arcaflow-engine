@@ -14,7 +14,7 @@ func New(
 	stepRegistry, err := NewDefaultStepRegistry(
 		logger,
 		DefaultDeployerRegistry,
-		config.LocalDeployer,
+		config,
 	)
 	if err != nil {
 		return nil, err
