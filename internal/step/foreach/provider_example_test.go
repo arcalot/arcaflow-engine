@@ -7,6 +7,7 @@ import (
 	"go.arcalot.io/lang"
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/dummy"
 	"go.flow.arcalot.io/engine/internal/step/foreach"
 	"go.flow.arcalot.io/engine/internal/step/registry"
@@ -71,10 +72,14 @@ func ExampleNew() {
 	cfg := &config.Config{
 		Log: logConfig,
 	}
+	factories := workflowFactory{
+		config: cfg,
+	}
 	stepRegistry := lang.Must2(registry.New(
 		dummy.New(),
-		lang.Must2(foreach.New(logger, cfg)),
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
 	))
+	factories.stepRegistry = stepRegistry
 	executor := lang.Must2(workflow.NewExecutor(
 		logger,
 		cfg,
@@ -104,4 +109,25 @@ func ExampleNew() {
 	}
 	fmt.Println()
 	// Output: Hello Arca! Hello Lot!
+}
+
+type workflowFactory struct {
+	stepRegistry step.Registry
+	config       *config.Config
+}
+
+func (f *workflowFactory) createYAMLParser() (workflow.YAMLConverter, error) {
+	stepR := f.stepRegistry
+	if stepR == nil {
+		return nil, fmt.Errorf("YAML converter not available yet, please call the factory function after the engine has initialized")
+	}
+	return workflow.NewYAMLConverter(stepR), nil
+}
+
+func (f *workflowFactory) createWorkflow(logger log.Logger) (workflow.Executor, error) {
+	stepR := f.stepRegistry
+	if stepR == nil {
+		return nil, fmt.Errorf("YAML converter not available yet, please call the factory function after the engine has initialized")
+	}
+	return workflow.NewExecutor(logger, f.config, stepR)
 }

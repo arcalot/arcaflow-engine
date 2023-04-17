@@ -95,9 +95,6 @@ func New(providers ...step.Provider) (step.Registry, error) {
 		p,
 		objects,
 	}
-	for _, provider := range registry.providers {
-		provider.Register(registry)
-	}
 	return registry, nil
 }
 
