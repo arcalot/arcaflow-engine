@@ -108,7 +108,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	}
 
 	// Then we process the steps. This involves several sub-steps, make sure to check the function.
-	runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, err := e.processSteps(workflow, dag)
+	runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, err := e.processSteps(workflow, dag, workflowContext)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +202,7 @@ func (e *executor) processInput(workflow *Workflow) (schema.Scope, error) {
 func (e *executor) processSteps(
 	workflow *Workflow,
 	dag dgraph.DirectedGraph[*DAGItem],
+	workflowContext map[string][]byte,
 ) (
 	runnableSteps map[string]step.RunnableStep,
 	stepOutputProperties map[string]*schema.PropertySchema,
@@ -233,7 +234,7 @@ func (e *executor) processSteps(
 		}
 
 		// Stage 1: unserialize the data with only the provider properties known.
-		runnableStep, err := e.loadSchema(stepKind, stepID, stepDataMap)
+		runnableStep, err := e.loadSchema(stepKind, stepID, stepDataMap, workflowContext)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
@@ -491,7 +492,7 @@ func (e *executor) getRunData(stepKind step.Provider, runnableStep step.Runnable
 	return result, nil
 }
 
-func (e *executor) loadSchema(stepKind step.Provider, stepID string, stepDataMap map[any]any) (step.RunnableStep, error) {
+func (e *executor) loadSchema(stepKind step.Provider, stepID string, stepDataMap map[any]any, workflowContext map[string][]byte) (step.RunnableStep, error) {
 	properties := stepKind.ProviderSchema()
 	properties["kind"] = schema.NewPropertySchema(
 		schema.NewStringEnumSchema(
@@ -547,7 +548,7 @@ func (e *executor) loadSchema(stepKind step.Provider, stepID string, stepDataMap
 	for field := range providerSchema {
 		providerData[field] = unserializedStepData.(map[string]any)[field]
 	}
-	runnableStep, err := stepKind.LoadSchema(providerData)
+	runnableStep, err := stepKind.LoadSchema(providerData, workflowContext)
 	if err != nil {
 		return nil, &ErrInvalidWorkflow{fmt.Errorf("failed to load schema for step %s (%w)", stepID, err)}
 	}

@@ -91,10 +91,14 @@ func New(providers ...step.Provider) (step.Registry, error) {
 		objects[kind] = schema.NewObjectSchema(provider.Kind(), object)
 	}
 
-	return &stepRegistry{
+	registry := &stepRegistry{
 		p,
 		objects,
-	}, nil
+	}
+	for _, provider := range registry.providers {
+		provider.Register(registry)
+	}
+	return registry, nil
 }
 
 type stepRegistry struct {

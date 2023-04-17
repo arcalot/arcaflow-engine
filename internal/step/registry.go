@@ -2,7 +2,8 @@ package step
 
 import "go.flow.arcalot.io/pluginsdk/schema"
 
-// Registry holds the providers for possible steps in workflows.
+// Registry holds the providers for possible steps in workflows. The registry must call Register() on each Provider
+// immediately after creation.
 type Registry interface {
 	// Schema provides a generic schema for all steps.
 	Schema() *schema.OneOfSchema[string]

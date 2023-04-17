@@ -5,6 +5,11 @@ import "go.flow.arcalot.io/pluginsdk/schema"
 // Provider is the description of an item that fits in a workflow. Its implementation provide the
 // basis for workflow execution.
 type Provider interface {
+
+	// Register notifies the provider of the step registry it belongs to. This function is called directly after
+	// creation.
+	Register(registry Registry)
+
 	// Kind returns the identifier that uniquely identifies this provider.
 	// e.g. "plugin"
 	Kind() string
@@ -22,9 +27,7 @@ type Provider interface {
 
 	// LoadSchema prompts this provider to load its schema and return a step that can actually be run. The provided
 	// inputs are guaranteed to match the schema returned by ProviderSchema.
-	LoadSchema(
-		inputs map[string]any,
-	) (RunnableStep, error)
+	LoadSchema(inputs map[string]any, workflowContext map[string][]byte) (RunnableStep, error)
 }
 
 // StageChangeHandler is a callback hook for reacting to changes in stages. The calling party will be notified of the

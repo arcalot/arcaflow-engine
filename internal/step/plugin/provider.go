@@ -41,6 +41,9 @@ type pluginProvider struct {
 	logger           log.Logger
 }
 
+func (p *pluginProvider) Register(_ step.Registry) {
+}
+
 func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 	return map[string]*schema.PropertySchema{
 		"plugin": schema.NewPropertySchema(
@@ -138,7 +141,7 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	}
 }
 
-func (p *pluginProvider) LoadSchema(inputs map[string]any) (step.RunnableStep, error) {
+func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) (step.RunnableStep, error) {
 	image := inputs["plugin"].(string)
 
 	ctx, cancel := context.WithCancel(context.Background())

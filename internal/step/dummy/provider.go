@@ -24,6 +24,9 @@ func (p *dummyProvider) Kind() string {
 type dummyProvider struct {
 }
 
+func (p *dummyProvider) Register(_ step.Registry) {
+}
+
 func (p *dummyProvider) ProviderSchema() map[string]*schema.PropertySchema {
 	// We don't need any steps to set up the provider.
 	return map[string]*schema.PropertySchema{}
@@ -64,7 +67,7 @@ func (p *dummyProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	}
 }
 
-func (p *dummyProvider) LoadSchema(_ map[string]any) (step.RunnableStep, error) {
+func (p *dummyProvider) LoadSchema(_ map[string]any, _ map[string][]byte) (step.RunnableStep, error) {
 	return &runnableStep{}, nil
 }
 

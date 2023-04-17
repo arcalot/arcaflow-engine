@@ -42,7 +42,7 @@ func (s *stageChangeHandler) OnStepComplete(
 func TestProvider(t *testing.T) {
 	provider := dummy.New()
 	assert.Equals(t, provider.Kind(), "dummy")
-	runnable, err := provider.LoadSchema(map[string]any{})
+	runnable, err := provider.LoadSchema(map[string]any{}, map[string][]byte{})
 	assert.NoError(t, err)
 
 	handler := &stageChangeHandler{
