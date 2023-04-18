@@ -60,12 +60,12 @@ func TestSharedInput(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	outputData, err := preparedWorkflow.Execute(ctx, map[string]any{
+	outputID, outputData, err := preparedWorkflow.Execute(ctx, map[string]any{
 		"name": "Arca Lot",
 	})
 	if err != nil {
 		t.Fatalf("Error while executing workflow, %e", err)
 	}
-	fmt.Println(outputData.(map[any]any)["message"])
-	// Output: Hello Arca Lot!
+	fmt.Printf("%s: %s\n", outputID, outputData.(map[any]any)["message"])
+	// Output: success: Hello Arca Lot!
 }

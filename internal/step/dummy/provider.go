@@ -143,6 +143,30 @@ func (r *runnableStep) Lifecycle(_ map[string]any) (result step.Lifecycle[step.L
 						),
 						ErrorValue: false,
 					},
+					"error": {
+						SchemaValue: schema.NewScopeSchema(
+							schema.NewObjectSchema(
+								"error",
+								map[string]*schema.PropertySchema{
+									"reason": schema.NewPropertySchema(
+										schema.NewStringSchema(nil, nil, nil),
+										schema.NewDisplayValue(
+											schema.PointerTo("Message"),
+											nil,
+											nil,
+										),
+										true,
+										nil,
+										nil,
+										nil,
+										nil,
+										nil,
+									),
+								},
+							),
+						),
+						ErrorValue: true,
+					},
 				},
 			},
 		},

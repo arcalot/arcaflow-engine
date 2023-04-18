@@ -24,6 +24,19 @@ var (
 	date    = "unknown"
 )
 
+// ExitCodeOK signals that the program terminated normally.
+const ExitCodeOK = 0
+
+// ExitCodeInvalidData signals that the program encountered an invalid workflow or input data.
+const ExitCodeInvalidData = 1
+
+// ExitCodeWorkflowErrorOutput indicates that the workflow executed successfully, but terminated with an output
+// marked as error.
+const ExitCodeWorkflowErrorOutput = 2
+
+// ExitCodeWorkflowFailed indicates that the workflow execution failed.
+const ExitCodeWorkflowFailed = 3
+
 func main() {
 	tempLogger := log.New(log.Config{
 		Level:       log.LevelInfo,
@@ -34,7 +47,7 @@ func main() {
 	configFile := ""
 	input := ""
 	dir := "."
-	workflow := "workflow.yaml"
+	workflowFile := "workflow.yaml"
 	printVersion := false
 
 	flag.BoolVar(&printVersion, "version", printVersion, "Print Arcaflow Engine version and exit.")
@@ -58,9 +71,9 @@ func main() {
 		"The workflow directory to run from. Defaults to the current directory.",
 	)
 	flag.StringVar(
-		&workflow,
+		&workflowFile,
 		"workflow",
-		workflow,
+		workflowFile,
 		"The workflow file in the current directory to load. Defaults to workflow.yaml.",
 	)
 	flag.Usage = func() {
@@ -95,14 +108,14 @@ Options:
 		if err != nil {
 			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 			flag.Usage()
-			os.Exit(1)
+			os.Exit(ExitCodeInvalidData)
 		}
 	}
 	cfg, err := config.Load(configData)
 	if err != nil {
 		tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(ExitCodeInvalidData)
 	}
 	cfg.Log.Stdout = os.Stderr
 
@@ -112,14 +125,14 @@ Options:
 	if err != nil {
 		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(ExitCodeInvalidData)
 	}
 
 	flow, err := engine.New(cfg)
 	if err != nil {
-		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
+		logger.Errorf("Failed to initialize engine with config file %s (%v)", configFile, err)
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(ExitCodeInvalidData)
 	}
 
 	if printVersion {
@@ -142,23 +155,42 @@ Options:
 		if err != nil {
 			logger.Errorf("Failed to read input file %s (%v)", input, err)
 			flag.Usage()
-			os.Exit(1)
+			os.Exit(ExitCodeInvalidData)
 		}
 	}
 
+	os.Exit(runWorkflow(flow, dirContext, workflowFile, logger, inputData))
+}
+
+func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	outputData, err := flow.RunWorkflow(ctx, inputData, dirContext, workflow)
+
+	workflow, err := flow.Parse(dirContext, workflowFile)
+	if err != nil {
+		logger.Errorf("Invalid workflow (%v)", err)
+		return ExitCodeInvalidData
+	}
+	outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 	if err != nil {
 		logger.Errorf("Workflow execution failed (%v)", err)
-		os.Exit(1) //nolint:gocritic
+		return ExitCodeWorkflowFailed
 	}
-	data, err := yaml.Marshal(outputData)
+	data, err := yaml.Marshal(
+		map[string]any{
+			"output_id":   outputID,
+			"output_data": outputData,
+		},
+	)
 	if err != nil {
 		logger.Errorf("Failed to marshal output (%v)", err)
-		os.Exit(1)
+		return ExitCodeInvalidData
 	}
 	_, _ = os.Stdout.Write(data)
+	if outputError {
+		return ExitCodeWorkflowErrorOutput
+	}
+	return ExitCodeOK
 }
 
 func loadContext(dir string) (map[string][]byte, error) {

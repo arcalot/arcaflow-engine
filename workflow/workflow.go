@@ -4,10 +4,10 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"go.flow.arcalot.io/engine/config"
 	"reflect"
-	"strings"
 	"sync"
+
+	"go.flow.arcalot.io/engine/config"
 
 	"go.arcalot.io/dgraph"
 	"go.arcalot.io/log/v2"
@@ -28,6 +28,11 @@ type executableWorkflow struct {
 	internalDataModel *schema.ScopeSchema
 	runnableSteps     map[string]step.RunnableStep
 	lifecycles        map[string]step.Lifecycle[step.LifecycleStageWithSchema]
+	outputSchema      map[string]*schema.StepOutputSchema
+}
+
+func (e *executableWorkflow) OutputSchema() map[string]*schema.StepOutputSchema {
+	return e.outputSchema
 }
 
 // Input returns a schema scope that can be used to validate the input.
@@ -42,11 +47,11 @@ func (e *executableWorkflow) DAG() dgraph.DirectedGraph[*DAGItem] {
 
 // Execute runs the workflow with the specified input. You can use the context variable to abort the workflow execution
 // (e.g. when the user presses Ctrl+C).
-func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData any, err error) {
+func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID string, outputData any, err error) { //nolint:gocognit
 	// First, we unserialize the input. This makes sure we didn't get garbage data.
 	unserializedInput, err := e.input.Unserialize(input)
 	if err != nil {
-		return nil, fmt.Errorf("invalid workflow input (%w)", err)
+		return "", nil, fmt.Errorf("invalid workflow input (%w)", err)
 	}
 
 	// We use an internal cancel function to abort the workflow if something bad happens.
@@ -64,7 +69,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 		dag:               e.dag.Clone(),
 		inputsNotified:    make(map[string]struct{}, len(e.dag.ListNodes())),
 		runningSteps:      make(map[string]step.RunningStep, len(e.dag.ListNodes())),
-		outputDataChannel: make(chan any, 1),
+		outputDataChannel: make(chan outputDataType, 1),
 		outputDone:        false,
 		cancel:            cancel,
 		workflowContext:   e.workflowContext,
@@ -105,7 +110,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 		e.logger.Debugf("Launching step %s...", stepID)
 		runningStep, err := runnableStep.Start(e.stepRunData[stepID], stageHandler)
 		if err != nil {
-			return nil, fmt.Errorf("failed to launch step %s (%w)", stepID, err)
+			return "", nil, fmt.Errorf("failed to launch step %s (%w)", stepID, err)
 		}
 		l.runningSteps[stepID] = runningStep
 	}
@@ -125,10 +130,10 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 	e.logger.Debugf("Starting workflow execution...\n%s", l.dag.Mermaid())
 	inputNode, err := l.dag.GetNodeByID("input")
 	if err != nil {
-		return nil, fmt.Errorf("bug: cannot obtain input node (%w)", err)
+		return "", nil, fmt.Errorf("bug: cannot obtain input node (%w)", err)
 	}
 	if err := inputNode.Remove(); err != nil {
-		return nil, fmt.Errorf("failed to remove input node from DAG (%w)", err)
+		return "", nil, fmt.Errorf("failed to remove input node from DAG (%w)", err)
 	}
 
 	func() {
@@ -141,19 +146,40 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputData
 
 	// Now we wait for the workflow results.
 	select {
-	case outputData, ok := <-l.outputDataChannel:
+	case outputDataEntry, ok := <-l.outputDataChannel:
 		if !ok {
-			return nil, fmt.Errorf("output data channel unexpectedly closed")
+			return "", nil, fmt.Errorf("output data channel unexpectedly closed")
 		}
 		e.logger.Debugf("Output complete.")
-		return outputData, nil
+		outputID = outputDataEntry.outputID
+		outputData = outputDataEntry.outputData
+		outputSchema, ok := e.outputSchema[outputID]
+		if !ok {
+			return "", nil, fmt.Errorf(
+				"bug: no output named '%s' found in output schema",
+				outputID,
+			)
+		}
+		_, err := outputSchema.Unserialize(outputDataEntry.outputData)
+		if err != nil {
+			return "", nil, fmt.Errorf(
+				"bug: output schema cannot unserialize output data (%w)",
+				err,
+			)
+		}
+		return outputDataEntry.outputID, outputData, nil
 	case <-ctx.Done():
 		e.logger.Debugf("Workflow execution aborted. %s", l.lastError)
 		if l.lastError != nil {
-			return nil, l.lastError
+			return "", nil, l.lastError
 		}
-		return nil, fmt.Errorf("workflow execution aborted (%w)", ctx.Err())
+		return "", nil, fmt.Errorf("workflow execution aborted (%w)", ctx.Err())
 	}
+}
+
+type outputDataType struct {
+	outputID   string
+	outputData any
 }
 
 type loopState struct {
@@ -164,7 +190,7 @@ type loopState struct {
 	dag               dgraph.DirectedGraph[*DAGItem]
 	inputsNotified    map[string]struct{}
 	runningSteps      map[string]step.RunningStep
-	outputDataChannel chan any
+	outputDataChannel chan outputDataType
 	outputDone        bool
 	lastError         error
 	cancel            context.CancelFunc
@@ -242,7 +268,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			continue
 		}
 		l.inputsNotified[nodeID] = struct{}{}
-		inputData := node.Item().Input
+		inputData := node.Item().Data
 		if inputData == nil {
 			// No input data is needed.
 			continue
@@ -255,11 +281,11 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 
 		switch node.Item().Kind {
 		case DAGItemKindStepStage:
-			if node.Item().InputSchema == nil {
+			if node.Item().DataSchema == nil {
 				break
 			}
 			// We have a stage we can proceed with. Let's provide it with input.
-			if _, err := node.Item().InputSchema.Unserialize(untypedInputData); err != nil {
+			if _, err := node.Item().DataSchema.Unserialize(untypedInputData); err != nil {
 				l.logger.Errorf("Bug: schema evaluation resulted in invalid data for %s (%v)", node.ID(), err)
 				l.lastError = fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
 				l.cancel()
@@ -287,7 +313,11 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			// We have received enough data to construct the workflow output.
 			l.logger.Debugf("Constructing workflow output.")
 			l.outputDone = true
-			l.outputDataChannel <- untypedInputData
+
+			l.outputDataChannel <- outputDataType{
+				outputID:   node.Item().OutputID,
+				outputData: untypedInputData,
+			}
 
 			if err := node.Remove(); err != nil {
 				l.logger.Errorf("BUG: Error occurred while removing workflow output node (%w)", err)
@@ -353,24 +383,13 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		counters.finished,
 	)
 	if counters.starting == 0 && counters.running == 0 && !l.outputDone {
-		outputNode, err := l.dag.GetNodeByID("output")
-		if err != nil {
-			panic(fmt.Errorf("cannot fetch output node (%w)", err))
+		l.lastError = &ErrNoMorePossibleSteps{
+			l.dag,
 		}
-		var unmetDependencies []string
-		inbound, err := outputNode.ListInboundConnections()
-		if err != nil {
-			panic(fmt.Errorf("failed to fetch output node inbound dependencies (%w)", err))
-		}
-		for i := range inbound {
-			unmetDependencies = append(unmetDependencies, i)
-		}
-		l.logger.Errorf("No steps running, no more executable steps, cannot construct output (has the following unmet dependencies: %s)", strings.Join(unmetDependencies, ", "))
+		l.logger.Errorf("%v", l.lastError)
 		l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
-		l.lastError = fmt.Errorf("no steps running, no more executable steps, cannot construct output (has the following unment dependencies: %s)", strings.Join(unmetDependencies, ", "))
 		l.cancel()
 	}
-
 }
 
 // resolveExpressions takes an inputData value potentially containing expressions and a dataModel containing data

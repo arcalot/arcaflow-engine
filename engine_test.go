@@ -26,20 +26,21 @@ func createTestEngine(t *testing.T) engine.WorkflowEngine {
 }
 
 func TestNoWorkflowFile(t *testing.T) {
-	_, err := createTestEngine(t).RunWorkflow(
+	_, _, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
 		nil,
 		map[string][]byte{},
 		"",
 	)
 	assert.Error(t, err)
+	assert.Equals(t, outputError, true)
 	if !errors.Is(err, engine.ErrNoWorkflowFile) {
 		t.Fatalf("Incorrect error returned.")
 	}
 }
 
 func TestEmptyWorkflowFile(t *testing.T) {
-	_, err := createTestEngine(t).RunWorkflow(
+	_, _, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
 		nil,
 		map[string][]byte{
@@ -48,13 +49,14 @@ func TestEmptyWorkflowFile(t *testing.T) {
 		"",
 	)
 	assert.Error(t, err)
+	assert.Equals(t, outputError, true)
 	if !errors.Is(err, workflow.ErrEmptyWorkflowFile) {
 		t.Fatalf("Incorrect error returned.")
 	}
 }
 
 func TestInvalidYAML(t *testing.T) {
-	_, err := createTestEngine(t).RunWorkflow(
+	_, _, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
 		nil,
 		map[string][]byte{
@@ -64,6 +66,7 @@ func TestInvalidYAML(t *testing.T) {
 		"",
 	)
 	assert.Error(t, err)
+	assert.Equals(t, outputError, true)
 	var invalidYAML *workflow.ErrInvalidWorkflowYAML
 	if !errors.As(err, &invalidYAML) {
 		t.Fatalf("Incorrect error returned.")
@@ -71,7 +74,7 @@ func TestInvalidYAML(t *testing.T) {
 }
 
 func TestInvalidWorkflow(t *testing.T) {
-	_, err := createTestEngine(t).RunWorkflow(
+	_, _, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
 		nil,
 		map[string][]byte{
@@ -80,6 +83,7 @@ func TestInvalidWorkflow(t *testing.T) {
 		"",
 	)
 	assert.Error(t, err)
+	assert.Equals(t, outputError, true)
 	var invalidYAML *workflow.ErrInvalidWorkflow
 	if !errors.As(err, &invalidYAML) {
 		t.Fatalf("Incorrect error returned.")
@@ -87,7 +91,7 @@ func TestInvalidWorkflow(t *testing.T) {
 }
 
 func TestEmptySteps(t *testing.T) {
-	_, err := createTestEngine(t).RunWorkflow(
+	_, _, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
 		nil,
 		map[string][]byte{
@@ -97,10 +101,11 @@ steps: []`),
 		"",
 	)
 	assert.Error(t, err)
+	assert.Equals(t, outputError, true)
 }
 
 func TestNoSteps(t *testing.T) {
-	_, err := createTestEngine(t).RunWorkflow(
+	_, _, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
 		nil,
 		map[string][]byte{
@@ -109,10 +114,11 @@ func TestNoSteps(t *testing.T) {
 		"",
 	)
 	assert.Error(t, err)
+	assert.Equals(t, outputError, true)
 }
 
 func TestE2E(t *testing.T) {
-	outputData, err := createTestEngine(t).RunWorkflow(
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
@@ -136,5 +142,38 @@ output:
 		"",
 	)
 	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
+}
+
+func TestE2EMultipleOutputs(t *testing.T) {
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`name: Arca Lot`),
+		map[string][]byte{
+			"workflow.yaml": []byte(`input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        name:
+          type:
+            type_id: string
+steps:
+  example:
+    plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
+    input:
+      name: !expr $.input.name
+outputs:
+  success:
+    message: !expr $.steps.example.outputs.success.message`),
+		},
+		"",
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
 }
