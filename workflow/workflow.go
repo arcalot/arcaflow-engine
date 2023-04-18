@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 
 	"go.flow.arcalot.io/engine/config"
@@ -384,24 +383,13 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		counters.finished,
 	)
 	if counters.starting == 0 && counters.running == 0 && !l.outputDone {
-		outputNode, err := l.dag.GetNodeByID("output")
-		if err != nil {
-			panic(fmt.Errorf("cannot fetch output node (%w)", err))
+		l.lastError = &ErrNoMorePossibleSteps{
+			l.dag,
 		}
-		var unmetDependencies []string
-		inbound, err := outputNode.ListInboundConnections()
-		if err != nil {
-			panic(fmt.Errorf("failed to fetch output node inbound dependencies (%w)", err))
-		}
-		for i := range inbound {
-			unmetDependencies = append(unmetDependencies, i)
-		}
-		l.logger.Errorf("No steps running, no more executable steps, cannot construct output (has the following unmet dependencies: %s)", strings.Join(unmetDependencies, ", "))
+		l.logger.Errorf("%v", l.lastError)
 		l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
-		l.lastError = fmt.Errorf("no steps running, no more executable steps, cannot construct output (has the following unment dependencies: %s)", strings.Join(unmetDependencies, ", "))
 		l.cancel()
 	}
-
 }
 
 // resolveExpressions takes an inputData value potentially containing expressions and a dataModel containing data

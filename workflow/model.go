@@ -3,7 +3,9 @@ package workflow
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
+	"go.arcalot.io/dgraph"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
@@ -199,4 +201,29 @@ func GetStageNodeID(stepID string, stageID string) string {
 // GetOutputNodeID returns the DAG node ID for a stage output.
 func GetOutputNodeID(stepID string, stageID string, outputID string) string {
 	return fmt.Sprintf("steps.%s.%s.%s", stepID, stageID, outputID)
+}
+
+// ErrNoMorePossibleSteps indicates that the workflow has finished, but the output cannot be constructed.
+type ErrNoMorePossibleSteps struct {
+	dag dgraph.DirectedGraph[*DAGItem]
+}
+
+// Error returns an explanation on why the error happened.
+func (e ErrNoMorePossibleSteps) Error() string {
+	var outputs []string //nolint:prealloc
+	for _, node := range e.dag.ListNodes() {
+		if node.Item().Kind != DAGItemKindOutput {
+			continue
+		}
+		var unmetDependencies []string
+		inbound, err := node.ListInboundConnections()
+		if err != nil {
+			panic(fmt.Errorf("failed to fetch output node inbound dependencies (%w)", err))
+		}
+		for i := range inbound {
+			unmetDependencies = append(unmetDependencies, i)
+		}
+		outputs = append(outputs, fmt.Sprintf("%s: %s", node.Item().OutputID, strings.Join(unmetDependencies, ", ")))
+	}
+	return fmt.Sprintf("no steps running, no more executable steps, cannot construct any output (outputs have the following dependencies: %s)", strings.Join(outputs, "; "))
 }
