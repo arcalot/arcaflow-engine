@@ -15,6 +15,12 @@ import (
 )
 
 // New creates a new plugin provider.
+// deployerRegistry The registry that contains all possible deployers.
+// localDeployerConfig The section of the workflow config that pertains to all of the
+//
+//	deployers. Most importantly it specifies which deployer is used for this
+//	deployment with the 'type' key.
+//	For more info, see `config/schema.go`
 func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerConfig any) (step.Provider, error) {
 	unserializedLocalDeployerConfig, err := deployerRegistry.Schema().Unserialize(localDeployerConfig)
 	if err != nil {

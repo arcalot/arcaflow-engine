@@ -18,18 +18,27 @@ func TestProvider(t *testing.T) {
 	logger := log.New(
 		logConfig,
 	)
-	deployer_cfg := testdeployer.Config{
-		DeployTime: 2,
+	workflow_deployer_cfg := map[string]any{
+		"type": "test-impl",
 	}
-	d_registry := deployer_registry.New(deployer.Any(testdeployer.NewFactory()))
+	d_registry := deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory()))
 	p, err := plugin.New(
 		logger,
 		d_registry,
-		deployer_cfg,
+		workflow_deployer_cfg,
 	)
 	if err != nil {
 		panic(err)
 	}
-	//assert.NotNil(p)
 	assert.Equals(t, p.Kind(), "plugin")
+
+	step_schema := map[string]any{
+		"plugin": "simulation",
+	}
+	byte_schema := map[string][]byte{}
+	// throws a nil pointer dereference
+	runnable_step, err := p.LoadSchema(step_schema, byte_schema)
+	assert.NoError(t, err)
+	runnable_step.RunSchema()
 }
