@@ -86,7 +86,7 @@ func TestProvider(t *testing.T) {
 
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDRunning),
-		map[string]any{"input": map[string]any{"WaitTime": 2}},
+		map[string]any{"input": map[string]any{"wait_time": 2}},
 	))
 
 	message := <-handler.message
