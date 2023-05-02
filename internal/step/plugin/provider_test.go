@@ -6,6 +6,7 @@ import (
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/deployer"
 	deployer_registry "go.flow.arcalot.io/deployer/registry"
+	docker "go.flow.arcalot.io/dockerdeployer"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testdeployer "go.flow.arcalot.io/testdeployer"
@@ -38,11 +39,65 @@ func (s *stageChangeHandler) OnStepComplete(
 	if previousStageOutput == nil {
 		panic(fmt.Errorf("no previous stage output ID"))
 	}
-	message := (*previousStageOutput).(map[string]any)["message"].(string)
+	//message := (*previousStageOutput).(map[string]any)["message"].(string)
+	message := (*previousStageOutput).(map[any]any)["message"].(string)
+
 	s.message <- message
 }
 
-func TestProvider(t *testing.T) {
+func TestProvider_DeployerDocker(t *testing.T) {
+	// Depends on availability of local Docker service
+	logConfig := log.Config{
+		Level:       log.LevelError,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	workflow_deployer_cfg := map[string]any{
+		"type": "docker",
+	}
+
+	d_registry := deployer_registry.New(
+		deployer.Any(docker.NewFactory()))
+	plp, err := plugin.New(
+		logger,
+		d_registry,
+		workflow_deployer_cfg,
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, plp.Kind(), "plugin")
+
+	step_schema := map[string]any{
+		"plugin": "ghcr.io/janosdebugs/arcaflow-example-plugin",
+	}
+	byte_schema := map[string][]byte{}
+
+	runnable, err := plp.LoadSchema(step_schema, byte_schema)
+	assert.NoError(t, err)
+
+	handler := &stageChangeHandler{
+		message: make(chan string),
+	}
+
+	running, err := runnable.Start(map[string]any{}, handler)
+	assert.NoError(t, err)
+
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		map[string]any{"deploy": nil},
+	))
+
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": map[string]any{"name": "Arca Lot"}},
+	))
+
+	message := <-handler.message
+	assert.Equals(t, message, "Hello, Arca Lot!")
+}
+
+func TestProvider_DeployerDbl(t *testing.T) {
 	logConfig := log.Config{
 		Level:       log.LevelError,
 		Destination: log.DestinationStdout,
