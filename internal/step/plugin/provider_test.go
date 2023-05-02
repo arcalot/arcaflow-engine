@@ -38,6 +38,7 @@ func TestProvider(t *testing.T) {
 	}
 	byte_schema := map[string][]byte{}
 	// throws a nil pointer dereference
+
 	runnable_step, err := p.LoadSchema(step_schema, byte_schema)
 	assert.NoError(t, err)
 	runnable_step.RunSchema()
