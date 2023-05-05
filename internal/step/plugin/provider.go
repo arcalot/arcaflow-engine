@@ -79,6 +79,8 @@ const (
 	StageIDDeployFailed StageID = "deploy_failed"
 	// StageIDRunning is a stage that indicates that a plugin is now working.
 	StageIDRunning StageID = "running"
+	// StageIDCancelled is a stage that indicates that the plugin's step was cancelled.
+	StageIDCancelled StageID = "cancelled"
 	// StageIDOutput is a stage that indicates that the plugin has completed working successfully.
 	StageIDOutput StageID = "outputs"
 	// StageIDCrashed is a stage that indicates that the plugin has quit unexpectedly.
@@ -109,10 +111,23 @@ var runningLifecycleStage = step.LifecycleStage{
 	RunningName:  "running",
 	FinishedName: "completed",
 	InputFields: map[string]struct{}{
+		// TODO: Add wait_for here. Empty struct.
 		"input": {},
 	},
 	NextStages: []string{
 		string(StageIDOutput), string(StageIDCrashed),
+	},
+}
+var cancelledLifecycleStage = step.LifecycleStage{
+	ID:           string(StageIDCancelled),
+	WaitingName:  "waiting for stop condition",
+	RunningName:  "cancelling",
+	FinishedName: "cancelled",
+	InputFields: map[string]struct{}{
+		"stop_if": {},
+	},
+	NextStages: []string{
+		string(StageIDOutput), string(StageIDCrashed), string(StageIDDeployFailed),
 	},
 }
 var finishedLifecycleStage = step.LifecycleStage{
@@ -135,6 +150,7 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 			deployingLifecycleStage,
 			deployFailedLifecycleStage,
 			runningLifecycleStage,
+			cancelledLifecycleStage,
 			finishedLifecycleStage,
 			crashedLifecycleStage,
 		},
@@ -151,7 +167,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 		cancel()
 		return nil, fmt.Errorf("failed to deploy plugin from image %s (%w)", image, err)
 	}
-	// Set up the ATP connnection
+	// Set up the ATP connection
 	transport := atp.NewClientWithLogger(plugin, p.logger)
 	// Read the schema information
 	s, err := transport.ReadSchema()
@@ -276,6 +292,8 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 			{
 				LifecycleStage: runningLifecycleStage,
 				InputSchema: map[string]*schema.PropertySchema{
+					// TODO: Add wait_for right here. Should be an any type.
+					// Also add to section above.
 					"input": schema.NewPropertySchema(
 						stepSchema.Input(),
 						stepSchema.Display(),
@@ -287,6 +305,26 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 					),
 				},
+			},
+			{
+				LifecycleStage: cancelledLifecycleStage,
+				InputSchema: map[string]*schema.PropertySchema{
+					"stop_if": schema.NewPropertySchema(
+						schema.NewAnySchema(),
+						schema.NewDisplayValue(
+							schema.PointerTo("Stop condition"),
+							schema.PointerTo("If this field is filled with a non-false value, the step is cancelled (even if currently executing)."),
+							nil,
+						),
+						false,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+					),
+				},
+				Outputs: nil,
 			},
 			{
 				LifecycleStage: finishedLifecycleStage,
@@ -415,6 +453,7 @@ func (r *runningStep) State() step.RunningStepState {
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {
 	r.lock.Lock()
 
+	// Checks which stage it is getting input for
 	switch stage {
 	case string(StageIDDeploy):
 		if r.deployInputAvailable {
@@ -464,6 +503,13 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		r.lock.Unlock()
 		// Feed the run step its input over the channel.
 		r.runInput <- input["input"]
+		return nil
+	case string(StageIDCancelled):
+		if input["stop_if"] != false && input["stop_if"] != nil {
+			r.logger.Infof("Cancelling step %s", r.step)
+			r.cancel() // This should cancel the plugin deployment or execution.
+		}
+		r.lock.Unlock()
 		return nil
 	case string(StageIDDeployFailed):
 		r.lock.Unlock()
@@ -570,6 +616,12 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	return container, nil
 }
 
+type executionResult struct {
+	outputID   string
+	outputData any
+	err        error
+}
+
 func (r *runningStep) runStage(container deployer.Plugin) error {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
@@ -611,9 +663,28 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		return fmt.Errorf("schema mismatch between local and remote deployed plugin, unserializing input failed (%w)", err)
 	}
 
-	outputID, outputData, err := atpClient.Execute(r.ctx, r.step, runInput)
-	if err != nil {
-		return err
+	// TODO: Run ATP client in goroutine, then send back the results in a channel
+	// On that channel, make a select on that channel and context done.
+	// If it's context done, close the deployer. That will shutdown (with sigterm) the container.
+	// You will still need to wait for output, or error out.
+	executionChannel := make(chan executionResult)
+	go func() {
+		outputID, outputData, err := atpClient.Execute(r.ctx, r.step, runInput)
+		executionChannel <- executionResult{outputID, outputData, err}
+	}()
+
+	var result executionResult
+	select {
+	case result = <-executionChannel:
+		if result.err != nil {
+			return err
+		}
+	case <-r.ctx.Done():
+		// In this case, it is being instructed to stop.
+		// Shutdown (with sigterm) the container, then wait for the output (valid or error).
+		r.logger.Debugf("Running step context done before step run complete. Cancelling and waiting for result.")
+		r.cancel()
+		result = <-executionChannel
 	}
 
 	// Execution complete, move to finished stage.
@@ -639,8 +710,8 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	r.stageChangeHandler.OnStepComplete(
 		r,
 		string(r.currentStage),
-		&outputID,
-		&outputData,
+		&result.outputID,
+		&result.outputData,
 	)
 
 	return nil

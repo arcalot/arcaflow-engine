@@ -75,6 +75,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		workflowContext:   e.workflowContext,
 	}
 
+	// Iterate over all steps to set them up with proper handlers, then launch them.
+	// Even though they're launched, the workflow won't execute until the input is provided.
 	for stepID, runnableStep := range e.runnableSteps {
 		stepID := stepID
 		runnableStep := runnableStep
@@ -183,9 +185,12 @@ type outputDataType struct {
 }
 
 type loopState struct {
-	logger            log.Logger
-	config            *config.Config
-	lock              *sync.Mutex
+	logger log.Logger
+	config *config.Config
+	lock   *sync.Mutex
+	// data holds the whole data model.
+	// It is tempting to touch this to get data for things, but don't touch it.
+	// If steps use this, it could cause dependency problems, concurrency problems, and scalability problems.
 	data              map[string]any
 	dag               dgraph.DirectedGraph[*DAGItem]
 	inputsNotified    map[string]struct{}
@@ -262,29 +267,38 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 
 	nodesWithoutInbound := l.dag.ListNodesWithoutInboundConnections()
 	l.logger.Debugf("Currently %d DAG nodes have no inbound connection. Now processing them.", len(nodesWithoutInbound))
+
+	// nodesWithoutInbound have all dependencies resolved. No inbound connection.
+	// Also includes nodes that are not for running, like an input.
 	for nodeID, node := range nodesWithoutInbound {
 		l.logger.Debugf("Processing step node %s", nodeID)
 		if _, ok := l.inputsNotified[nodeID]; ok {
 			continue
 		}
 		l.inputsNotified[nodeID] = struct{}{}
+		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
 		inputData := node.Item().Data
 		if inputData == nil {
 			// No input data is needed.
 			continue
 		}
 		// Resolve any expressions in the input data.
+		// untypedInputData stores the resolved data
 		untypedInputData, err := l.resolveExpressions(inputData, l.data)
 		if err != nil {
 			panic(fmt.Errorf("cannot resolve expressions for %s (%w)", nodeID, err))
 		}
 
+		// This switch checks to see if it's a node that needs to be run.
 		switch node.Item().Kind {
 		case DAGItemKindStepStage:
 			if node.Item().DataSchema == nil {
+				// This should only happen if the stage doesn't have any input fields
+				// TODO: See if this gets called ever.
 				break
 			}
 			// We have a stage we can proceed with. Let's provide it with input.
+			// Tries to match the schema
 			if _, err := node.Item().DataSchema.Unserialize(untypedInputData); err != nil {
 				l.logger.Errorf("Bug: schema evaluation resulted in invalid data for %s (%v)", node.ID(), err)
 				l.lastError = fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
@@ -292,13 +306,18 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 				return
 			}
 
+			// This check is here just to make sure it has the required fields set
 			if node.Item().StepID != "" && node.Item().StageID != "" {
 				stageInputData := untypedInputData.(map[any]any)
 				typedInputData := make(map[string]any, len(stageInputData))
 				for k, v := range stageInputData {
 					typedInputData[k.(string)] = v
 				}
+				// Sends it to the plugin
 				l.logger.Debugf("Providing stage input for %s...", nodeID)
+				// TODO: Look into unifying, and calling an intermediate object (interface an impl) to check if it needs
+				// to change the state, and lock if it makes sense.
+				// This will be helpful if we add more step providers, since the current setup is prone to locking errors.
 				if err := l.runningSteps[node.Item().StepID].ProvideStageInput(
 					node.Item().StageID,
 					typedInputData,
@@ -308,12 +327,19 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 					l.cancel()
 					return
 				}
+			} else {
+				// This shouldn't happen
+				panic("Step or stage ID missing")
 			}
 		case DAGItemKindOutput:
 			// We have received enough data to construct the workflow output.
 			l.logger.Debugf("Constructing workflow output.")
 			l.outputDone = true
 
+			// What can happen multiple times if there are multiple outputs.
+			// TODO: Make a select, and then select on context cancelled.
+			// If it's cancelled, it should abort writing to the output channel.
+			// This will prevent goroutines from dangling.
 			l.outputDataChannel <- outputDataType{
 				outputID:   node.Item().OutputID,
 				outputData: untypedInputData,

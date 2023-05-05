@@ -69,6 +69,9 @@ type ExecutableWorkflow interface {
 	OutputSchema() map[string]*schema.StepOutputSchema
 }
 
+type ExecutorConfig struct {
+}
+
 type executor struct {
 	logger       log.Logger
 	config       *config.Config
@@ -621,7 +624,14 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 						}
 					}
 				case "steps":
-					prevNodeID := dependency[1:5].String()
+					var prevNodeID string
+					if len(dependency) == 4 {
+						prevNodeID = dependency[1:4].String()
+					} else if len(dependency) >= 5 {
+						prevNodeID = dependency[1:5].String()
+					} else {
+						return fmt.Errorf("invalid dependency %s", dependency.String())
+					}
 					prevNode, err := dag.GetNodeByID(prevNodeID)
 					if err != nil {
 						return fmt.Errorf("failed to find depending node %s (%w)", prevNodeID, err)
