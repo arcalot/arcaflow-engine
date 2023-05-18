@@ -424,7 +424,7 @@ func (r *runnableStep) Start(input map[string]any, stageChangeHandler step.Stage
 		step:               stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
-		stages:             stack.NewStack[string](),
+		stages:             stack.NewSeededStack[string](string(StageIDDeploy)),
 	}
 
 	go s.run()
@@ -467,8 +467,8 @@ func (r *runningStep) CurrentStage() string {
 	return r.stages.Top()
 }
 
-func (r *runningStep) Stages() []string {
-	return r.stages.Values()
+func (r *runningStep) Stages() stack.Stack[string] {
+	return r.stages
 }
 
 func (r *runningStep) State() step.RunningStepState {

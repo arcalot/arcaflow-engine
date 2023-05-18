@@ -1,6 +1,9 @@
 package step
 
-import "go.flow.arcalot.io/pluginsdk/schema"
+import (
+	"go.flow.arcalot.io/engine/internal/stack"
+	"go.flow.arcalot.io/pluginsdk/schema"
+)
 
 // Provider is the description of an item that fits in a workflow. Its implementation provide the
 // basis for workflow execution.
@@ -95,5 +98,5 @@ type RunningStep interface {
 	State() RunningStepState
 	// Close shuts down the step and cleans up the resources associated with the step.
 	Close() error
-	Stages() []string
+	Stages() stack.Stack[string]
 }

@@ -7,10 +7,27 @@ type Stack[T comparable] interface {
 	Push(T)
 	Pop() (T, bool)
 	Values() []T
+	Equals(other []T) bool
 }
 
 func NewStack[T comparable]() Stack[T] {
 	return &stack[T]{}
+}
+
+func (s stack[T]) Equals(other []T) bool {
+	if len(s) != len(other) {
+		return false
+	}
+	for i, v := range s.Values() {
+		if v != other[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func NewSeededStack[T comparable](el T) Stack[T] {
+	return &stack[T]{el}
 }
 
 type stack[T comparable] []T

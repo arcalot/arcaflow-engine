@@ -11,24 +11,22 @@ func TestStack(t *testing.T) {
 	el, err := stk.Pop()
 	assert.Equals(t, err, false)
 	assert.NotNil(t, el)
+	max := 5
 
-	for i := 1; i < 10; i++ {
+	for i := 0; i < max; i++ {
 		stk.Push(i)
 	}
+	assert.Equals(t, stk.Empty(), false)
 
-	for i := 0; i < 10; i++ {
-		if stk.Empty() {
-			t.Fatalf("%d: stack.Empty(): expected %v got %v", i, false, stk.Empty())
-		}
-		if stk.Size() != 10-i {
-			t.Fatalf("%d: stack.Size(): expected %d got %d", i, 10-i, stk.Size())
-		}
-		if stk.Top() != 9-i {
-			t.Fatalf("%d: stack.Top(): expected %d got %d", i, 9-i, stk.Top())
-		}
+	assert.Equals(t, stk.Equals([]int{0, 1, 2, 3, 4}), true)
+	assert.Equals(t, stk.Equals([]int{0, 1, 2, 3}), false)
+	assert.Equals(t, stk.Equals([]int{0, 1, 2, 4, 3}), false)
+
+	for i := 0; i < max; i++ {
+		assert.Equals(t, stk.Size(), max-i)
+		assert.Equals(t, stk.Top(), max-1-i)
 		stk.Pop()
 	}
-	if !stk.Empty() {
-		t.Fatalf("stack.Empty(): should be empty at the end")
-	}
+
+	assert.Equals(t, stk.Empty(), true)
 }
