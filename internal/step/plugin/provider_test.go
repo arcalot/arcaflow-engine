@@ -142,33 +142,6 @@ func TestProvider_DeployerDbl(t *testing.T) {
 	running, err := runnable.Start(map[string]any{}, handler)
 	assert.NoError(t, err)
 
-	//assert.Equals(t, string(running.State()),
-	//	string(step.RunningStepStateStarting))
-
-	/*
-		Validate stage transition sequence by writing the
-		stages at time of transition into a channel. Then,
-		validate the given stage sequence with an expected
-		stage sequence.
-	*/
-
-	//wg := sync.WaitGroup{}
-	//wg.Add(1)
-	//m := sync.Mutex{}
-	//c := sync.NewCond(&m)
-	//
-	//go func() {
-	//	c.L.Lock()
-	//	for string(running.State()) != string(step.RunningStepStateWaitingForInput) {
-	//		c.Wait()
-	//	}
-	//	c.L.Unlock()
-	//	wg.Done()
-	//}()
-	//wg.Wait()
-	//assert.Equals(t, string(running.State()),
-	//	string(step.RunningStepStateWaitingForInput))
-
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		//map[string]any{"deploy": nil},
@@ -183,8 +156,13 @@ func TestProvider_DeployerDbl(t *testing.T) {
 	))
 
 	//
-	//message := <-handler.message
-	//assert.Equals(t, message, "Plugin waited for 2 ms.")
-	//assert.Equals(t, string(running.State()),
-	//	string(step.RunningStepStateFinished))
+	message := <-handler.message
+	assert.Equals(t, message, "Plugin waited for 2 ms.")
+
+	assert.Equals(t, string(running.State()),
+		string(step.RunningStepStateFinished))
+
+	stgs := running.Stages()
+	fmt.Printf("%v\n", stgs)
+
 }
