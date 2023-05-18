@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/stack"
 	"strings"
 	"sync"
 
@@ -423,6 +424,7 @@ func (r *runnableStep) Start(input map[string]any, stageChangeHandler step.Stage
 		step:               stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
+		stages:             stack.NewStack[string](),
 	}
 
 	go s.run()
@@ -450,6 +452,23 @@ type runningStep struct {
 	useLocalDeployer     bool
 	localDeployer        deployer.Connector
 	container            deployer.Plugin
+	stages               stack.Stack[string]
+}
+
+func (r *runningStep) setStage(stage string) {
+	r.lock.Lock()
+	r.stages.Push(stage)
+	r.lock.Unlock()
+}
+
+func (r *runningStep) CurrentStage() string {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return r.stages.Top()
+}
+
+func (r *runningStep) Stages() []string {
+	return r.stages.Values()
 }
 
 func (r *runningStep) State() step.RunningStepState {
@@ -532,12 +551,6 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		r.lock.Unlock()
 		return fmt.Errorf("bug: invalid stage: %s", stage)
 	}
-}
-
-func (r *runningStep) CurrentStage() string {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	return string(r.currentStage)
 }
 
 func (r *runningStep) Close() error {
@@ -634,12 +647,14 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDRunning
+
 	if !r.runInputAvailable {
 		r.state = step.RunningStepStateWaitingForInput
 	} else {
 		r.state = step.RunningStepStateRunning
 	}
 	r.lock.Unlock()
+	r.setStage(string(StageIDRunning))
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -709,6 +724,7 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	// This is so it properly steps through all the stages it needs to.
 	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
+	r.setStage(string(StageIDOutput))
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -737,6 +753,7 @@ func (r *runningStep) deployFailed(err error) {
 	// First running, then finished. You can't skip states.
 	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
+	r.setStage(string(StageIDDeployFailed))
 	r.logger.Warningf("Plugin %s deploy failed. %v", r.step, err)
 	r.stageChangeHandler.OnStageChange(
 		r,
@@ -771,6 +788,7 @@ func (r *runningStep) runFailed(err error) {
 	// Don't forget to update this, or else it will behave very oddly.
 	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
+	r.setStage(string(StageIDCrashed))
 	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
 
 	r.stageChangeHandler.OnStageChange(

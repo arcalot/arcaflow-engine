@@ -95,4 +95,5 @@ type RunningStep interface {
 	State() RunningStepState
 	// Close shuts down the step and cleans up the resources associated with the step.
 	Close() error
+	Stages() []string
 }
