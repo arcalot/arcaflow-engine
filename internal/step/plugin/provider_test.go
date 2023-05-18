@@ -163,6 +163,6 @@ func TestProvider_DeployerDbl(t *testing.T) {
 		string(step.RunningStepStateFinished))
 
 	stgs := running.Stages()
-	fmt.Printf("%v\n", stgs)
-
+	stages_happy := []string{"deploy", "running", "outputs"}
+	assert.Equals(t, stgs.Values(), stages_happy)
 }
