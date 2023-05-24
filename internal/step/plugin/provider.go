@@ -640,12 +640,15 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		string(StageIDRunning),
 		r.runInputAvailable,
 	)
+	r.lock.Lock()
 	r.state = step.RunningStepStateWaitingForInput
 	var runInput any
 	select {
 	case runInput = <-r.runInput:
 		r.state = step.RunningStepStateRunning
+		r.lock.Unlock()
 	case <-r.ctx.Done():
+		r.lock.Unlock()
 		return fmt.Errorf("step closed while waiting for run configuration")
 	}
 	atpClient := atp.NewClientWithLogger(container, r.logger)

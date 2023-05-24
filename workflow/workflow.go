@@ -271,10 +271,10 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 	// nodesWithoutInbound have all dependencies resolved. No inbound connection.
 	// Also includes nodes that are not for running, like an input.
 	for nodeID, node := range nodesWithoutInbound {
-		l.logger.Debugf("Processing step node %s", nodeID)
 		if _, ok := l.inputsNotified[nodeID]; ok {
 			continue
 		}
+		l.logger.Debugf("Processing step node %s", nodeID)
 		l.inputsNotified[nodeID] = struct{}{}
 		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
 		inputData := node.Item().Data
