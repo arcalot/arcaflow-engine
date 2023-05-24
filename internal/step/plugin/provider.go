@@ -18,7 +18,7 @@ import (
 func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerConfig any) (step.Provider, error) {
 	unserializedLocalDeployerConfig, err := deployerRegistry.Schema().Unserialize(localDeployerConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file")
+		return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
 	}
 	localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger)
 	if err != nil {
