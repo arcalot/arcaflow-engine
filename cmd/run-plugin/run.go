@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 
 	log "go.arcalot.io/log/v2"
 	docker "go.flow.arcalot.io/dockerdeployer"
@@ -36,8 +37,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	ctrlC := make(chan os.Signal, 1)
+	signal.Notify(ctrlC, os.Interrupt)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	go func() {
+		select {
+		case <-ctrlC:
+			fmt.Println("Received CTRL-C. Cancelling the context to cancel the step...")
+			cancel()
+		case <-ctx.Done():
+			// Done here.
+		}
+	}()
+
 	plugin, err := connector.Deploy(ctx, image)
 	if err != nil {
 		panic(err)
@@ -49,14 +63,14 @@ func main() {
 	}()
 
 	atpClient := atp.NewClient(plugin)
-	pluginSchema, err := atpClient.ReadSchema()
+	pluginSchema, err := atpClient.ReadSchema(nil)
 	if err != nil {
 		panic(err)
 	}
 	steps := pluginSchema.Steps()
 	step, ok := steps[stepID]
 	if !ok {
-		panic(fmt.Errorf("No such step: %s", stepID))
+		panic(fmt.Errorf("no such step: %s", stepID))
 	}
 	inputContents, err := os.ReadFile(file) //nolint:gosec
 	if err != nil {
@@ -69,11 +83,11 @@ func main() {
 	if _, err := step.Input().Unserialize(input); err != nil {
 		panic(err)
 	}
-	outputID, outputData, debugLogs := atpClient.Execute(ctx, stepID, input)
+	outputID, outputData, err := atpClient.Execute(ctx, stepID, input)
 	output := map[string]any{
 		"outputID":   outputID,
 		"outputData": outputData,
-		"debugLogs":  debugLogs,
+		"err":        err,
 	}
 	result, err := yaml.Marshal(output)
 	if err != nil {
