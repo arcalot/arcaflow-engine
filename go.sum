@@ -159,14 +159,10 @@ go.flow.arcalot.io/expressions v0.1.0 h1:MYeMAuOr6DyeNKyTMCXwVp8eMJ0jFKVFukLBCKF
 go.flow.arcalot.io/expressions v0.1.0/go.mod h1:m4p6oCwjjxRjPCAYGeZDNP9DGfoDODHo1z4pBoO+Lpc=
 go.flow.arcalot.io/kubernetesdeployer v0.3.0 h1:GQm9xwioA2pMqpUuyK+fGdhepPigL6cyifiKlxrTkdo=
 go.flow.arcalot.io/kubernetesdeployer v0.3.0/go.mod h1:XNkG7ARtjdHFigJLLIJ9kcofkq2DzZ8gz2FPCnJON+I=
-go.flow.arcalot.io/pluginsdk v0.2.0 h1:nPR4Jug9gX2KKLD75RHGf9H+ea4KN3SfLMSBHr8/s/M=
-go.flow.arcalot.io/pluginsdk v0.2.0/go.mod h1:7cEk8LSxpZakyfrmKTPbiMhlrZvWtCPYcaI7qfSu8MM=
 go.flow.arcalot.io/pluginsdk v0.3.0-beta.1 h1:RrC5SKDkhwG/enE/FajAxRF1izET61/LO4lhaI9q094=
 go.flow.arcalot.io/pluginsdk v0.3.0-beta.1/go.mod h1:7cEk8LSxpZakyfrmKTPbiMhlrZvWtCPYcaI7qfSu8MM=
 go.flow.arcalot.io/podmandeployer v0.2.2 h1:eoqLnT2PKfVUO9IEYl/Zr2oo8cYNW4x743CQPsr22QM=
 go.flow.arcalot.io/podmandeployer v0.2.2/go.mod h1:EJtBVsGvI5NK/645qUMvEz8WfhDVMjH4cikYj+eE/Dk=
-go.flow.arcalot.io/testdeployer v0.0.0-20230504043120-0442f1d3ef1d h1:jXLKvq4mBQZSDVUiaWxMJVW/ZYkf+xZi6dZ6sIado5A=
-go.flow.arcalot.io/testdeployer v0.0.0-20230504043120-0442f1d3ef1d/go.mod h1:NlsbcWBebWGmpOYjFIaxMTzujq6ttXosh58BGx3MSME=
 go.flow.arcalot.io/testdeployer v0.0.0-20230601203710-1313d28a900a h1:HlTFAQk6l7stiOEzvgoSuErlgA+G87gvhXvSgyKnfJ0=
 go.flow.arcalot.io/testdeployer v0.0.0-20230601203710-1313d28a900a/go.mod h1:O8Hg/YZky3f+NlhgscEOpQWTnPgJsXVR+/wesVhvaas=
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
