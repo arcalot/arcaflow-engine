@@ -170,7 +170,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	// Set up the ATP connection
 	transport := atp.NewClientWithLogger(plugin, p.logger)
 	// Read the schema information
-	s, err := transport.ReadSchema(nil)
+	s, err := transport.ReadSchema()
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to read plugin schema from %s (%w)", image, err)
@@ -653,7 +653,7 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	}
 	atpClient := atp.NewClientWithLogger(container, r.logger)
 
-	inputSchema, err := atpClient.ReadSchema(r.ctx)
+	inputSchema, err := atpClient.ReadSchema()
 	if err != nil {
 		return err
 	}
@@ -672,7 +672,7 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	// You will still need to wait for output, or error out.
 	executionChannel := make(chan executionResult)
 	go func() {
-		outputID, outputData, err := atpClient.Execute(r.ctx, r.step, runInput)
+		outputID, outputData, err := atpClient.Execute(r.step, runInput)
 		executionChannel <- executionResult{outputID, outputData, err}
 	}()
 

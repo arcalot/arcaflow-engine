@@ -63,7 +63,7 @@ func main() {
 	}()
 
 	atpClient := atp.NewClient(plugin)
-	pluginSchema, err := atpClient.ReadSchema(nil)
+	pluginSchema, err := atpClient.ReadSchema()
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +83,7 @@ func main() {
 	if _, err := step.Input().Unserialize(input); err != nil {
 		panic(err)
 	}
-	outputID, outputData, err := atpClient.Execute(ctx, stepID, input)
+	outputID, outputData, err := atpClient.Execute(stepID, input)
 	output := map[string]any{
 		"outputID":   outputID,
 		"outputData": outputData,
