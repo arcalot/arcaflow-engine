@@ -646,7 +646,9 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	var runInput any
 	select {
 	case runInput = <-r.runInput:
+		r.lock.Lock()
 		r.state = step.RunningStepStateRunning
+		r.lock.Unlock()
 	case <-r.ctx.Done():
 		return fmt.Errorf("step closed while waiting for run configuration")
 	}
