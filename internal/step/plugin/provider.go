@@ -665,10 +665,9 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		return fmt.Errorf("schema mismatch between local and remote deployed plugin, unserializing input failed (%w)", err)
 	}
 
-	// TODO: Run ATP client in goroutine, then send back the results in a channel
-	// On that channel, make a select on that channel and context done.
-	// If it's context done, close the deployer. That will shutdown (with sigterm) the container.
-	// You will still need to wait for output, or error out.
+	// Runs the ATP client in a goroutine in order to wait for it or context done.
+	// On context done, the deployer tries to end execution. That will shut down
+	// (with sigterm) the container. Then wait for output, or error out.
 	executionChannel := make(chan executionResult)
 	go func() {
 		outputID, outputData, err := atpClient.Execute(r.step, runInput)
@@ -686,6 +685,7 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		// Shutdown (with sigterm) the container, then wait for the output (valid or error).
 		r.logger.Debugf("Running step context done before step run complete. Cancelling and waiting for result.")
 		r.cancel()
+		// If necessary, you can add a timeout here for shutdowns that take too long.
 		result = <-executionChannel
 	}
 

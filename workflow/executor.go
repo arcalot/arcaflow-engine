@@ -625,9 +625,9 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 					}
 				case "steps":
 					var prevNodeID string
-					if len(dependency) == 4 {
+					if len(dependency) == 4 { // Example: $.steps.example.outputs
 						prevNodeID = dependency[1:4].String()
-					} else if len(dependency) >= 5 {
+					} else if len(dependency) >= 5 { // Example: $.steps.example.outputs.success (or longer)
 						prevNodeID = dependency[1:5].String()
 					} else {
 						return fmt.Errorf("invalid dependency %s", dependency.String())
