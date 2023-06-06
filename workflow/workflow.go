@@ -257,6 +257,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 
 // notifySteps is a function we can call to go through all DAG nodes that have no inbound connections and
 // provide step inputs based on expressions.
+// The lock should be acquired when this is called.
 func (l *loopState) notifySteps() { //nolint:gocognit
 	// This function goes through the DAG and feeds the input to all steps that have no further inbound
 	// dependencies.
@@ -334,15 +335,21 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		case DAGItemKindOutput:
 			// We have received enough data to construct the workflow output.
 			l.logger.Debugf("Constructing workflow output.")
-			l.outputDone = true
+			if l.outputDone {
+				l.logger.Warningf("Workflow already done. Skipping output.")
+			} else {
+				l.outputDone = true
 
-			// What can happen multiple times if there are multiple outputs.
-			// TODO: Make a select, and then select on context cancelled.
-			// If it's cancelled, it should abort writing to the output channel.
-			// This will prevent goroutines from dangling.
-			l.outputDataChannel <- outputDataType{
-				outputID:   node.Item().OutputID,
-				outputData: untypedInputData,
+				// When this function is called, the lock should be acquired, so no
+				// other copies of this should be attempting to write to the output
+				// data channel. This is required to prevent the goroutine from stalling.
+				l.outputDataChannel <- outputDataType{
+					outputID:   node.Item().OutputID,
+					outputData: untypedInputData,
+				}
+				// Since this is the only thread accessing the channel, it should be
+				// safe to close it now
+				close(l.outputDataChannel)
 			}
 
 			if err := node.Remove(); err != nil {
