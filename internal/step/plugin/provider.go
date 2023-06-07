@@ -608,7 +608,7 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 		nil,
 		nil,
 		string(StageIDDeploy),
-		r.runInputAvailable,
+		r.deployInputAvailable,
 	)
 	var deployerConfig any
 	var useLocalDeployer bool
