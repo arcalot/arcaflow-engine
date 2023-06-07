@@ -111,6 +111,7 @@ var runningLifecycleStage = step.LifecycleStage{
 	RunningName:  "running",
 	FinishedName: "completed",
 	InputFields: map[string]struct{}{
+		//nolint:godox
 		// TODO: Add wait_for here. Empty struct.
 		"input": {},
 	},
@@ -292,6 +293,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 			{
 				LifecycleStage: runningLifecycleStage,
 				InputSchema: map[string]*schema.PropertySchema{
+					//nolint:godox
 					// TODO: Add wait_for right here. Should be an any type.
 					// Also add to section above.
 					"input": schema.NewPropertySchema(

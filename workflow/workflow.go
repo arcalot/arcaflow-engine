@@ -294,8 +294,8 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		switch node.Item().Kind {
 		case DAGItemKindStepStage:
 			if node.Item().DataSchema == nil {
-				// This should only happen if the stage doesn't have any input fields
-				// TODO: See if this gets called ever.
+				// This should only happen if the stage doesn't have any input fields.
+				// This may not even get called. That should be checked.
 				break
 			}
 			// We have a stage we can proceed with. Let's provide it with input.
@@ -316,9 +316,6 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 				}
 				// Sends it to the plugin
 				l.logger.Debugf("Providing stage input for %s...", nodeID)
-				// TODO: Look into unifying, and calling an intermediate object (interface an impl) to check if it needs
-				// to change the state, and lock if it makes sense.
-				// This will be helpful if we add more step providers, since the current setup is prone to locking errors.
 				if err := l.runningSteps[node.Item().StepID].ProvideStageInput(
 					node.Item().StageID,
 					typedInputData,
