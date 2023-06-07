@@ -96,6 +96,136 @@ func (s *stageChangeHandler) OnStepComplete(
 //	assert.Equals(t, message, "Hello, Arca Lot!")
 //}
 
+func TestProvider_Happy(t *testing.T) {
+	logConfig := log.Config{
+		Level:       log.LevelError,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	workflow_deployer_cfg := map[string]any{
+		"type": "test-impl",
+	}
+
+	d_registry := deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory()))
+	plp, err := plugin.New(
+		logger,
+		d_registry,
+		workflow_deployer_cfg,
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, plp.Kind(), "plugin")
+
+	assert.NotNil(t, plp.ProviderSchema())
+	assert.NotNil(t, plp.RunProperties())
+	assert.NotNil(t, plp.Lifecycle())
+
+	step_schema := map[string]any{
+		"plugin": "simulation",
+	}
+	byte_schema := map[string][]byte{}
+
+	runnable, err := plp.LoadSchema(step_schema, byte_schema)
+	assert.NoError(t, err)
+
+	assert.NotNil(t, runnable.RunSchema())
+
+	_, err = runnable.Lifecycle(map[string]any{"step": "wait"})
+	assert.NoError(t, err)
+
+	handler := &stageChangeHandler{
+		message: make(chan string),
+	}
+
+	running, err := runnable.Start(map[string]any{}, handler)
+	assert.NoError(t, err)
+
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		map[string]any{"deploy": nil},
+	))
+
+	wait_time_ms := 50
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
+	))
+
+	message := <-handler.message
+	msg_expected := fmt.Sprintf("Plugin slept for %d ms.", wait_time_ms)
+	assert.Equals(t, message, msg_expected)
+
+	assert.Equals(t, string(running.State()),
+		string(step.RunningStepStateFinished))
+
+	stgs := running.Stages()
+	stages_happy := []string{"deploy", "running", "outputs"}
+	assert.Equals(t, stgs.Values(), stages_happy)
+}
+
+func TestProvider_DeployFail(t *testing.T) {
+	logConfig := log.Config{
+		Level:       log.LevelError,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	workflow_deployer_cfg := map[string]any{
+		"type": "test-impl",
+	}
+
+	d_registry := deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory()))
+	plp, err := plugin.New(
+		logger,
+		d_registry,
+		workflow_deployer_cfg,
+	)
+	assert.NoError(t, err)
+
+	step_schema := map[string]any{
+		"plugin": "simulation",
+	}
+	byte_schema := map[string][]byte{}
+
+	runnable, err := plp.LoadSchema(step_schema, byte_schema)
+	assert.NoError(t, err)
+
+	handler := &stageChangeHandler{
+		message: make(chan string),
+	}
+
+	running, err := runnable.Start(map[string]any{}, handler)
+	assert.NoError(t, err)
+
+	//running.Close()
+
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		map[string]any{"deploy": nil},
+	))
+
+	wait_time_ms := 50
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
+	))
+
+	message := <-handler.message
+	msg_expected := fmt.Sprintf("Plugin slept for %d ms.", wait_time_ms)
+	assert.Equals(t, message, msg_expected)
+
+	assert.Equals(t, string(running.State()),
+		string(step.RunningStepStateFinished))
+
+	stgs := running.Stages()
+	stages_happy := []string{"deploy", "running", "outputs"}
+	assert.Equals(t, stgs.Values(), stages_happy)
+}
+
 func TestProvider_DeployerDbl(t *testing.T) {
 	logConfig := log.Config{
 		Level:       log.LevelError,
@@ -132,7 +262,7 @@ func TestProvider_DeployerDbl(t *testing.T) {
 
 	assert.NotNil(t, runnable.RunSchema())
 
-	_, err = runnable.Lifecycle(map[string]any{"step": "wait_"})
+	_, err = runnable.Lifecycle(map[string]any{"step": "wait"})
 	assert.NoError(t, err)
 
 	handler := &stageChangeHandler{
@@ -142,6 +272,15 @@ func TestProvider_DeployerDbl(t *testing.T) {
 	running, err := runnable.Start(map[string]any{}, handler)
 	assert.NoError(t, err)
 
+	// unserialize malformed deploy schema
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		//map[string]any{"deploy": nil},
+		map[string]any{"deploy": map[string]any{
+			"type":        "test-impl",
+			"deploy_time": "abc"}},
+	))
+
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		//map[string]any{"deploy": nil},
@@ -150,14 +289,42 @@ func TestProvider_DeployerDbl(t *testing.T) {
 			"deploy_time": 1}},
 	))
 
-	assert.NoError(t, running.ProvideStageInput(
-		string(plugin.StageIDRunning),
-		map[string]any{"input": map[string]any{"wait_time": 2}},
+	// provide deploy input a 2nd time
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		//map[string]any{"deploy": nil},
+		map[string]any{"deploy": map[string]any{
+			"type":        "test-impl",
+			"deploy_time": 1}},
 	))
 
-	//
+	// unserialize nil input schema error
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": nil},
+	))
+
+	// unserialize malformed input schema
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": 1},
+	))
+
+	wait_time_ms := 50
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
+	))
+
+	// provide running input a 2nd time
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
+	))
+
 	message := <-handler.message
-	assert.Equals(t, message, "Plugin waited for 2 ms.")
+	msg_expected := fmt.Sprintf("Plugin slept for %d ms.", wait_time_ms)
+	assert.Equals(t, message, msg_expected)
 
 	assert.Equals(t, string(running.State()),
 		string(step.RunningStepStateFinished))
