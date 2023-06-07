@@ -226,7 +226,7 @@ func TestProvider_DeployFail(t *testing.T) {
 	assert.Equals(t, stgs.Values(), stages_happy)
 }
 
-func TestProvider_DeployerDbl(t *testing.T) {
+func TestProvider_Error(t *testing.T) {
 	logConfig := log.Config{
 		Level:       log.LevelError,
 		Destination: log.DestinationStdout,
@@ -246,31 +246,24 @@ func TestProvider_DeployerDbl(t *testing.T) {
 		workflow_deployer_cfg,
 	)
 	assert.NoError(t, err)
-	assert.Equals(t, plp.Kind(), "plugin")
 
-	assert.NotNil(t, plp.ProviderSchema())
-	assert.NotNil(t, plp.RunProperties())
-	assert.NotNil(t, plp.Lifecycle())
-
-	step_schema := map[string]any{
-		"plugin": "simulation",
-	}
-	byte_schema := map[string][]byte{}
-
-	runnable, err := plp.LoadSchema(step_schema, byte_schema)
-	assert.NoError(t, err)
-
-	assert.NotNil(t, runnable.RunSchema())
-
-	_, err = runnable.Lifecycle(map[string]any{"step": "wait"})
+	runnable, err := plp.LoadSchema(
+		map[string]any{"plugin": "simulation"}, map[string][]byte{})
 	assert.NoError(t, err)
 
 	handler := &stageChangeHandler{
 		message: make(chan string),
 	}
 
-	running, err := runnable.Start(map[string]any{}, handler)
+	_, err = runnable.Start(map[string]any{"step": "wrong_stepid"}, handler)
+	assert.Error(t, err)
+
+	running, err := runnable.Start(map[string]any{"step": "wait"}, handler)
 	assert.NoError(t, err)
+
+	// non-existent stage
+	assert.Error(t, running.ProvideStageInput(
+		"", nil))
 
 	// unserialize malformed deploy schema
 	assert.Error(t, running.ProvideStageInput(
