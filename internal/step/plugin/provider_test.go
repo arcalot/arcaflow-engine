@@ -163,73 +163,16 @@ func TestProvider_Happy(t *testing.T) {
 	assert.Equals(t, string(running.State()),
 		string(step.RunningStepStateFinished))
 
-	stgs := running.Stages()
-	stages_happy := []string{"deploy", "running", "outputs"}
-	assert.Equals(t, stgs.Values(), stages_happy)
-}
-
-func TestProvider_DeployFail(t *testing.T) {
-	logConfig := log.Config{
-		Level:       log.LevelError,
-		Destination: log.DestinationStdout,
-	}
-	logger := log.New(
-		logConfig,
-	)
-	workflow_deployer_cfg := map[string]any{
-		"type": "test-impl",
-	}
-
-	d_registry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
-	plp, err := plugin.New(
-		logger,
-		d_registry,
-		workflow_deployer_cfg,
-	)
-	assert.NoError(t, err)
-
-	step_schema := map[string]any{
-		"plugin": "simulation",
-	}
-	byte_schema := map[string][]byte{}
-
-	runnable, err := plp.LoadSchema(step_schema, byte_schema)
-	assert.NoError(t, err)
-
-	handler := &stageChangeHandler{
-		message: make(chan string),
-	}
-
-	running, err := runnable.Start(map[string]any{}, handler)
-	assert.NoError(t, err)
-
-	//running.Close()
-
-	assert.NoError(t, running.ProvideStageInput(
+	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDOutput))
+	stages_happy := []string{
 		string(plugin.StageIDDeploy),
-		map[string]any{"deploy": nil},
-	))
-
-	wait_time_ms := 50
-	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDRunning),
-		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
-	))
-
-	message := <-handler.message
-	msg_expected := fmt.Sprintf("Plugin slept for %d ms.", wait_time_ms)
-	assert.Equals(t, message, msg_expected)
-
-	assert.Equals(t, string(running.State()),
-		string(step.RunningStepStateFinished))
-
+		string(plugin.StageIDOutput)}
 	stgs := running.Stages()
-	stages_happy := []string{"deploy", "running", "outputs"}
 	assert.Equals(t, stgs.Values(), stages_happy)
 }
 
-func TestProvider_Error(t *testing.T) {
+func TestProvider_HappyError(t *testing.T) {
 	logConfig := log.Config{
 		Level:       log.LevelError,
 		Destination: log.DestinationStdout,
@@ -266,6 +209,7 @@ func TestProvider_Error(t *testing.T) {
 		message: make(chan string),
 	}
 
+	// start with a step id that is not in the schema
 	_, err = runnable.Start(map[string]any{"step": "wrong_stepid"}, handler)
 	assert.Error(t, err)
 
@@ -334,7 +278,12 @@ func TestProvider_Error(t *testing.T) {
 	assert.Equals(t, string(running.State()),
 		string(step.RunningStepStateFinished))
 
+	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDOutput))
+	stages_happy := []string{
+		string(plugin.StageIDDeploy),
+		string(plugin.StageIDRunning),
+		string(plugin.StageIDOutput)}
+
 	stgs := running.Stages()
-	stages_happy := []string{"deploy", "running", "outputs"}
 	assert.Equals(t, stgs.Values(), stages_happy)
 }
