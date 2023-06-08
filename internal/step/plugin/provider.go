@@ -499,6 +499,7 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			r.useLocalDeployer = true
 		}
 		// Make sure we transition the state before unlocking so there are no race conditions.
+
 		r.deployInputAvailable = true
 		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
 			r.state = step.RunningStepStateRunning
@@ -601,7 +602,8 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	} else {
 		r.state = step.RunningStepStateRunning
 	}
-	r.lock.Unlock()
+
+	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		nil,
@@ -610,6 +612,8 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 		string(StageIDDeploy),
 		r.deployInputAvailable,
 	)
+	r.lock.Unlock()
+
 	var deployerConfig any
 	var useLocalDeployer bool
 	select {
@@ -653,8 +657,8 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	} else {
 		r.state = step.RunningStepStateRunning
 	}
-	r.lock.Unlock()
-	r.setStage(string(StageIDRunning))
+
+	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -663,6 +667,10 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		string(StageIDRunning),
 		r.runInputAvailable,
 	)
+	r.lock.Unlock()
+
+	r.setStage(string(StageIDRunning))
+
 	r.lock.Lock()
 	r.state = step.RunningStepStateWaitingForInput
 	r.lock.Unlock()
@@ -723,8 +731,8 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	// First running, then state change, then finished.
 	// This is so it properly steps through all the stages it needs to.
 	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-	r.setStage(string(StageIDOutput))
+
+	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -732,6 +740,10 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		nil,
 		string(r.currentStage),
 		false)
+	r.lock.Unlock()
+
+	r.setStage(string(StageIDOutput))
+
 	r.lock.Lock()
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
@@ -752,9 +764,8 @@ func (r *runningStep) deployFailed(err error) {
 	// Don't forget to update this, or else it will behave very oddly.
 	// First running, then finished. You can't skip states.
 	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-	r.setStage(string(StageIDDeployFailed))
-	r.logger.Warningf("Plugin %s deploy failed. %v", r.step, err)
+
+	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -763,6 +774,9 @@ func (r *runningStep) deployFailed(err error) {
 		string(StageIDDeployFailed),
 		false,
 	)
+	r.lock.Unlock()
+	r.setStage(string(StageIDDeployFailed))
+	r.logger.Warningf("Plugin %s deploy failed. %v", r.step, err)
 
 	// Now it's done.
 	r.lock.Lock()
@@ -787,10 +801,8 @@ func (r *runningStep) runFailed(err error) {
 	r.currentStage = StageIDCrashed
 	// Don't forget to update this, or else it will behave very oddly.
 	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-	r.setStage(string(StageIDCrashed))
-	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
 
+	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -798,6 +810,10 @@ func (r *runningStep) runFailed(err error) {
 		nil,
 		string(r.currentStage),
 		false)
+	r.lock.Unlock()
+
+	r.setStage(string(StageIDCrashed))
+	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
 
 	// Now it's done.
 	r.lock.Lock()
