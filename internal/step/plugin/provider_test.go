@@ -135,6 +135,9 @@ func TestProvider_Happy(t *testing.T) {
 	_, err = runnable.Lifecycle(map[string]any{"step": "wait"})
 	assert.NoError(t, err)
 
+	_, err = runnable.Lifecycle(map[string]any{"step": nil})
+	assert.NoError(t, err)
+
 	handler := &stageChangeHandler{
 		message: make(chan string),
 	}
@@ -240,7 +243,15 @@ func TestProvider_Error(t *testing.T) {
 
 	d_registry := deployer_registry.New(
 		deployer.Any(testdeployer.NewFactory()))
+
 	plp, err := plugin.New(
+		logger,
+		d_registry,
+		map[string]any{"deployer_cfg": "bad"},
+	)
+	assert.Error(t, err)
+
+	plp, err = plugin.New(
 		logger,
 		d_registry,
 		workflow_deployer_cfg,
@@ -258,7 +269,8 @@ func TestProvider_Error(t *testing.T) {
 	_, err = runnable.Start(map[string]any{"step": "wrong_stepid"}, handler)
 	assert.Error(t, err)
 
-	running, err := runnable.Start(map[string]any{"step": "wait"}, handler)
+	// default step id
+	running, err := runnable.Start(map[string]any{"step": nil}, handler)
 	assert.NoError(t, err)
 
 	// non-existent stage
