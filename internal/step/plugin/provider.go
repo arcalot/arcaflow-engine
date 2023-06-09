@@ -483,6 +483,8 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 	// Checks which stage it is getting input for
 	switch stage {
 	case string(StageIDDeploy):
+		// input provided on this call overwrites the deployer configuration
+		// set at this plugin provider's instantiation
 		if r.deployInputAvailable {
 			r.lock.Unlock()
 			return fmt.Errorf("deployment information provided more than once")
