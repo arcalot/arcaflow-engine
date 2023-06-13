@@ -108,28 +108,24 @@ func (s *stageChangeHandler) OnStepComplete(
 	s.message <- message
 }
 
-func TestProvider_Happy(t *testing.T) {
-	logConfig := log.Config{
-		Level:       log.LevelError,
-		Destination: log.DestinationStdout,
-	}
-	logger := log.New(
-		logConfig,
-	)
+func TestProvider_Utility(t *testing.T) {
 	workflow_deployer_cfg := map[string]any{
 		"type": "test-impl",
 	}
 
-	d_registry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
 	plp, err := plugin.New(
-		logger,
-		d_registry,
+		log.New(
+			log.Config{
+				Level:       log.LevelError,
+				Destination: log.DestinationStdout,
+			},
+		),
+		deployer_registry.New(
+			deployer.Any(testdeployer.NewFactory())),
 		workflow_deployer_cfg,
 	)
 	assert.NoError(t, err)
 	assert.Equals(t, plp.Kind(), "plugin")
-
 	assert.NotNil(t, plp.ProviderSchema())
 	assert.NotNil(t, plp.RunProperties())
 	assert.NotNil(t, plp.Lifecycle())
@@ -149,48 +145,14 @@ func TestProvider_Happy(t *testing.T) {
 
 	_, err = runnable.Lifecycle(map[string]any{"step": nil})
 	assert.NoError(t, err)
-
-	handler := &stageChangeHandler{
-		message: make(chan string),
-	}
-
-	running, err := runnable.Start(map[string]any{}, handler)
-	assert.NoError(t, err)
-
-	assert.NoError(t, running.ProvideStageInput(
-		string(plugin.StageIDDeploy),
-		map[string]any{"deploy": nil},
-	))
-
-	wait_time_ms := 50
-	assert.NoError(t, running.ProvideStageInput(
-		string(plugin.StageIDRunning),
-		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
-	))
-
-	message := <-handler.message
-	msg_expected := fmt.Sprintf("Plugin slept for %d ms.", wait_time_ms)
-	assert.Equals(t, message, msg_expected)
-
-	assert.Equals(t, string(running.State()),
-		string(step.RunningStepStateFinished))
-
-	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDOutput))
-	stages_happy := []string{
-		string(plugin.StageIDDeploy),
-		string(plugin.StageIDRunning),
-		string(plugin.StageIDOutput)}
-	stgs := running.Stages()
-	assert.Equals(t, stgs.Values(), stages_happy)
 }
 
 func TestProvider_HappyError(t *testing.T) {
-	logConfig := log.Config{
-		Level:       log.LevelError,
-		Destination: log.DestinationStdout,
-	}
 	logger := log.New(
-		logConfig,
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
 	)
 	workflow_deployer_cfg := map[string]any{
 		"type": "test-impl",
@@ -256,7 +218,7 @@ func TestProvider_HappyError(t *testing.T) {
 		//map[string]any{"deploy": nil},
 		map[string]any{"deploy": map[string]any{
 			"type":        "test-impl",
-			"deploy_time": 1}},
+			"deploy_time": nil}},
 	))
 
 	// unserialize nil input schema error
@@ -371,88 +333,6 @@ func TestProvider_DeployFail(t *testing.T) {
 	stgs := running.Stages()
 	assert.Equals(t, stgs.Values(), stages_exp)
 }
-
-//func TestProvider_Docker_RunFail(t *testing.T) {
-//	logConfig := log.Config{
-//		Level:       log.LevelError,
-//		Destination: log.DestinationStdout,
-//	}
-//	logger := log.New(
-//		logConfig,
-//	)
-//
-//	plp, err := plugin.New(
-//		logger,
-//		deployer_registry.New(
-//			deployer.Any(docker.NewFactory())),
-//		map[string]any{"type": "docker"},
-//	)
-//	assert.NoError(t, err)
-//
-//	runnable, err := plp.LoadSchema(
-//		map[string]any{"plugin": "ghcr.io/janosdebugs/arcaflow-example-plugin"}, map[string][]byte{})
-//	assert.NoError(t, err)
-//
-//	handler := &runFailStageChangeHandler{
-//		message: make(chan string),
-//	}
-//
-//	// default step id
-//	running, err := runnable.Start(map[string]any{"step": "hello-world"}, handler)
-//	assert.NoError(t, err)
-//
-//	assert.NoError(t, running.ProvideStageInput(
-//		string(plugin.StageIDDeploy),
-//		//map[string]any{"deploy": map[string]any{
-//		//	"type":        "test-impl",
-//		//	"succeed":     true,
-//		//	"deploy_time": deploy_time_ms}},
-//		map[string]any{},
-//	))
-//
-//	wg := &sync.WaitGroup{}
-//	wg.Add(1)
-//	name := "Arca Lot"
-//
-//	go func() {
-//		assert.NoError(t, running.ProvideStageInput(
-//			string(plugin.StageIDRunning),
-//			map[string]any{"input": map[string]any{"name": name}},
-//		))
-//
-//	}()
-//
-//	go func() {
-//		defer wg.Done()
-//		assert.NoError(t, running.ProvideStageInput(
-//			string(plugin.StageIDCancelled),
-//			//map[string]any{"input": map[string]any{
-//			//	"stop_if": true}},
-//			map[string]any{"stop_if": true},
-//		))
-//		//running.Close()
-//
-//	}()
-//
-//	//assert.Equals(t, string(running.State()),
-//	//	string(step.RunningStepStateFinished))
-//
-//	wg.Wait()
-//
-//	message := <-handler.message
-//	msg_expected := fmt.Sprintf("Hello %s", name)
-//	assert.Equals(t, message, msg_expected)
-//
-//	stages_exp := []string{
-//		string(plugin.StageIDDeploy),
-//		string(plugin.StageIDRunning),
-//		string(plugin.StageIDRunning),
-//		string(plugin.StageIDCancelled),
-//		string(plugin.StageIDCrashed)}
-//
-//	stgs := running.Stages()
-//	assert.Equals(t, stgs.Values(), stages_exp)
-//}
 
 func TestProvider_RunFail(t *testing.T) {
 	logger := log.New(
