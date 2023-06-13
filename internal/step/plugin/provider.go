@@ -540,6 +540,7 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			r.cancel() // This should cancel the plugin deployment or execution.
 		}
 		r.lock.Unlock()
+		r.setStage(string(StageIDCancelled))
 		return nil
 	case string(StageIDDeployFailed):
 		r.lock.Unlock()
@@ -604,17 +605,17 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	} else {
 		r.state = step.RunningStepStateRunning
 	}
+	deployInputAvailable := r.deployInputAvailable
+	r.lock.Unlock()
 
-	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		nil,
 		nil,
 		nil,
 		string(StageIDDeploy),
-		r.deployInputAvailable,
+		deployInputAvailable,
 	)
-	r.lock.Unlock()
 
 	var deployerConfig any
 	var useLocalDeployer bool
@@ -659,17 +660,17 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	} else {
 		r.state = step.RunningStepStateRunning
 	}
+	runInputAvailable := r.runInputAvailable
+	r.lock.Unlock()
 
-	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
 		nil,
 		nil,
 		string(StageIDRunning),
-		r.runInputAvailable,
+		runInputAvailable,
 	)
-	r.lock.Unlock()
 
 	r.setStage(string(StageIDRunning))
 
@@ -735,6 +736,9 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	r.state = step.RunningStepStateRunning
 
 	// TODO: add timeout for OnStageChange
+
+	r.lock.Unlock()
+
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -742,7 +746,6 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 		nil,
 		string(r.currentStage),
 		false)
-	r.lock.Unlock()
 
 	r.setStage(string(StageIDOutput))
 

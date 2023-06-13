@@ -5,6 +5,7 @@ package dummy
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/stack"
 	"sync"
 
 	"go.flow.arcalot.io/engine/internal/step"
@@ -187,8 +188,9 @@ func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChan
 		lock:               &sync.Mutex{},
 		// This name channel will serve as a way to pass the input data when provided. It needs to be buffered so
 		// the ProvideInputStage is not blocked.
-		name:  make(chan string, 1),
-		state: step.RunningStepStateStarting,
+		name:   make(chan string, 1),
+		state:  step.RunningStepStateStarting,
+		stages: stack.NewSeededStack[string](string(StageIDGreet)),
 	}
 
 	go s.run()
@@ -204,12 +206,17 @@ type runningStep struct {
 	name               chan string
 	state              step.RunningStepState
 	inputAvailable     bool
+	stages             stack.Stack[string]
 }
 
 func (r *runningStep) State() step.RunningStepState {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	return r.state
+}
+
+func (r *runningStep) Stages() stack.Stack[string] {
+	return r.stages
 }
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {

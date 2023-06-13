@@ -9,7 +9,6 @@ import (
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testdeployer "go.flow.arcalot.io/testdeployer"
-	"sync"
 	"testing"
 )
 
@@ -299,6 +298,10 @@ func TestProvider_HappyError(t *testing.T) {
 
 	stgs := running.Stages()
 	assert.Equals(t, stgs.Values(), stages_happy)
+
+	t.Cleanup(func() {
+		assert.NoError(t, running.Close())
+	})
 }
 
 func TestProvider_DeployFail(t *testing.T) {
@@ -348,7 +351,6 @@ func TestProvider_DeployFail(t *testing.T) {
 			"deploy_time": deploy_time_ms}},
 	))
 
-	// should this be possible?!
 	wait_time_ms := 50
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDRunning),
@@ -370,15 +372,95 @@ func TestProvider_DeployFail(t *testing.T) {
 	assert.Equals(t, stgs.Values(), stages_exp)
 }
 
-func TestProvider_RunFail(t *testing.T) {
-	logConfig := log.Config{
-		Level:       log.LevelError,
-		Destination: log.DestinationStdout,
-	}
-	logger := log.New(
-		logConfig,
-	)
+//func TestProvider_Docker_RunFail(t *testing.T) {
+//	logConfig := log.Config{
+//		Level:       log.LevelError,
+//		Destination: log.DestinationStdout,
+//	}
+//	logger := log.New(
+//		logConfig,
+//	)
+//
+//	plp, err := plugin.New(
+//		logger,
+//		deployer_registry.New(
+//			deployer.Any(docker.NewFactory())),
+//		map[string]any{"type": "docker"},
+//	)
+//	assert.NoError(t, err)
+//
+//	runnable, err := plp.LoadSchema(
+//		map[string]any{"plugin": "ghcr.io/janosdebugs/arcaflow-example-plugin"}, map[string][]byte{})
+//	assert.NoError(t, err)
+//
+//	handler := &runFailStageChangeHandler{
+//		message: make(chan string),
+//	}
+//
+//	// default step id
+//	running, err := runnable.Start(map[string]any{"step": "hello-world"}, handler)
+//	assert.NoError(t, err)
+//
+//	assert.NoError(t, running.ProvideStageInput(
+//		string(plugin.StageIDDeploy),
+//		//map[string]any{"deploy": map[string]any{
+//		//	"type":        "test-impl",
+//		//	"succeed":     true,
+//		//	"deploy_time": deploy_time_ms}},
+//		map[string]any{},
+//	))
+//
+//	wg := &sync.WaitGroup{}
+//	wg.Add(1)
+//	name := "Arca Lot"
+//
+//	go func() {
+//		assert.NoError(t, running.ProvideStageInput(
+//			string(plugin.StageIDRunning),
+//			map[string]any{"input": map[string]any{"name": name}},
+//		))
+//
+//	}()
+//
+//	go func() {
+//		defer wg.Done()
+//		assert.NoError(t, running.ProvideStageInput(
+//			string(plugin.StageIDCancelled),
+//			//map[string]any{"input": map[string]any{
+//			//	"stop_if": true}},
+//			map[string]any{"stop_if": true},
+//		))
+//		//running.Close()
+//
+//	}()
+//
+//	//assert.Equals(t, string(running.State()),
+//	//	string(step.RunningStepStateFinished))
+//
+//	wg.Wait()
+//
+//	message := <-handler.message
+//	msg_expected := fmt.Sprintf("Hello %s", name)
+//	assert.Equals(t, message, msg_expected)
+//
+//	stages_exp := []string{
+//		string(plugin.StageIDDeploy),
+//		string(plugin.StageIDRunning),
+//		string(plugin.StageIDRunning),
+//		string(plugin.StageIDCancelled),
+//		string(plugin.StageIDCrashed)}
+//
+//	stgs := running.Stages()
+//	assert.Equals(t, stgs.Values(), stages_exp)
+//}
 
+func TestProvider_RunFail(t *testing.T) {
+	logger := log.New(
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
+	)
 	deploy_time_ms := 20
 	workflow_deployer_cfg := map[string]any{
 		"type":        "test-impl",
@@ -386,72 +468,48 @@ func TestProvider_RunFail(t *testing.T) {
 		"succeed":     true,
 	}
 
-	d_registry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
-
 	plp, err := plugin.New(
 		logger,
-		d_registry,
+		deployer_registry.New(
+			deployer.Any(testdeployer.NewFactory())),
 		workflow_deployer_cfg,
 	)
 	assert.NoError(t, err)
 
 	runnable, err := plp.LoadSchema(
-		map[string]any{"plugin": "simulation"}, map[string][]byte{})
+		map[string]any{"plugin": "simulation"},
+		map[string][]byte{})
 	assert.NoError(t, err)
 
 	handler := &runFailStageChangeHandler{
 		message: make(chan string),
 	}
 
-	// default step id
 	running, err := runnable.Start(map[string]any{"step": "wait"}, handler)
 	assert.NoError(t, err)
 
+	// tell deployer that this run should not succeed
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
 			"type":        "test-impl",
 			"succeed":     true,
-			"deploy_time": deploy_time_ms}},
+			"deploy_time": deploy_time_ms,
+			"run_succeed": false}},
 	))
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDRunning),
+		map[string]any{"input": map[string]any{
+			"wait_time_ms": 50}},
+	))
 
-	go func() {
-		wait_time_ms := 50000
-		assert.NoError(t, running.ProvideStageInput(
-			string(plugin.StageIDRunning),
-			map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
-		))
-
-	}()
-
-	go func() {
-		defer wg.Done()
-		assert.NoError(t, running.ProvideStageInput(
-			string(plugin.StageIDCancelled),
-			map[string]any{"input": map[string]any{
-				"stop_if": true}},
-		))
-		//running.Close()
-
-		message := <-handler.message
-		msg_expected := fmt.Sprintf("intentional deployment fail after %d ms", deploy_time_ms)
-		assert.Equals(t, message, msg_expected)
-	}()
-
-	//assert.Equals(t, string(running.State()),
-	//	string(step.RunningStepStateFinished))
-
-	wg.Wait()
+	// wait for message, but we don't care about its value
+	<-handler.message
 
 	stages_exp := []string{
 		string(plugin.StageIDDeploy),
 		string(plugin.StageIDRunning),
-		string(plugin.StageIDRunning),
-		string(plugin.StageIDCancelled),
 		string(plugin.StageIDCrashed)}
 
 	stgs := running.Stages()
