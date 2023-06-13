@@ -70,6 +70,8 @@ type LifecycleStage struct {
 	InputFields map[string]struct{}
 	// NextStages describes the possible next stages. The provider advances to one of these stages automatically and
 	// will pause if there is no input available.
+	// It will automatically create a DAG node between the current and the described next stages to ensure
+	// that it is running in order.
 	NextStages []string
 	// Fatal indicates that this stage should be treated as fatal unless handled by the workflow.
 	Fatal bool

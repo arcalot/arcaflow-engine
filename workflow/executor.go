@@ -621,7 +621,15 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 						}
 					}
 				case "steps":
-					prevNodeID := dependency[1:5].String()
+					var prevNodeID string
+					switch dependencyNodes := len(dependency); {
+					case dependencyNodes == 4: // Example: $.steps.example.outputs
+						prevNodeID = dependency[1:4].String()
+					case dependencyNodes >= 5: // Example: $.steps.example.outputs.success (or longer)
+						prevNodeID = dependency[1:5].String()
+					default:
+						return fmt.Errorf("invalid dependency %s", dependency.String())
+					}
 					prevNode, err := dag.GetNodeByID(prevNodeID)
 					if err != nil {
 						return fmt.Errorf("failed to find depending node %s (%w)", prevNodeID, err)

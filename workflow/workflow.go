@@ -75,6 +75,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		workflowContext:   e.workflowContext,
 	}
 
+	// Iterate over all steps to set them up with proper handlers, then launch them.
+	// Even though they're launched, the workflow won't execute until the input is provided.
 	for stepID, runnableStep := range e.runnableSteps {
 		stepID := stepID
 		runnableStep := runnableStep
@@ -183,9 +185,12 @@ type outputDataType struct {
 }
 
 type loopState struct {
-	logger            log.Logger
-	config            *config.Config
-	lock              *sync.Mutex
+	logger log.Logger
+	config *config.Config
+	lock   *sync.Mutex
+	// data holds the whole data model.
+	// It is tempting to touch this to get data for things, but don't touch it.
+	// If steps use this, it could cause dependency problems, concurrency problems, and scalability problems.
 	data              map[string]any
 	dag               dgraph.DirectedGraph[*DAGItem]
 	inputsNotified    map[string]struct{}
@@ -252,6 +257,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 
 // notifySteps is a function we can call to go through all DAG nodes that have no inbound connections and
 // provide step inputs based on expressions.
+// The lock should be acquired when this is called.
 func (l *loopState) notifySteps() { //nolint:gocognit
 	// This function goes through the DAG and feeds the input to all steps that have no further inbound
 	// dependencies.
@@ -262,29 +268,38 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 
 	nodesWithoutInbound := l.dag.ListNodesWithoutInboundConnections()
 	l.logger.Debugf("Currently %d DAG nodes have no inbound connection. Now processing them.", len(nodesWithoutInbound))
+
+	// nodesWithoutInbound have all dependencies resolved. No inbound connection.
+	// Also includes nodes that are not for running, like an input.
 	for nodeID, node := range nodesWithoutInbound {
-		l.logger.Debugf("Processing step node %s", nodeID)
 		if _, ok := l.inputsNotified[nodeID]; ok {
 			continue
 		}
+		l.logger.Debugf("Processing step node %s", nodeID)
 		l.inputsNotified[nodeID] = struct{}{}
+		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
 		inputData := node.Item().Data
 		if inputData == nil {
 			// No input data is needed.
 			continue
 		}
 		// Resolve any expressions in the input data.
+		// untypedInputData stores the resolved data
 		untypedInputData, err := l.resolveExpressions(inputData, l.data)
 		if err != nil {
 			panic(fmt.Errorf("cannot resolve expressions for %s (%w)", nodeID, err))
 		}
 
+		// This switch checks to see if it's a node that needs to be run.
 		switch node.Item().Kind {
 		case DAGItemKindStepStage:
 			if node.Item().DataSchema == nil {
+				// This should only happen if the stage doesn't have any input fields.
+				// This may not even get called. That should be checked.
 				break
 			}
 			// We have a stage we can proceed with. Let's provide it with input.
+			// Tries to match the schema
 			if _, err := node.Item().DataSchema.Unserialize(untypedInputData); err != nil {
 				l.logger.Errorf("Bug: schema evaluation resulted in invalid data for %s (%v)", node.ID(), err)
 				l.lastError = fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
@@ -292,12 +307,14 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 				return
 			}
 
+			// This check is here just to make sure it has the required fields set
 			if node.Item().StepID != "" && node.Item().StageID != "" {
 				stageInputData := untypedInputData.(map[any]any)
 				typedInputData := make(map[string]any, len(stageInputData))
 				for k, v := range stageInputData {
 					typedInputData[k.(string)] = v
 				}
+				// Sends it to the plugin
 				l.logger.Debugf("Providing stage input for %s...", nodeID)
 				if err := l.runningSteps[node.Item().StepID].ProvideStageInput(
 					node.Item().StageID,
@@ -308,15 +325,28 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 					l.cancel()
 					return
 				}
+			} else {
+				// This shouldn't happen
+				panic("Step or stage ID missing")
 			}
 		case DAGItemKindOutput:
 			// We have received enough data to construct the workflow output.
 			l.logger.Debugf("Constructing workflow output.")
-			l.outputDone = true
+			if l.outputDone {
+				l.logger.Warningf("Workflow already done. Skipping output.")
+			} else {
+				l.outputDone = true
 
-			l.outputDataChannel <- outputDataType{
-				outputID:   node.Item().OutputID,
-				outputData: untypedInputData,
+				// When this function is called, the lock should be acquired, so no
+				// other copies of this should be attempting to write to the output
+				// data channel. This is required to prevent the goroutine from stalling.
+				l.outputDataChannel <- outputDataType{
+					outputID:   node.Item().OutputID,
+					outputData: untypedInputData,
+				}
+				// Since this is the only thread accessing the channel, it should be
+				// safe to close it now
+				close(l.outputDataChannel)
 			}
 
 			if err := node.Remove(); err != nil {
