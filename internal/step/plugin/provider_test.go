@@ -1,9 +1,4 @@
 package plugin_test
-<<<<<<< Updated upstream
-=======
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
 
 import (
 	"fmt"
@@ -228,41 +223,25 @@ func TestProvider_HappyError(t *testing.T) {
 
 	// unserialize nil input schema error
 	assert.Error(t, running.ProvideStageInput(
-<<<<<<< Updated upstream
-		string(plugin.StageIDRunning),
-=======
 		string(plugin.StageIDStarting),
->>>>>>> Stashed changes
 		map[string]any{"input": nil},
 	))
 
 	// unserialize malformed input schema
 	assert.Error(t, running.ProvideStageInput(
-<<<<<<< Updated upstream
-		string(plugin.StageIDRunning),
-=======
 		string(plugin.StageIDStarting),
->>>>>>> Stashed changes
 		map[string]any{"input": 1},
 	))
 
 	wait_time_ms := 50
 	assert.NoError(t, running.ProvideStageInput(
-<<<<<<< Updated upstream
-		string(plugin.StageIDRunning),
-=======
 		string(plugin.StageIDStarting),
->>>>>>> Stashed changes
 		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
 	))
 
 	// provide running input a 2nd time
 	assert.Error(t, running.ProvideStageInput(
-<<<<<<< Updated upstream
-		string(plugin.StageIDRunning),
-=======
 		string(plugin.StageIDStarting),
->>>>>>> Stashed changes
 		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
 	))
 
@@ -276,10 +255,7 @@ func TestProvider_HappyError(t *testing.T) {
 	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDOutput))
 	stages_happy := []string{
 		string(plugin.StageIDDeploy),
-<<<<<<< Updated upstream
-=======
 		string(plugin.StageIDStarting),
->>>>>>> Stashed changes
 		string(plugin.StageIDRunning),
 		string(plugin.StageIDOutput)}
 
@@ -302,15 +278,9 @@ func TestProvider_DeployFail(t *testing.T) {
 
 	deploy_time_ms := 20
 	workflow_deployer_cfg := map[string]any{
-<<<<<<< Updated upstream
-		"type":        "test-impl",
-		"deploy_time": deploy_time_ms,
-		"succeed":     true,
-=======
 		"type":           "test-impl",
 		"deploy_time":    deploy_time_ms,
 		"deploy_succeed": true,
->>>>>>> Stashed changes
 	}
 
 	d_registry := deployer_registry.New(
@@ -339,24 +309,14 @@ func TestProvider_DeployFail(t *testing.T) {
 		string(plugin.StageIDDeploy),
 		//map[string]any{"deploy": nil},
 		map[string]any{"deploy": map[string]any{
-<<<<<<< Updated upstream
-			"type":        "test-impl",
-			"succeed":     false,
-			"deploy_time": deploy_time_ms}},
-=======
 			"type":           "test-impl",
 			"deploy_succeed": false,
 			"deploy_time":    deploy_time_ms}},
->>>>>>> Stashed changes
 	))
 
 	wait_time_ms := 50
 	assert.NoError(t, running.ProvideStageInput(
-<<<<<<< Updated upstream
-		string(plugin.StageIDRunning),
-=======
 		string(plugin.StageIDStarting),
->>>>>>> Stashed changes
 		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
 	))
 
@@ -384,15 +344,9 @@ func TestProvider_RunFail(t *testing.T) {
 	)
 	deploy_time_ms := 20
 	workflow_deployer_cfg := map[string]any{
-<<<<<<< Updated upstream
-		"type":        "test-impl",
-		"deploy_time": deploy_time_ms,
-		"succeed":     true,
-=======
 		"type":           "test-impl",
 		"deploy_time":    deploy_time_ms,
 		"deploy_succeed": true,
->>>>>>> Stashed changes
 	}
 
 	plp, err := plugin.New(
@@ -419,16 +373,6 @@ func TestProvider_RunFail(t *testing.T) {
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-<<<<<<< Updated upstream
-			"type":        "test-impl",
-			"succeed":     true,
-			"deploy_time": deploy_time_ms,
-			"run_succeed": false}},
-	))
-
-	assert.NoError(t, running.ProvideStageInput(
-		string(plugin.StageIDRunning),
-=======
 			"type":                  "test-impl",
 			"deploy_succeed":        true,
 			"deploy_time":           deploy_time_ms,
@@ -437,7 +381,6 @@ func TestProvider_RunFail(t *testing.T) {
 
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDStarting),
->>>>>>> Stashed changes
 		map[string]any{"input": map[string]any{
 			"wait_time_ms": 50}},
 	))
@@ -447,18 +390,10 @@ func TestProvider_RunFail(t *testing.T) {
 
 	stages_exp := []string{
 		string(plugin.StageIDDeploy),
-<<<<<<< Updated upstream
-		string(plugin.StageIDRunning),
-=======
 		string(plugin.StageIDStarting),
 		//string(plugin.StageIDRunning),
->>>>>>> Stashed changes
 		string(plugin.StageIDCrashed)}
 
 	stgs := running.Stages()
 	assert.Equals(t, stgs.Values(), stages_exp)
 }
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
->>>>>>> Stashed changes

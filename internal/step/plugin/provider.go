@@ -443,15 +443,8 @@ func (r *runnableStep) Start(input map[string]any, stageChangeHandler step.Stage
 		step:               stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
-<<<<<<< Updated upstream
-		stages:             stack.NewSeededStack[string](string(StageIDDeploy)),
-=======
-<<<<<<< Updated upstream
-=======
 		stages:             stack.NewSeededStack[string](string(StageIDDeploy)),
 		executionChannel:   make(chan executionResult),
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 	}
 
 	go s.run()
@@ -479,14 +472,8 @@ type runningStep struct {
 	useLocalDeployer     bool
 	localDeployer        deployer.Connector
 	container            deployer.Plugin
-<<<<<<< Updated upstream
-	stages               stack.Stack[string]
-=======
-<<<<<<< Updated upstream
-=======
 	stages               stack.Stack[string]
 	executionChannel     chan executionResult
->>>>>>> Stashed changes
 }
 
 func (r *runningStep) setStage(stage string) {
@@ -503,10 +490,6 @@ func (r *runningStep) CurrentStage() string {
 
 func (r *runningStep) Stages() stack.Stack[string] {
 	return r.stages
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 }
 
 func (r *runningStep) State() step.RunningStepState {
@@ -912,16 +895,6 @@ func (r *runningStep) runStage_old(container deployer.Plugin) error {
 	// First running, then state change, then finished.
 	// This is so it properly steps through all the stages it needs to.
 	r.state = step.RunningStepStateRunning
-<<<<<<< Updated upstream
-
-	// TODO: add timeout for OnStageChange
-
-=======
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 	r.lock.Unlock()
 
 	r.stageChangeHandler.OnStageChange(
@@ -989,19 +962,8 @@ func (r *runningStep) startFailed(err error) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDCrashed
-<<<<<<< Updated upstream
-	// Don't forget to update this, or else it will behave very oddly.
-	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
-<<<<<<< Updated upstream
-=======
 	r.lock.Unlock()
-	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
-=======
-	r.lock.Unlock()
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 
-	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -1009,14 +971,6 @@ func (r *runningStep) startFailed(err error) {
 		nil,
 		string(r.currentStage),
 		false)
-<<<<<<< Updated upstream
-	r.lock.Unlock()
-
-	r.setStage(string(StageIDCrashed))
-	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
-=======
-<<<<<<< Updated upstream
-=======
 
 	r.setStage(string(StageIDCrashed))
 	r.logger.Warningf("Plugin step %s start failed. %v", r.step, err)
@@ -1057,8 +1011,6 @@ func (r *runningStep) runFailed(err error) {
 
 	r.setStage(string(StageIDCrashed))
 	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 
 	// Now it's done.
 	r.lock.Lock()
