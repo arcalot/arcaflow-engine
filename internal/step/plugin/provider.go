@@ -91,7 +91,8 @@ const (
 	// StageIDOutput is a stage that indicates that the plugin has completed working successfully.
 	StageIDOutput StageID = "outputs"
 	// StageIDCrashed is a stage that indicates that the plugin has quit unexpectedly.
-	StageIDCrashed StageID = "crashed"
+	StageIDCrashed  StageID = "crashed"
+	StageIDStarting StageID = "starting"
 )
 
 var deployingLifecycleStage = step.LifecycleStage{
@@ -112,9 +113,25 @@ var deployFailedLifecycleStage = step.LifecycleStage{
 	FinishedName: "deploy failed",
 	Fatal:        true,
 }
+
+var startingLifecycleStage = step.LifecycleStage{
+	ID:           string(StageIDRunning),
+	WaitingName:  "waiting to start",
+	RunningName:  "starting",
+	FinishedName: "started",
+	InputFields: map[string]struct{}{
+		//nolint:godox
+		// TODO: Add wait_for here. Empty struct.
+		"input": {},
+	},
+	NextStages: []string{
+		string(StageIDRunning), string(StageIDCrashed),
+	},
+}
+
 var runningLifecycleStage = step.LifecycleStage{
 	ID:           string(StageIDRunning),
-	WaitingName:  "waiting for start",
+	WaitingName:  "waiting to run",
 	RunningName:  "running",
 	FinishedName: "completed",
 	InputFields: map[string]struct{}{
@@ -126,6 +143,7 @@ var runningLifecycleStage = step.LifecycleStage{
 		string(StageIDOutput), string(StageIDCrashed),
 	},
 }
+
 var cancelledLifecycleStage = step.LifecycleStage{
 	ID:           string(StageIDCancelled),
 	WaitingName:  "waiting for stop condition",
@@ -157,6 +175,7 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 		Stages: []step.LifecycleStage{
 			deployingLifecycleStage,
 			deployFailedLifecycleStage,
+			startingLifecycleStage,
 			runningLifecycleStage,
 			cancelledLifecycleStage,
 			finishedLifecycleStage,
@@ -424,7 +443,15 @@ func (r *runnableStep) Start(input map[string]any, stageChangeHandler step.Stage
 		step:               stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
+<<<<<<< Updated upstream
 		stages:             stack.NewSeededStack[string](string(StageIDDeploy)),
+=======
+<<<<<<< Updated upstream
+=======
+		stages:             stack.NewSeededStack[string](string(StageIDDeploy)),
+		executionChannel:   make(chan executionResult),
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 	}
 
 	go s.run()
@@ -452,7 +479,14 @@ type runningStep struct {
 	useLocalDeployer     bool
 	localDeployer        deployer.Connector
 	container            deployer.Plugin
+<<<<<<< Updated upstream
 	stages               stack.Stack[string]
+=======
+<<<<<<< Updated upstream
+=======
+	stages               stack.Stack[string]
+	executionChannel     chan executionResult
+>>>>>>> Stashed changes
 }
 
 func (r *runningStep) setStage(stage string) {
@@ -469,6 +503,10 @@ func (r *runningStep) CurrentStage() string {
 
 func (r *runningStep) Stages() stack.Stack[string] {
 	return r.stages
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 }
 
 func (r *runningStep) State() step.RunningStepState {
@@ -510,7 +548,7 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		// Feed the deploy step its input.
 		r.deployInput <- unserializedDeployerConfig
 		return nil
-	case string(StageIDRunning):
+	case string(StageIDStarting):
 		if r.runInputAvailable {
 			r.lock.Unlock()
 			return fmt.Errorf("input provided more than once")
@@ -525,7 +563,7 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		}
 		// Make sure we transition the state before unlocking so there are no race conditions.
 		r.runInputAvailable = true
-		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDRunning {
+		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDStarting {
 			r.state = step.RunningStepStateRunning
 		}
 		// Unlock before passing the data over the channel to prevent a deadlock.
@@ -533,6 +571,10 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		r.lock.Unlock()
 		// Feed the run step its input over the channel.
 		r.runInput <- input["input"]
+		return nil
+	case string(StageIDRunning):
+		r.lock.Unlock()
+		r.setStage(string(StageIDRunning))
 		return nil
 	case string(StageIDCancelled):
 		if input["stop_if"] != false && input["stop_if"] != nil {
@@ -593,7 +635,11 @@ func (r *runningStep) run() {
 		r.container = container
 	}
 	r.lock.Unlock()
-	if err := r.runStage(container); err != nil {
+	if err := r.startStage(container); err != nil {
+		r.startFailed(err)
+		return
+	}
+	if err := r.runStage(); err != nil {
 		r.runFailed(err)
 	}
 }
@@ -650,7 +696,138 @@ type executionResult struct {
 	err        error
 }
 
-func (r *runningStep) runStage(container deployer.Plugin) error {
+func (r *runningStep) startStage(container deployer.Plugin) error {
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentStage = StageIDStarting
+
+	if !r.runInputAvailable {
+		r.state = step.RunningStepStateWaitingForInput
+	} else {
+		r.state = step.RunningStepStateStarting
+	}
+	runInputAvailable := r.runInputAvailable
+	r.lock.Unlock()
+
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(StageIDStarting),
+		runInputAvailable,
+	)
+
+	r.setStage(string(StageIDStarting))
+
+	r.lock.Lock()
+	r.state = step.RunningStepStateWaitingForInput
+	r.lock.Unlock()
+	var runInput any
+	select {
+	case runInput = <-r.runInput:
+		r.lock.Lock()
+		r.state = step.RunningStepStateStarting
+		r.lock.Unlock()
+	case <-r.ctx.Done():
+		return fmt.Errorf("step closed while waiting for run configuration")
+	}
+	atpClient := atp.NewClientWithLogger(container, r.logger)
+
+	inputSchema, err := atpClient.ReadSchema()
+	if err != nil {
+		return err
+	}
+	steps := inputSchema.Steps()
+	stepSchema, ok := steps[r.step]
+	if !ok {
+		return fmt.Errorf("schema mismatch between local and remote deployed plugin, no stepSchema named %s found in remote", r.step)
+	}
+
+	if _, err := stepSchema.Input().Unserialize(runInput); err != nil {
+		return fmt.Errorf("schema mismatch between local and remote deployed plugin, unserializing input failed (%w)", err)
+	}
+
+	// Runs the ATP client in a goroutine in order to wait for it or context done.
+	// On context done, the deployer tries to end execution. That will shut down
+	// (with sigterm) the container. Then wait for output, or error out.
+	//executionChannel := make(chan executionResult)
+	go func() {
+		outputID, outputData, err := atpClient.Execute(r.step, runInput)
+		r.executionChannel <- executionResult{outputID, outputData, err}
+	}()
+	return nil
+}
+
+func (r *runningStep) runStage() error {
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentStage = StageIDRunning
+	r.state = step.RunningStepStateRunning
+	r.lock.Unlock()
+
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(StageIDRunning),
+		false,
+	)
+
+	r.setStage(string(StageIDRunning))
+
+	var result executionResult
+	select {
+	case result = <-r.executionChannel:
+		if result.err != nil {
+			return result.err
+		}
+	case <-r.ctx.Done():
+		// In this case, it is being instructed to stop.
+		// Shutdown (with sigterm) the container, then wait for the output (valid or error).
+		r.logger.Debugf("Running step context done before step run complete. Cancelling and waiting for result.")
+		r.cancel()
+		// If necessary, you can add a timeout here for shutdowns that take too long.
+		result = <-r.executionChannel
+	}
+
+	// Execution complete, move to finished stage.
+	r.lock.Lock()
+	// Be careful that everything here is set correctly.
+	// Else it will cause undesired behavior.
+	previousStage = string(r.currentStage)
+	r.currentStage = StageIDOutput
+	// First running, then state change, then finished.
+	// This is so it properly steps through all the stages it needs to.
+	r.state = step.RunningStepStateRunning
+
+	r.lock.Unlock()
+
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(r.currentStage),
+		false)
+
+	r.setStage(string(StageIDOutput))
+
+	r.lock.Lock()
+	r.state = step.RunningStepStateFinished
+	r.lock.Unlock()
+	r.stageChangeHandler.OnStepComplete(
+		r,
+		string(r.currentStage),
+		&result.outputID,
+		&result.outputData,
+	)
+
+	return nil
+}
+
+func (r *runningStep) runStage_old(container deployer.Plugin) error {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDRunning
@@ -714,7 +891,8 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	select {
 	case result = <-executionChannel:
 		if result.err != nil {
-			return err
+			//return err
+			return result.err
 		}
 	case <-r.ctx.Done():
 		// In this case, it is being instructed to stop.
@@ -734,9 +912,16 @@ func (r *runningStep) runStage(container deployer.Plugin) error {
 	// First running, then state change, then finished.
 	// This is so it properly steps through all the stages it needs to.
 	r.state = step.RunningStepStateRunning
+<<<<<<< Updated upstream
 
 	// TODO: add timeout for OnStageChange
 
+=======
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 	r.lock.Unlock()
 
 	r.stageChangeHandler.OnStageChange(
@@ -800,12 +985,21 @@ func (r *runningStep) deployFailed(err error) {
 	)
 }
 
-func (r *runningStep) runFailed(err error) {
+func (r *runningStep) startFailed(err error) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDCrashed
+<<<<<<< Updated upstream
 	// Don't forget to update this, or else it will behave very oddly.
 	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
+<<<<<<< Updated upstream
+=======
+	r.lock.Unlock()
+	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
+=======
+	r.lock.Unlock()
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 
 	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
@@ -815,10 +1009,56 @@ func (r *runningStep) runFailed(err error) {
 		nil,
 		string(r.currentStage),
 		false)
+<<<<<<< Updated upstream
 	r.lock.Unlock()
 
 	r.setStage(string(StageIDCrashed))
 	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
+=======
+<<<<<<< Updated upstream
+=======
+
+	r.setStage(string(StageIDCrashed))
+	r.logger.Warningf("Plugin step %s start failed. %v", r.step, err)
+
+	// Now it's done.
+	r.lock.Lock()
+	r.state = step.RunningStepStateFinished
+	r.lock.Unlock()
+
+	outputID := "error"
+	output := any(Crashed{
+		Output: err.Error(),
+	})
+	r.stageChangeHandler.OnStepComplete(
+		r,
+		string(r.currentStage),
+		&outputID,
+		&output,
+	)
+}
+
+func (r *runningStep) runFailed(err error) {
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentStage = StageIDCrashed
+	// Don't forget to update this, or else it will behave very oddly.
+	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
+
+	r.lock.Unlock()
+
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(r.currentStage),
+		false)
+
+	r.setStage(string(StageIDCrashed))
+	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 
 	// Now it's done.
 	r.lock.Lock()

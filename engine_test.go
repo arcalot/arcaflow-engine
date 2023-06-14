@@ -185,6 +185,46 @@ func TestE2EMultipleSteps(t *testing.T) {
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
 			"workflow.yaml": []byte(`input:
+ root: RootObject
+ objects:
+   RootObject:
+     id: RootObject
+     properties:
+       name:
+         type:
+           type_id: string
+steps:
+ example:
+   plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
+   input:
+     name: !expr $.input.name
+ example2:
+   plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
+   input:
+     name: !expr $.input.name
+   stop_if: !expr $.steps.example.outputs
+outputs:
+ success:
+   message: !expr $.steps.example.outputs.success.message
+ a:
+   cancelled_step_output: !expr $.steps.example2.outputs`),
+		},
+		"",
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"message":  "Hello, Arca Lot!",
+		"message2": "Hello, Arca Lot!"})
+}
+
+func TestE2EMultipleStepsStopIf(t *testing.T) {
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`name: Arca Lot`),
+		map[string][]byte{
+			"workflow.yaml": []byte(`input:
   root: RootObject
   objects:
     RootObject:
@@ -198,22 +238,48 @@ steps:
     plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
     input:
       name: !expr $.input.name
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+outputs:
+  success:
+    message: !expr $.steps.example.outputs.success.message`),
+=======
+>>>>>>> Stashed changes
   example2:
     plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
     input:
       name: !expr $.input.name
+<<<<<<< Updated upstream
 output:
   message: !expr $.steps.example.outputs.success.message
   message2: !expr $.steps.example2.outputs.success.message`),
+=======
+    stop_if: !expr $.steps.example.outputs
+outputs:
+  success:
+    message: !expr $.steps.example.outputs.success.message
+    cancelled_step_output: !expr $.steps.example2.outputs`),
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 		},
 		"",
 	)
 	assert.NoError(t, err)
 	assert.Equals(t, outputError, false)
 	assert.Equals(t, outputID, "success")
+<<<<<<< Updated upstream
 	assert.Equals(t, outputData.(map[any]any), map[any]any{
 		"message":  "Hello, Arca Lot!",
 		"message2": "Hello, Arca Lot!"})
+=======
+<<<<<<< Updated upstream
+	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
+=======
+	assert.Equals(t, outputData.(map[any]any),
+		map[any]any{"cancelled_step_output": map[any]any{"success": map[any]any{"message": "Hello, Arca Lot!"}},
+			"message": "Hello, Arca Lot!"})
+>>>>>>> Stashed changes
 }
 
 func TestParallelSteps(t *testing.T) {
@@ -279,4 +345,8 @@ func createNetworkedTestEngine(t *testing.T) engine.WorkflowEngine {
 	)
 	assert.NoError(t, err)
 	return flow
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 }
