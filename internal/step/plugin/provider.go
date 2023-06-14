@@ -115,7 +115,7 @@ var deployFailedLifecycleStage = step.LifecycleStage{
 }
 
 var startingLifecycleStage = step.LifecycleStage{
-	ID:           string(StageIDRunning),
+	ID:           string(StageIDStarting),
 	WaitingName:  "waiting to start",
 	RunningName:  "starting",
 	FinishedName: "started",
@@ -134,11 +134,7 @@ var runningLifecycleStage = step.LifecycleStage{
 	WaitingName:  "waiting to run",
 	RunningName:  "running",
 	FinishedName: "completed",
-	InputFields: map[string]struct{}{
-		//nolint:godox
-		// TODO: Add wait_for here. Empty struct.
-		"input": {},
-	},
+	InputFields:  map[string]struct{}{},
 	NextStages: []string{
 		string(StageIDOutput), string(StageIDCrashed),
 	},
@@ -317,7 +313,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 				},
 			},
 			{
-				LifecycleStage: runningLifecycleStage,
+				LifecycleStage: startingLifecycleStage,
 				InputSchema: map[string]*schema.PropertySchema{
 					//nolint:godox
 					// TODO: Add wait_for right here. Should be an any type.
@@ -333,6 +329,26 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 					),
 				},
+			},
+			{
+				LifecycleStage: runningLifecycleStage,
+				InputSchema:    nil,
+				Outputs:        nil,
+				//InputSchema:    map[string]*schema.PropertySchema{
+				//nolint:godox
+				// TODO: Add wait_for right here. Should be an any type.
+				// Also add to section above.
+				//"input": schema.NewPropertySchema(
+				//	stepSchema.Input(),
+				//	stepSchema.Display(),
+				//	false,
+				//	nil,
+				//	nil,
+				//	nil,
+				//	nil,
+				//	nil,
+				//),
+				//},
 			},
 			{
 				LifecycleStage: cancelledLifecycleStage,
@@ -687,7 +703,7 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	if !r.runInputAvailable {
 		r.state = step.RunningStepStateWaitingForInput
 	} else {
-		r.state = step.RunningStepStateStarting
+		r.state = step.RunningStepStateRunning
 	}
 	runInputAvailable := r.runInputAvailable
 	r.lock.Unlock()
@@ -706,11 +722,12 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	r.lock.Lock()
 	r.state = step.RunningStepStateWaitingForInput
 	r.lock.Unlock()
+
 	var runInput any
 	select {
 	case runInput = <-r.runInput:
 		r.lock.Lock()
-		r.state = step.RunningStepStateStarting
+		r.state = step.RunningStepStateRunning
 		r.lock.Unlock()
 	case <-r.ctx.Done():
 		return fmt.Errorf("step closed while waiting for run configuration")
@@ -726,7 +743,6 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	if !ok {
 		return fmt.Errorf("schema mismatch between local and remote deployed plugin, no stepSchema named %s found in remote", r.step)
 	}
-
 	if _, err := stepSchema.Input().Unserialize(runInput); err != nil {
 		return fmt.Errorf("schema mismatch between local and remote deployed plugin, unserializing input failed (%w)", err)
 	}
@@ -749,6 +765,8 @@ func (r *runningStep) runStage() error {
 	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
 
+	r.setStage(string(StageIDRunning))
+
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -757,8 +775,6 @@ func (r *runningStep) runStage() error {
 		string(StageIDRunning),
 		false,
 	)
-
-	r.setStage(string(StageIDRunning))
 
 	var result executionResult
 	select {
@@ -784,7 +800,6 @@ func (r *runningStep) runStage() error {
 	// First running, then state change, then finished.
 	// This is so it properly steps through all the stages it needs to.
 	r.state = step.RunningStepStateRunning
-
 	r.lock.Unlock()
 
 	r.stageChangeHandler.OnStageChange(
@@ -837,6 +852,7 @@ func (r *runningStep) runStage_old(container deployer.Plugin) error {
 	r.lock.Lock()
 	r.state = step.RunningStepStateWaitingForInput
 	r.lock.Unlock()
+
 	var runInput any
 	select {
 	case runInput = <-r.runInput:
