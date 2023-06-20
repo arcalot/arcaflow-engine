@@ -3,7 +3,6 @@ package foreach
 import (
 	"context"
 	"fmt"
-	"go.flow.arcalot.io/engine/internal/stack"
 	"reflect"
 	"sync"
 
@@ -333,7 +332,6 @@ func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChan
 		stageChangeHandler: stageChangeHandler,
 		parallelism:        r.parallelism,
 		logger:             r.logger,
-		stages:             stack.NewSeededStack[string](string(StageIDExecute)),
 	}
 	go rs.run()
 	return rs, nil
@@ -351,11 +349,6 @@ type runningStep struct {
 	stageChangeHandler step.StageChangeHandler
 	parallelism        int64
 	logger             log.Logger
-	stages             stack.Stack[string]
-}
-
-func (r *runningStep) Stages() stack.Stack[string] {
-	return r.stages
 }
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {

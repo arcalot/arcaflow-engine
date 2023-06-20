@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"go.flow.arcalot.io/engine/internal/stack"
 	"strings"
 	"sync"
 
@@ -459,7 +458,6 @@ func (r *runnableStep) Start(input map[string]any, stageChangeHandler step.Stage
 		step:               stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
-		stages:             stack.NewSeededStack[string](string(StageIDDeploy)),
 		executionChannel:   make(chan executionResult),
 	}
 
@@ -488,24 +486,19 @@ type runningStep struct {
 	useLocalDeployer     bool
 	localDeployer        deployer.Connector
 	container            deployer.Plugin
-	stages               stack.Stack[string]
 	executionChannel     chan executionResult
 }
 
-func (r *runningStep) setStage(stage string) {
+func (r *runningStep) setStage(stage StageID) {
 	r.lock.Lock()
-	r.stages.Push(stage)
+	r.currentStage = stage
 	r.lock.Unlock()
 }
 
 func (r *runningStep) CurrentStage() string {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	return r.stages.Top()
-}
-
-func (r *runningStep) Stages() stack.Stack[string] {
-	return r.stages
+	return string(r.currentStage)
 }
 
 func (r *runningStep) State() step.RunningStepState {
@@ -572,16 +565,18 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		r.runInput <- input["input"]
 		return nil
 	case string(StageIDRunning):
+		r.currentStage = StageIDRunning
 		r.lock.Unlock()
-		r.setStage(string(StageIDRunning))
+		//r.setStage(StageIDRunning)
 		return nil
 	case string(StageIDCancelled):
 		if input["stop_if"] != false && input["stop_if"] != nil {
 			r.logger.Infof("Cancelling step %s", r.step)
 			r.cancel() // This should cancel the plugin deployment or execution.
 		}
+		r.currentStage = StageIDCancelled
 		r.lock.Unlock()
-		r.setStage(string(StageIDCancelled))
+		//r.setStage(string(StageIDCancelled))
 		return nil
 	case string(StageIDDeployFailed):
 		r.lock.Unlock()
@@ -717,9 +712,10 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 		runInputAvailable,
 	)
 
-	r.setStage(string(StageIDStarting))
+	//r.setStage(StageIDStarting)
 
 	r.lock.Lock()
+	r.currentStage = StageIDStarting
 	r.state = step.RunningStepStateWaitingForInput
 	r.lock.Unlock()
 
@@ -765,7 +761,7 @@ func (r *runningStep) runStage() error {
 	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
 
-	r.setStage(string(StageIDRunning))
+	//r.setStage(StageIDRunning)
 
 	r.stageChangeHandler.OnStageChange(
 		r,
@@ -810,7 +806,7 @@ func (r *runningStep) runStage() error {
 		string(r.currentStage),
 		false)
 
-	r.setStage(string(StageIDOutput))
+	//r.setStage(StageIDOutput)
 
 	r.lock.Lock()
 	r.state = step.RunningStepStateFinished
@@ -847,9 +843,10 @@ func (r *runningStep) runStage_old(container deployer.Plugin) error {
 		runInputAvailable,
 	)
 
-	r.setStage(string(StageIDRunning))
+	//r.setStage(StageIDRunning)
 
 	r.lock.Lock()
+	r.currentStage = StageIDRunning
 	r.state = step.RunningStepStateWaitingForInput
 	r.lock.Unlock()
 
@@ -921,9 +918,10 @@ func (r *runningStep) runStage_old(container deployer.Plugin) error {
 		string(r.currentStage),
 		false)
 
-	r.setStage(string(StageIDOutput))
+	//r.setStage(StageIDOutput)
 
 	r.lock.Lock()
+	r.currentStage = StageIDOutput
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 	r.stageChangeHandler.OnStepComplete(
@@ -954,11 +952,12 @@ func (r *runningStep) deployFailed(err error) {
 		false,
 	)
 	r.lock.Unlock()
-	r.setStage(string(StageIDDeployFailed))
+	//r.setStage(StageIDDeployFailed)
 	r.logger.Warningf("Plugin %s deploy failed. %v", r.step, err)
 
 	// Now it's done.
 	r.lock.Lock()
+	r.currentStage = StageIDDeployFailed
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 
@@ -988,11 +987,12 @@ func (r *runningStep) startFailed(err error) {
 		string(r.currentStage),
 		false)
 
-	r.setStage(string(StageIDCrashed))
+	//r.setStage(StageIDCrashed)
 	r.logger.Warningf("Plugin step %s start failed. %v", r.step, err)
 
 	// Now it's done.
 	r.lock.Lock()
+	r.currentStage = StageIDCrashed
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 
@@ -1025,11 +1025,11 @@ func (r *runningStep) runFailed(err error) {
 		string(r.currentStage),
 		false)
 
-	r.setStage(string(StageIDCrashed))
 	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
 
 	// Now it's done.
 	r.lock.Lock()
+	r.currentStage = StageIDCrashed
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 
