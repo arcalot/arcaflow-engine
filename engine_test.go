@@ -3,7 +3,6 @@ package engine_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	log "go.arcalot.io/log/v2"
@@ -148,139 +147,33 @@ output:
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
 }
 
-//func TestE2EMultipleOutputs(t *testing.T) {
-//	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
-//		context.Background(),
-//		[]byte(`name: Arca Lot`),
-//		map[string][]byte{
-//			"workflow.yaml": []byte(`input:
-//  root: RootObject
-//  objects:
-//    RootObject:
-//      id: RootObject
-//      properties:
-//        name:
-//          type:
-//            type_id: string
-//steps:
-//  example:
-//    plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
-//    input:
-//      name: !expr $.input.name
-//outputs:
-//  success:
-//    message: !expr $.steps.example.outputs.success.message`),
-//		},
-//		"",
-//	)
-//	assert.NoError(t, err)
-//	assert.Equals(t, outputError, false)
-//	assert.Equals(t, outputID, "success")
-//	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
-//}
-
-//func TestE2EMultipleSteps(t *testing.T) {
-//	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
-//		context.Background(),
-//		[]byte(`name: Arca Lot`),
-//		map[string][]byte{
-//			"workflow.yaml": []byte(`input:
-// root: RootObject
-// objects:
-//   RootObject:
-//     id: RootObject
-//     properties:
-//       name:
-//         type:
-//           type_id: string
-//steps:
-// example:
-//   plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
-//   input:
-//     name: !expr $.input.name
-// example2:
-//   plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
-//   input:
-//     name: !expr $.input.name
-//   stop_if: !expr $.steps.example.outputs
-//outputs:
-// success:
-//   message: !expr $.steps.example.outputs.success.message
-//   cancelled_step_output: !expr $.steps.example2.outputs`),
-//		},
-//		"",
-//	)
-//	assert.NoError(t, err)
-//	assert.Equals(t, outputError, false)
-//	assert.Equals(t, outputID, "success")
-//	assert.Equals(t, outputData.(map[any]any), map[any]any{
-//		"message": "Hello, Arca Lot!",
-//		"cancelled_step_output": map[any]any{
-//			"success": map[any]any{"message": "Hello, Arca Lot!"}},
-//	})
-//}
-
-func TestParallelSteps(t *testing.T) {
-	outputID, outputData, outputError, err := createNetworkedTestEngine(t).RunWorkflow(
+func TestE2EMultipleOutputs(t *testing.T) {
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
 		context.Background(),
-		[]byte(`{}`),
+		[]byte(`name: Arca Lot`),
 		map[string][]byte{
 			"workflow.yaml": []byte(`input:
-  root: RootObject
-  objects:
-    RootObject:
-      id: RootObject
-      properties: {}
+ root: RootObject
+ objects:
+   RootObject:
+     id: RootObject
+     properties:
+       name:
+         type:
+           type_id: string
 steps:
-  long_wait:
-    plugin: quay.io/joconnel/arcaflow-plugin-wait
-    step: wait
-    input:
-      seconds: 10
-  medium_wait:
-    plugin: quay.io/joconnel/arcaflow-plugin-wait
-    step: wait
-    input:
-      seconds: 8
-  short_wait:
-    plugin: quay.io/joconnel/arcaflow-plugin-wait
-    step: wait
-    input:
-      seconds: 1
+ example:
+   plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
+   input:
+     name: !expr $.input.name
 outputs:
-  a:
-    b: !expr $.steps.medium_wait.outputs.success`),
+ success:
+   message: !expr $.steps.example.outputs.success.message`),
 		},
 		"",
 	)
 	assert.NoError(t, err)
 	assert.Equals(t, outputError, false)
-	assert.Equals(t, outputID, "a")
-	//assert.Equals(t, outputData.(map[any]any), map[any]any{
-	//	"message":  "Hello, Arca Lot!",
-	//	"message2": "Hello, Arca Lot!"})
-	fmt.Printf("%s\n", outputData)
-}
-
-func createNetworkedTestEngine(t *testing.T) engine.WorkflowEngine {
-	cfg := &config.Config{
-		LocalDeployer: map[any]any{
-			//LocalDeployer: map[any]any{"type": "docker"},
-			"type": "podman",
-			//"type": "docker",
-			"deployment": map[any]any{
-				"host": map[any]any{
-					"NetworkMode": "host",
-				},
-				"imagePullPolicy": "Always",
-			}},
-	}
-	cfg.Log.T = t
-	cfg.Log.Level = log.LevelDebug
-	cfg.Log.Destination = log.DestinationTest
-	flow, err := engine.New(
-		cfg,
-	)
-	assert.NoError(t, err)
-	return flow
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
 }
