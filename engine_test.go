@@ -153,14 +153,14 @@ func TestE2EMultipleOutputs(t *testing.T) {
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
 			"workflow.yaml": []byte(`input:
- root: RootObject
- objects:
-   RootObject:
-     id: RootObject
-     properties:
-       name:
-         type:
-           type_id: string
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        name:
+          type:
+            type_id: string
 steps:
   example:
     plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
