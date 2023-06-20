@@ -712,8 +712,6 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 		runInputAvailable,
 	)
 
-	//r.setStage(StageIDStarting)
-
 	r.lock.Lock()
 	r.currentStage = StageIDStarting
 	r.state = step.RunningStepStateWaitingForInput
@@ -746,7 +744,6 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	// Runs the ATP client in a goroutine in order to wait for it or context done.
 	// On context done, the deployer tries to end execution. That will shut down
 	// (with sigterm) the container. Then wait for output, or error out.
-	//executionChannel := make(chan executionResult)
 	go func() {
 		outputID, outputData, err := atpClient.Execute(r.step, runInput)
 		r.executionChannel <- executionResult{outputID, outputData, err}
@@ -760,8 +757,6 @@ func (r *runningStep) runStage() error {
 	r.currentStage = StageIDRunning
 	r.state = step.RunningStepStateRunning
 	r.lock.Unlock()
-
-	//r.setStage(StageIDRunning)
 
 	r.stageChangeHandler.OnStageChange(
 		r,
@@ -806,122 +801,7 @@ func (r *runningStep) runStage() error {
 		string(r.currentStage),
 		false)
 
-	//r.setStage(StageIDOutput)
-
 	r.lock.Lock()
-	r.state = step.RunningStepStateFinished
-	r.lock.Unlock()
-	r.stageChangeHandler.OnStepComplete(
-		r,
-		string(r.currentStage),
-		&result.outputID,
-		&result.outputData,
-	)
-
-	return nil
-}
-
-func (r *runningStep) runStage_old(container deployer.Plugin) error {
-	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDRunning
-
-	if !r.runInputAvailable {
-		r.state = step.RunningStepStateWaitingForInput
-	} else {
-		r.state = step.RunningStepStateRunning
-	}
-	runInputAvailable := r.runInputAvailable
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(StageIDRunning),
-		runInputAvailable,
-	)
-
-	//r.setStage(StageIDRunning)
-
-	r.lock.Lock()
-	r.currentStage = StageIDRunning
-	r.state = step.RunningStepStateWaitingForInput
-	r.lock.Unlock()
-
-	var runInput any
-	select {
-	case runInput = <-r.runInput:
-		r.lock.Lock()
-		r.state = step.RunningStepStateRunning
-		r.lock.Unlock()
-	case <-r.ctx.Done():
-		return fmt.Errorf("step closed while waiting for run configuration")
-	}
-	atpClient := atp.NewClientWithLogger(container, r.logger)
-
-	inputSchema, err := atpClient.ReadSchema()
-	if err != nil {
-		return err
-	}
-	steps := inputSchema.Steps()
-	stepSchema, ok := steps[r.step]
-	if !ok {
-		return fmt.Errorf("schema mismatch between local and remote deployed plugin, no stepSchema named %s found in remote", r.step)
-	}
-	if _, err := stepSchema.Input().Unserialize(runInput); err != nil {
-		return fmt.Errorf("schema mismatch between local and remote deployed plugin, unserializing input failed (%w)", err)
-	}
-
-	// Runs the ATP client in a goroutine in order to wait for it or context done.
-	// On context done, the deployer tries to end execution. That will shut down
-	// (with sigterm) the container. Then wait for output, or error out.
-	executionChannel := make(chan executionResult)
-	go func() {
-		outputID, outputData, err := atpClient.Execute(r.step, runInput)
-		executionChannel <- executionResult{outputID, outputData, err}
-	}()
-
-	var result executionResult
-	select {
-	case result = <-executionChannel:
-		if result.err != nil {
-			//return err
-			return result.err
-		}
-	case <-r.ctx.Done():
-		// In this case, it is being instructed to stop.
-		// Shutdown (with sigterm) the container, then wait for the output (valid or error).
-		r.logger.Debugf("Running step context done before step run complete. Cancelling and waiting for result.")
-		r.cancel()
-		// If necessary, you can add a timeout here for shutdowns that take too long.
-		result = <-executionChannel
-	}
-
-	// Execution complete, move to finished stage.
-	r.lock.Lock()
-	// Be careful that everything here is set correctly.
-	// Else it will cause undesired behavior.
-	previousStage = string(r.currentStage)
-	r.currentStage = StageIDOutput
-	// First running, then state change, then finished.
-	// This is so it properly steps through all the stages it needs to.
-	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(r.currentStage),
-		false)
-
-	//r.setStage(StageIDOutput)
-
-	r.lock.Lock()
-	r.currentStage = StageIDOutput
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 	r.stageChangeHandler.OnStepComplete(
@@ -941,8 +821,8 @@ func (r *runningStep) deployFailed(err error) {
 	// Don't forget to update this, or else it will behave very oddly.
 	// First running, then finished. You can't skip states.
 	r.state = step.RunningStepStateRunning
+	r.lock.Unlock()
 
-	// TODO: add timeout for OnStageChange
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
@@ -951,8 +831,6 @@ func (r *runningStep) deployFailed(err error) {
 		string(StageIDDeployFailed),
 		false,
 	)
-	r.lock.Unlock()
-	//r.setStage(StageIDDeployFailed)
 	r.logger.Warningf("Plugin %s deploy failed. %v", r.step, err)
 
 	// Now it's done.
@@ -986,8 +864,6 @@ func (r *runningStep) startFailed(err error) {
 		nil,
 		string(r.currentStage),
 		false)
-
-	//r.setStage(StageIDCrashed)
 	r.logger.Warningf("Plugin step %s start failed. %v", r.step, err)
 
 	// Now it's done.
@@ -1009,12 +885,14 @@ func (r *runningStep) startFailed(err error) {
 }
 
 func (r *runningStep) runFailed(err error) {
+	// A current lack of observability into the atp client prevents
+	// non-fragile testing of this function.
+
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDCrashed
 	// Don't forget to update this, or else it will behave very oddly.
 	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
-
 	r.lock.Unlock()
 
 	r.stageChangeHandler.OnStageChange(

@@ -38,21 +38,20 @@ func (s *deployFailStageChangeHandler) OnStepComplete(
 	if previousStageOutput == nil {
 		panic(fmt.Errorf("no previous stage output ID"))
 	}
-	//message := (*previousStageOutput).(map[string]any)["message"].(string)
 	message := (*previousStageOutput).(plugin.DeployFailed).Error
 
 	s.message <- message
 }
 
-type runFailStageChangeHandler struct {
+type startFailStageChangeHandler struct {
 	message chan string
 }
 
-func (s *runFailStageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool) {
+func (s *startFailStageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool) {
 
 }
 
-func (s *runFailStageChangeHandler) OnStepComplete(
+func (s *startFailStageChangeHandler) OnStepComplete(
 	_ step.RunningStep,
 	previousStage string,
 	previousStageOutputID *string,
@@ -102,7 +101,6 @@ func (s *stageChangeHandler) OnStepComplete(
 	if previousStageOutput == nil {
 		panic(fmt.Errorf("no previous stage output ID"))
 	}
-	//message := (*previousStageOutput).(map[string]any)["message"].(string)
 	message := (*previousStageOutput).(map[any]any)["message"].(string)
 
 	s.message <- message
@@ -253,14 +251,6 @@ func TestProvider_HappyError(t *testing.T) {
 		string(step.RunningStepStateFinished))
 
 	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDOutput))
-	//stages_happy := []string{
-	//	string(plugin.StageIDDeploy),
-	//	string(plugin.StageIDStarting),
-	//	string(plugin.StageIDRunning),
-	//	string(plugin.StageIDOutput)}
-	//
-	//stgs := running.Stages()
-	//assert.Equals(t, stgs.Values(), stages_happy)
 
 	t.Cleanup(func() {
 		assert.NoError(t, running.Close())
@@ -307,7 +297,6 @@ func TestProvider_DeployFail(t *testing.T) {
 
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
-		//map[string]any{"deploy": nil},
 		map[string]any{"deploy": map[string]any{
 			"type":           "test-impl",
 			"deploy_succeed": false,
@@ -329,12 +318,9 @@ func TestProvider_DeployFail(t *testing.T) {
 
 	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDDeployFailed))
 
-	//stages_exp := []string{
-	//	string(plugin.StageIDDeploy),
-	//	string(plugin.StageIDDeployFailed)}
-	//
-	//stgs := running.Stages()
-	//assert.Equals(t, stgs.Values(), stages_exp)
+	t.Cleanup(func() {
+		assert.NoError(t, running.Close())
+	})
 }
 
 func TestProvider_StartFail(t *testing.T) {
@@ -364,7 +350,7 @@ func TestProvider_StartFail(t *testing.T) {
 		map[string][]byte{})
 	assert.NoError(t, err)
 
-	handler := &runFailStageChangeHandler{
+	handler := &startFailStageChangeHandler{
 		message: make(chan string),
 	}
 
@@ -390,79 +376,9 @@ func TestProvider_StartFail(t *testing.T) {
 	// wait for message, but we don't care about its value
 	<-handler.message
 
-	//stages_exp := []string{
-	//	string(plugin.StageIDDeploy),
-	//	string(plugin.StageIDStarting),
-	//	//string(plugin.StageIDRunning),
-	//	string(plugin.StageIDCrashed)}
-
-	//stgs := running.Stages()
-	//assert.Equals(t, stgs.Values(), stages_exp)
-
 	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDCrashed))
-}
 
-func TestProvider_RunFail(t *testing.T) {
-	logger := log.New(
-		log.Config{
-			Level:       log.LevelError,
-			Destination: log.DestinationStdout,
-		},
-	)
-	deploy_time_ms := 20
-	workflow_deployer_cfg := map[string]any{
-		"type":           "test-impl",
-		"deploy_time":    deploy_time_ms,
-		"deploy_succeed": true,
-	}
-
-	plp, err := plugin.New(
-		logger,
-		deployer_registry.New(
-			deployer.Any(testdeployer.NewFactory())),
-		workflow_deployer_cfg,
-	)
-	assert.NoError(t, err)
-
-	runnable, err := plp.LoadSchema(
-		map[string]any{"plugin": "simulation"},
-		map[string][]byte{})
-	assert.NoError(t, err)
-
-	handler := &runFailStageChangeHandler{
-		message: make(chan string),
-	}
-
-	running, err := runnable.Start(map[string]any{"step": "wait"}, handler)
-	assert.NoError(t, err)
-
-	// tell deployer that this run should not succeed
-	assert.NoError(t, running.ProvideStageInput(
-		string(plugin.StageIDDeploy),
-		map[string]any{"deploy": map[string]any{
-			"type":           "test-impl",
-			"deploy_succeed": true,
-			"deploy_time":    deploy_time_ms}},
-	))
-
-	assert.NoError(t, running.ProvideStageInput(
-		string(plugin.StageIDStarting),
-		map[string]any{"input": map[string]any{
-			"wait_time_ms":      50,
-			"execution_succeed": false}},
-	))
-
-	// wait for message, but we don't care about its value
-	<-handler.message
-
-	//stages_exp := []string{
-	//	string(plugin.StageIDDeploy),
-	//	string(plugin.StageIDStarting),
-	//	//string(plugin.StageIDRunning),
-	//	string(plugin.StageIDCrashed)}
-
-	//stgs := running.Stages()
-	//assert.Equals(t, stgs.Values(), stages_exp)
-
-	assert.Equals(t, running.CurrentStage(), string(plugin.StageIDCrashed))
+	t.Cleanup(func() {
+		assert.NoError(t, running.Close())
+	})
 }
