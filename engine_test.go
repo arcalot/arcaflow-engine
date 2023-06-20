@@ -162,13 +162,13 @@ func TestE2EMultipleOutputs(t *testing.T) {
          type:
            type_id: string
 steps:
- example:
-   plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
-   input:
-     name: !expr $.input.name
+  example:
+    plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
+    input:
+      name: !expr $.input.name
 outputs:
- success:
-   message: !expr $.steps.example.outputs.success.message`),
+  success:
+    message: !expr $.steps.example.outputs.success.message`),
 		},
 		"",
 	)
