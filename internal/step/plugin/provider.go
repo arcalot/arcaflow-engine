@@ -490,6 +490,8 @@ func (r *runningStep) State() step.RunningStepState {
 }
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {
+	// If you change the running step's Stage in this function it can
+	// affect the counting of step states in the workflow's Execute function.
 	r.lock.Lock()
 
 	// Checks which stage it is getting input for
@@ -572,7 +574,6 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 }
 
 func (r *runningStep) Close() error {
-	// var nil_ deployer.Plugin
 	r.cancel()
 	r.lock.Lock()
 	if r.container != nil {
