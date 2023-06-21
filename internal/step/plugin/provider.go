@@ -565,18 +565,14 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		r.runInput <- input["input"]
 		return nil
 	case string(StageIDRunning):
-		r.currentStage = StageIDRunning
 		r.lock.Unlock()
-		//r.setStage(StageIDRunning)
 		return nil
 	case string(StageIDCancelled):
 		if input["stop_if"] != false && input["stop_if"] != nil {
 			r.logger.Infof("Cancelling step %s", r.step)
 			r.cancel() // This should cancel the plugin deployment or execution.
 		}
-		r.currentStage = StageIDCancelled
 		r.lock.Unlock()
-		//r.setStage(string(StageIDCancelled))
 		return nil
 	case string(StageIDDeployFailed):
 		r.lock.Unlock()
