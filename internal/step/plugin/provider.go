@@ -14,6 +14,8 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
+const errorStr = "error"
+
 // New creates a new plugin provider.
 // deployerRegistry The registry that contains all possible deployers.
 // localDeployerConfig The section of the workflow config that pertains to all of the
@@ -90,7 +92,8 @@ const (
 	// StageIDOutput is a stage that indicates that the plugin has completed working successfully.
 	StageIDOutput StageID = "outputs"
 	// StageIDCrashed is a stage that indicates that the plugin has quit unexpectedly.
-	StageIDCrashed  StageID = "crashed"
+	StageIDCrashed StageID = "crashed"
+	// StageIDStarting is a stage that indicates that the plugin execution has begun.
 	StageIDStarting StageID = "starting"
 )
 
@@ -293,7 +296,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 							schema.NewObjectSchema(
 								"DeployError",
 								map[string]*schema.PropertySchema{
-									"error": schema.NewPropertySchema(
+									errorStr: schema.NewPropertySchema(
 										schema.NewStringSchema(nil, nil, nil),
 										nil,
 										true,
@@ -333,21 +336,6 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 				LifecycleStage: runningLifecycleStage,
 				InputSchema:    nil,
 				Outputs:        nil,
-				//InputSchema:    map[string]*schema.PropertySchema{
-				//nolint:godox
-				// TODO: Add wait_for right here. Should be an any type.
-				// Also add to section above.
-				//"input": schema.NewPropertySchema(
-				//	stepSchema.Input(),
-				//	stepSchema.Display(),
-				//	false,
-				//	nil,
-				//	nil,
-				//	nil,
-				//	nil,
-				//	nil,
-				//),
-				//},
 			},
 			{
 				LifecycleStage: cancelledLifecycleStage,
@@ -489,12 +477,6 @@ type runningStep struct {
 	executionChannel     chan executionResult
 }
 
-func (r *runningStep) setStage(stage StageID) {
-	r.lock.Lock()
-	r.currentStage = stage
-	r.lock.Unlock()
-}
-
 func (r *runningStep) CurrentStage() string {
 	r.lock.Lock()
 	defer r.lock.Unlock()
@@ -590,6 +572,7 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 }
 
 func (r *runningStep) Close() error {
+	// var nil_ deployer.Plugin
 	r.cancel()
 	r.lock.Lock()
 	if r.container != nil {
@@ -835,7 +818,7 @@ func (r *runningStep) deployFailed(err error) {
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 
-	outputID := "error"
+	outputID := errorStr
 	output := any(DeployFailed{
 		Error: err.Error(),
 	})
@@ -868,7 +851,7 @@ func (r *runningStep) startFailed(err error) {
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 
-	outputID := "error"
+	outputID := errorStr
 	output := any(Crashed{
 		Output: err.Error(),
 	})
@@ -907,7 +890,7 @@ func (r *runningStep) runFailed(err error) {
 	r.state = step.RunningStepStateFinished
 	r.lock.Unlock()
 
-	outputID := "error"
+	outputID := errorStr
 	output := any(Crashed{
 		Output: err.Error(),
 	})

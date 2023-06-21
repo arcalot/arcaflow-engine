@@ -107,7 +107,7 @@ func (s *stageChangeHandler) OnStepComplete(
 }
 
 func TestProvider_Utility(t *testing.T) {
-	workflow_deployer_cfg := map[string]any{
+	workflowDeployerCfg := map[string]any{
 		"type": "test-impl",
 	}
 
@@ -120,7 +120,7 @@ func TestProvider_Utility(t *testing.T) {
 		),
 		deployer_registry.New(
 			deployer.Any(testdeployer.NewFactory())),
-		workflow_deployer_cfg,
+		workflowDeployerCfg,
 	)
 	assert.NoError(t, err)
 	assert.Equals(t, plp.Kind(), "plugin")
@@ -128,12 +128,12 @@ func TestProvider_Utility(t *testing.T) {
 	assert.NotNil(t, plp.RunProperties())
 	assert.NotNil(t, plp.Lifecycle())
 
-	step_schema := map[string]any{
+	stepSchema := map[string]any{
 		"plugin": "simulation",
 	}
-	byte_schema := map[string][]byte{}
+	byteSchema := map[string][]byte{}
 
-	runnable, err := plp.LoadSchema(step_schema, byte_schema)
+	runnable, err := plp.LoadSchema(stepSchema, byteSchema)
 	assert.NoError(t, err)
 
 	assert.NotNil(t, runnable.RunSchema())
@@ -152,24 +152,24 @@ func TestProvider_HappyError(t *testing.T) {
 			Destination: log.DestinationStdout,
 		},
 	)
-	workflow_deployer_cfg := map[string]any{
+	workflowDeployerCfg := map[string]any{
 		"type": "test-impl",
 	}
 
-	d_registry := deployer_registry.New(
+	deployerRegistry := deployer_registry.New(
 		deployer.Any(testdeployer.NewFactory()))
 
-	plp, err := plugin.New(
+	_, err := plugin.New(
 		logger,
-		d_registry,
+		deployerRegistry,
 		map[string]any{"deployer_cfg": "bad"},
 	)
 	assert.Error(t, err)
 
-	plp, err = plugin.New(
+	plp, err := plugin.New(
 		logger,
-		d_registry,
-		workflow_deployer_cfg,
+		deployerRegistry,
+		workflowDeployerCfg,
 	)
 	assert.NoError(t, err)
 
@@ -196,7 +196,6 @@ func TestProvider_HappyError(t *testing.T) {
 	// unserialize malformed deploy schema
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
-		//map[string]any{"deploy": nil},
 		map[string]any{"deploy": map[string]any{
 			"type":        "test-impl",
 			"deploy_time": "abc"}},
@@ -204,7 +203,6 @@ func TestProvider_HappyError(t *testing.T) {
 
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
-		//map[string]any{"deploy": nil},
 		map[string]any{"deploy": map[string]any{
 			"type":        "test-impl",
 			"deploy_time": 1}},
@@ -213,7 +211,6 @@ func TestProvider_HappyError(t *testing.T) {
 	// provide deploy input a 2nd time
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
-		//map[string]any{"deploy": nil},
 		map[string]any{"deploy": map[string]any{
 			"type":        "test-impl",
 			"deploy_time": nil}},
@@ -231,21 +228,22 @@ func TestProvider_HappyError(t *testing.T) {
 		map[string]any{"input": 1},
 	))
 
-	wait_time_ms := 50
+	waitTimeMs := 50
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDStarting),
-		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
+		map[string]any{"input": map[string]any{"wait_time_ms": waitTimeMs}},
 	))
 
 	// provide running input a 2nd time
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDStarting),
-		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
+		map[string]any{"input": map[string]any{"wait_time_ms": waitTimeMs}},
 	))
 
 	message := <-handler.message
-	msg_expected := fmt.Sprintf("Plugin slept for %d ms.", wait_time_ms)
-	assert.Equals(t, message, msg_expected)
+	assert.Equals(t,
+		message,
+		fmt.Sprintf("Plugin slept for %d ms.", waitTimeMs))
 
 	assert.Equals(t, string(running.State()),
 		string(step.RunningStepStateFinished))
@@ -266,20 +264,20 @@ func TestProvider_DeployFail(t *testing.T) {
 		logConfig,
 	)
 
-	deploy_time_ms := 20
-	workflow_deployer_cfg := map[string]any{
+	deployTimeMs := 20
+	workflowDeployerCfg := map[string]any{
 		"type":           "test-impl",
-		"deploy_time":    deploy_time_ms,
+		"deploy_time":    deployTimeMs,
 		"deploy_succeed": true,
 	}
 
-	d_registry := deployer_registry.New(
+	deployerRegistry := deployer_registry.New(
 		deployer.Any(testdeployer.NewFactory()))
 
 	plp, err := plugin.New(
 		logger,
-		d_registry,
-		workflow_deployer_cfg,
+		deployerRegistry,
+		workflowDeployerCfg,
 	)
 	assert.NoError(t, err)
 
@@ -300,18 +298,19 @@ func TestProvider_DeployFail(t *testing.T) {
 		map[string]any{"deploy": map[string]any{
 			"type":           "test-impl",
 			"deploy_succeed": false,
-			"deploy_time":    deploy_time_ms}},
+			"deploy_time":    deployTimeMs}},
 	))
 
-	wait_time_ms := 50
+	waitTimeMs := 50
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDStarting),
-		map[string]any{"input": map[string]any{"wait_time_ms": wait_time_ms}},
+		map[string]any{"input": map[string]any{"wait_time_ms": waitTimeMs}},
 	))
 
 	message := <-handler.message
-	msg_expected := fmt.Sprintf("intentional deployment fail after %d ms", deploy_time_ms)
-	assert.Equals(t, message, msg_expected)
+	assert.Equals(t,
+		message,
+		fmt.Sprintf("intentional deployment fail after %d ms", deployTimeMs))
 
 	assert.Equals(t, string(running.State()),
 		string(step.RunningStepStateFinished))
@@ -330,10 +329,10 @@ func TestProvider_StartFail(t *testing.T) {
 			Destination: log.DestinationStdout,
 		},
 	)
-	deploy_time_ms := 20
-	workflow_deployer_cfg := map[string]any{
+	deployTimeMs := 20
+	workflowDeployerCfg := map[string]any{
 		"type":           "test-impl",
-		"deploy_time":    deploy_time_ms,
+		"deploy_time":    deployTimeMs,
 		"deploy_succeed": true,
 	}
 
@@ -341,7 +340,7 @@ func TestProvider_StartFail(t *testing.T) {
 		logger,
 		deployer_registry.New(
 			deployer.Any(testdeployer.NewFactory())),
-		workflow_deployer_cfg,
+		workflowDeployerCfg,
 	)
 	assert.NoError(t, err)
 
@@ -363,7 +362,7 @@ func TestProvider_StartFail(t *testing.T) {
 		map[string]any{"deploy": map[string]any{
 			"type":                  "test-impl",
 			"deploy_succeed":        true,
-			"deploy_time":           deploy_time_ms,
+			"deploy_time":           deployTimeMs,
 			"disable_plugin_writes": true}},
 	))
 
