@@ -61,7 +61,7 @@ func main() {
 			panic(err)
 		}
 	default:
-		panic("No deployer selected. Options: docker, podman, testimpl. Select with -deployer")
+		panic("No deployer or invalid deployer selected. Options: docker, podman, testimpl. Select with -deployer")
 	}
 
 	connector, err := d.Create(defaultConfig, log.New(log.Config{
