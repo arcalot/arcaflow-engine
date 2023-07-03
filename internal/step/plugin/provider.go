@@ -104,7 +104,7 @@ var deployingLifecycleStage = step.LifecycleStage{
 	FinishedName: "deployed",
 	InputFields:  map[string]struct{}{string(StageIDDeploy): {}},
 	NextStages: []string{
-		string(StageIDRunning), string(StageIDDeployFailed),
+		string(StageIDStarting), string(StageIDDeployFailed),
 	},
 	Fatal: false,
 }
