@@ -1,6 +1,8 @@
 package step
 
-import "go.flow.arcalot.io/pluginsdk/schema"
+import (
+	"go.flow.arcalot.io/pluginsdk/schema"
+)
 
 // Provider is the description of an item that fits in a workflow. Its implementation provide the
 // basis for workflow execution.
