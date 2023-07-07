@@ -118,13 +118,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 	}
 	// Let's make sure we are closing all steps once this function terminates so we don't leave stuff running.
 	defer func() {
-		e.logger.Debugf("Terminating all steps...")
-		for stepID, runningStep := range l.runningSteps {
-			e.logger.Debugf("Terminating step %s...", stepID)
-			if err := runningStep.Close(); err != nil {
-				panic(fmt.Errorf("failed to close step %s (%w)", stepID, err))
-			}
-		}
+		e.Cleanup(l)
 	}()
 
 	// We remove the input node from the DAG and call the notifySteps function once to trigger the workflow
@@ -176,6 +170,16 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 			return "", nil, l.lastError
 		}
 		return "", nil, fmt.Errorf("workflow execution aborted (%w)", ctx.Err())
+	}
+}
+
+func (e *executableWorkflow) Cleanup(l *loopState) {
+	e.logger.Debugf("Terminating all steps...")
+	for stepID, runningStep := range l.runningSteps {
+		e.logger.Debugf("Terminating step %s...", stepID)
+		if err := runningStep.Close(); err != nil {
+			panic(fmt.Errorf("failed to close step %s (%w)", stepID, err))
+		}
 	}
 }
 
