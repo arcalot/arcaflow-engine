@@ -4,9 +4,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 
 	log "go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/internal/step"
@@ -115,22 +112,6 @@ func (e engineWorkflow) Run(ctx context.Context, input []byte) (outputID string,
 	if err != nil {
 		return "", nil, true, fmt.Errorf("failed to YAML decode input (%w)", err)
 	}
-
-	sigs := make(chan os.Signal)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGINT)
-	go func() {
-		for {
-			sig := <-sigs
-			switch sig {
-			case os.Interrupt:
-				fmt.Println("Caught OS signal:", sig)
-				return
-				//case syscall.SIGINFO:
-				//	handleSignal(sig)
-				//	return
-			}
-		}
-	}()
 
 	outputID, outputData, err = e.workflow.Execute(ctx, decodedInput.Raw())
 	if err != nil {
