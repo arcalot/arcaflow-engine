@@ -188,6 +188,20 @@ Options:
 		}
 	}()
 
+	//select {
+	//case exitCode = <-runWorkflow(flow, dirContext, workflowFile, logger, inputData, ctx):
+	//	logger.Infof("Got exit code %d", exitCode)
+	//case sig = <-sigs:
+	//	// Got sigterm. So cancel context.
+	//	logger.Infof("Caught signal %s", sig)
+	//	exitCode = ExitCodeUserInterrupt
+	//	cancel()
+	//case <-ctx.Done():
+	//	// Done. No sigint.
+	//	logger.Infof("Main context done")
+	//	exitCode = ExitCodeOK
+	//}
+
 	exitCode = <-runWorkflow(flow, dirContext, workflowFile, logger, inputData, ctx)
 	logger.Infof("Got exit code %d", exitCode)
 
@@ -198,42 +212,40 @@ func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workf
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	out := make(chan int)
+	out := make(chan int, 1)
+	defer close(out)
 
-	go func() {
-		workflow, err := flow.Parse(dirContext, workflowFile)
-		if err != nil {
-			logger.Errorf("Invalid workflow (%v)", err)
-			out <- ExitCodeInvalidData
-			return
-		}
+	workflow, err := flow.Parse(dirContext, workflowFile)
+	if err != nil {
+		logger.Errorf("Invalid workflow (%v)", err)
+		out <- ExitCodeInvalidData
+		return out
+	}
 
-		outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
-		if err != nil {
-			logger.Errorf("Workflow execution failed (%v)", err)
-			out <- ExitCodeWorkflowFailed
-			return
-		}
-		data, err := yaml.Marshal(
-			map[string]any{
-				"output_id":   outputID,
-				"output_data": outputData,
-			},
-		)
-		if err != nil {
-			logger.Errorf("Failed to marshal output (%v)", err)
-			out <- ExitCodeInvalidData
-			return
-		}
-		_, _ = os.Stdout.Write(data)
-		if outputError {
-			out <- ExitCodeWorkflowErrorOutput
-			return
-		}
+	outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
+	if err != nil {
+		logger.Errorf("Workflow execution failed (%v)", err)
+		out <- ExitCodeWorkflowFailed
+		return out
+	}
+	data, err := yaml.Marshal(
+		map[string]any{
+			"output_id":   outputID,
+			"output_data": outputData,
+		},
+	)
+	if err != nil {
+		logger.Errorf("Failed to marshal output (%v)", err)
+		out <- ExitCodeInvalidData
+		return out
+	}
+	_, _ = os.Stdout.Write(data)
+	if outputError {
+		out <- ExitCodeWorkflowErrorOutput
+		return out
+	}
 
-		out <- ExitCodeOK
-	}()
-
+	out <- ExitCodeOK
 	return out
 }
 
