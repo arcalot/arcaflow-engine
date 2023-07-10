@@ -101,6 +101,20 @@ Options:
 	}
 	flag.Parse()
 
+	if printVersion {
+		fmt.Printf(
+			"Arcaflow Engine\n"+
+				"===============\n"+
+				"Version: %s\n"+
+				"Commit: %s\n"+
+				"Date: %s\n"+
+				"Apache 2.0 license\n"+
+				"Copyright (c) Arcalot Contributors",
+			version, commit, date,
+		)
+		return
+	}
+
 	var err error
 	var configData any = map[any]any{}
 	if configFile != "" {
@@ -133,20 +147,6 @@ Options:
 		logger.Errorf("Failed to initialize engine with config file %s (%v)", configFile, err)
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
-	}
-
-	if printVersion {
-		fmt.Printf(
-			"Arcaflow Engine\n"+
-				"===============\n"+
-				"Version: %s\n"+
-				"Commit: %s\n"+
-				"Date: %s\n"+
-				"Apache 2.0 license\n"+
-				"Copyright (c) Arcalot Contributors",
-			version, commit, date,
-		)
-		return
 	}
 
 	var inputData []byte

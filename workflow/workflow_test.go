@@ -3,11 +3,13 @@ package workflow_test
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"go.flow.arcalot.io/deployer"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testimpl "go.flow.arcalot.io/testdeployer"
-	"testing"
 
 	"go.arcalot.io/assert"
 	"go.arcalot.io/lang"
@@ -143,4 +145,162 @@ func TestStepCancellation(t *testing.T) {
 	assert.NotNil(t, stepResult)
 	stepResultCancelledEarly := stepResult.(map[string]interface{})["cancelled_early"]
 	assert.NotNil(t, stepResultCancelledEarly)
+}
+
+var waitForSerialWorkflowDefinition = `
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  first_wait:
+    plugin: "n/a"
+    step: wait
+    input:
+      wait_time_ms: 10000
+  second_wait:
+    plugin: "n/a"
+    step: wait
+    input:
+      wait_time_ms: 10000
+    wait_for: !expr $.steps.first_wait.outputs.success
+outputs:
+  success:
+    first_step_output: !expr $.steps.first_wait.outputs
+    second_step_output: !expr $.steps.second_wait.outputs
+`
+
+func TestWaitForSerial(t *testing.T) {
+	// For this test, a workflow runs two steps, where each step runs a wait step for 10s
+	// The second wait step waits for the first to succeed after which it runs
+	// Due to the wait for condition, the steps will execute serially
+	// The total execution time for this test function should be greater than 20seconds
+	// as each step runs for 10s and are run serially
+	// The test double deployer will be used for this test, as we
+	// need a deployer to test the plugin step provider.
+	startTime := time.Now()
+	logConfig := log.Config{
+		Level:       log.LevelInfo,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForSerialWorkflowDefinition)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	stepResult := outputData.(map[interface{}]interface{})["first_step_output"]
+	assert.NotNil(t, stepResult)
+	stepResultWaitFor := stepResult.(map[string]interface{})["success"]
+	assert.NotNil(t, stepResultWaitFor)
+	stepResult2 := outputData.(map[interface{}]interface{})["second_step_output"]
+	assert.NotNil(t, stepResult2)
+	stepResultWaitFor2 := stepResult.(map[string]interface{})["success"]
+	assert.NotNil(t, stepResultWaitFor2)
+
+	duration := time.Since(startTime)
+	t.Logf("Test execution time: %s", duration)
+	var wait_success bool
+	if duration >= 20*time.Second {
+		wait_success = true
+		t.Logf("Test execution time is greater than 20 seconds, steps are running serially due to the wait_for condition.")
+	} else {
+		wait_success = false
+		t.Logf("Test execution time is lesser than 20 seconds, steps are not running serially.")
+	}
+	assert.Equals(t, wait_success, true)
+}
+
+var waitForParallelWorkflowDefinition = `
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  first_wait:
+    plugin: "n/a"
+    step: wait
+    input:
+      wait_time_ms: 10000
+  second_wait:
+    plugin: "n/a"
+    step: wait
+    input:
+      wait_time_ms: 10000
+    wait_for: !expr $.steps.first_wait.outputs.success
+  third_wait:
+    plugin: "n/a"
+    step: wait
+    input:
+      wait_time_ms: 10000
+    wait_for: !expr $.steps.first_wait.outputs.success
+outputs:
+  success:
+    second_step_output: !expr $.steps.second_wait.outputs.success
+    third_step_output: !expr $.steps.third_wait.outputs.success
+`
+
+func TestWaitForParallel(t *testing.T) {
+	// For this test, a workflow runs three steps, where each step runs a wait step for 10s
+	// The second and third wait steps wait for the first to succeed after which they both run in parallel
+	// The total execution time for this test function should be greater than 15s but lesser than 25s
+	// as the first step runs for 10s and other two steps run in parallel after the first succeeds
+	// The test double deployer will be used for this test, as we
+	// need a deployer to test the plugin step provider.
+	startTime := time.Now()
+	logConfig := log.Config{
+		Level:       log.LevelInfo,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForParallelWorkflowDefinition)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	stepResult2 := outputData.(map[interface{}]interface{})["second_step_output"]
+	assert.NotNil(t, stepResult2)
+	stepResult3 := outputData.(map[interface{}]interface{})["third_step_output"]
+	assert.NotNil(t, stepResult3)
+	t.Log(stepResult3)
+
+	duration := time.Since(startTime)
+	t.Logf("Test execution time: %s", duration)
+	var wait_success bool
+	if duration > 15*time.Second && duration < 25*time.Second {
+		wait_success = true
+		t.Logf("Steps second_wait and third_wait are running in parallel after waiting for the first_wait step.")
+	} else {
+		wait_success = false
+		t.Logf("Steps second_wait and third_wait are not running in parallel.")
+	}
+	assert.Equals(t, wait_success, true)
 }
