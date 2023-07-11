@@ -159,12 +159,12 @@ steps:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 10000
+      wait_time_ms: 5000
   second_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 10000
+      wait_time_ms: 5000
     wait_for: !expr $.steps.first_wait.outputs.success
 outputs:
   success:
@@ -173,11 +173,11 @@ outputs:
 `
 
 func TestWaitForSerial(t *testing.T) {
-	// For this test, a workflow runs two steps, where each step runs a wait step for 10s
+	// For this test, a workflow runs two steps, where each step runs a wait step for 5s
 	// The second wait step waits for the first to succeed after which it runs
 	// Due to the wait for condition, the steps will execute serially
-	// The total execution time for this test function should be greater than 20seconds
-	// as each step runs for 10s and are run serially
+	// The total execution time for this test function should be greater than 10seconds
+	// as each step runs for 5s and are run serially
 	// The test double deployer will be used for this test, as we
 	// need a deployer to test the plugin step provider.
 	startTime := time.Now()
@@ -214,15 +214,15 @@ func TestWaitForSerial(t *testing.T) {
 
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
-	var wait_success bool
-	if duration >= 20*time.Second {
-		wait_success = true
-		t.Logf("Test execution time is greater than 20 seconds, steps are running serially due to the wait_for condition.")
+	var waitSuccess bool
+	if duration >= 10*time.Second {
+		waitSuccess = true
+		t.Logf("Test execution time is greater than 10 seconds, steps are running serially due to the wait_for condition.")
 	} else {
-		wait_success = false
-		t.Logf("Test execution time is lesser than 20 seconds, steps are not running serially.")
+		waitSuccess = false
+		t.Logf("Test execution time is lesser than 10 seconds, steps are not running serially.")
 	}
-	assert.Equals(t, wait_success, true)
+	assert.Equals(t, waitSuccess, true)
 }
 
 var waitForParallelWorkflowDefinition = `
@@ -237,18 +237,18 @@ steps:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 10000
+      wait_time_ms: 5000
   second_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 10000
+      wait_time_ms: 5000
     wait_for: !expr $.steps.first_wait.outputs.success
   third_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 10000
+      wait_time_ms: 5000
     wait_for: !expr $.steps.first_wait.outputs.success
 outputs:
   success:
@@ -257,10 +257,10 @@ outputs:
 `
 
 func TestWaitForParallel(t *testing.T) {
-	// For this test, a workflow runs three steps, where each step runs a wait step for 10s
+	// For this test, a workflow runs three steps, where each step runs a wait step for 5s
 	// The second and third wait steps wait for the first to succeed after which they both run in parallel
-	// The total execution time for this test function should be greater than 15s but lesser than 25s
-	// as the first step runs for 10s and other two steps run in parallel after the first succeeds
+	// The total execution time for this test function should be greater than 5s but lesser than 15s
+	// as the first step runs for 5s and other two steps run in parallel after the first succeeds
 	// The test double deployer will be used for this test, as we
 	// need a deployer to test the plugin step provider.
 	startTime := time.Now()
@@ -294,13 +294,13 @@ func TestWaitForParallel(t *testing.T) {
 
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
-	var wait_success bool
-	if duration > 15*time.Second && duration < 25*time.Second {
-		wait_success = true
+	var waitSuccess bool
+	if duration > 5*time.Second && duration < 15*time.Second {
+		waitSuccess = true
 		t.Logf("Steps second_wait and third_wait are running in parallel after waiting for the first_wait step.")
 	} else {
-		wait_success = false
+		waitSuccess = false
 		t.Logf("Steps second_wait and third_wait are not running in parallel.")
 	}
-	assert.Equals(t, wait_success, true)
+	assert.Equals(t, waitSuccess, true)
 }
