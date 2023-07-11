@@ -40,8 +40,11 @@ const ExitCodeWorkflowErrorOutput = 2
 // ExitCodeWorkflowFailed indicates that the workflow execution failed.
 const ExitCodeWorkflowFailed = 3
 
-// ExitCodeUserInterrupt indicates that the engine was interrupted and terminated by the system.
+// ExitCodeUserInterrupt indicates that the engine was interrupted by a user.
 const ExitCodeUserInterrupt = 4
+
+// ExitCodeUserKill indicates that the engine was killed by a user.
+const ExitCodeUserKill = 5
 
 // Signal table
 var signals = [...]string{
@@ -50,6 +53,7 @@ var signals = [...]string{
 	2: "workflow output error",
 	3: "workflow failed",
 	4: "user interrupt",
+	5: "user kill",
 }
 
 type ArcaflowExitSignal int
@@ -189,36 +193,36 @@ Options:
 		}
 	}
 
-	sigs := make(chan os.Signal, 1)
-	defer close(sigs)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGINT)
-	//signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
+	//sigs := make(chan os.Signal, 1)
+	//defer close(sigs)
+	//signal.Notify(sigs, os.Interrupt, os.Kill)
+	////signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	//
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	logger.Infof("Starting workflow")
-	var exitCode int
-	var sig os.Signal
-	go func() {
-		select {
-		case sig = <-sigs:
-			// Got sigterm. So cancel context.
-			//logger.Infof("Caught signal %s", sig)
-			//exitCode = ExitCodeUserInterrupt
-			exitCode = osSignalToInt(sig)
-			cancel()
-		case <-ctx.Done():
-			// Done. No sigint.
-			logger.Infof("Main context done")
-			//exitCode = ExitCodeOK
-		}
-	}()
+	//
+	//logger.Infof("Starting workflow")
+	//var exitCode int
+	//var sig os.Signal
+	//go func() {
+	//	select {
+	//	case sig = <-sigs:
+	//		// Got sigterm. So cancel context.
+	//		logger.Infof("Caught signal %s", sig)
+	//		//exitCode = ExitCodeUserInterrupt
+	//		exitCode = osSignalToInt(sig)
+	//		cancel()
+	//	case <-ctx.Done():
+	//		// Done. No sigint.
+	//		logger.Infof("Main context done")
+	//		//exitCode = ExitCodeOK
+	//	}
+	//}()
 
 	//exitCode = <-runWorkflow(flow, dirContext, workflowFile, logger, inputData, ctx)
 	//var exitCode syscall.Signal
 
-	exitCode = osSignalToInt(<-runWorkflow(sigs, flow, dirContext, workflowFile, logger, inputData, ctx))
+	//exitCode = osSignalToInt(<-runWorkflow(sigs, flow, dirContext, workflowFile, logger, inputData, ctx))
 
 	//go runWorkflow(sigs, flow, dirContext, workflowFile, logger, inputData, ctx)
 	//sig := <-sigs
@@ -236,28 +240,59 @@ Options:
 	//}
 	//exitCode := osSignalToInt(sig)
 
+	outch := runWorkflow(ctx, flow, dirContext, workflowFile, logger, inputData)
+	exitCode := <-outch
+	defer close(outch)
 	logger.Infof("Got exit code %d", exitCode)
 	os.Exit(exitCode)
 }
 
-func runWorkflow(sigs chan os.Signal, flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte, ctx context.Context) chan os.Signal {
+func runWorkflow(ctx context.Context, flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) chan int {
+	//ctx, cancel := context.WithCancel(context.Background())
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	out := make(chan os.Signal, 1)
-	defer close(out)
+	sigs := make(chan os.Signal, 1)
+	defer close(sigs)
+	signal.Notify(sigs, os.Interrupt, os.Kill)
+
+	out := make(chan int, 2)
+	//defer close(out)
+
+	//var exitCode int
+	//exitCode := -1
+
+	var sig os.Signal
+	go func() {
+		select {
+		case sig = <-sigs:
+			logger.Infof("Caught signal %s", sig)
+			switch sig {
+			case os.Interrupt:
+				out <- ExitCodeUserInterrupt
+			case os.Kill:
+				out <- ExitCodeUserKill
+			}
+			cancel()
+			//ctx.Done()
+		case <-ctx.Done():
+			// Done. No sigint.
+			logger.Infof("Main context done")
+			out <- ExitCodeOK
+		}
+	}()
 
 	workflow, err := flow.Parse(dirContext, workflowFile)
 	if err != nil {
 		logger.Errorf("Invalid workflow (%v)", err)
-		out <- ArcaflowExitSignal(ExitCodeInvalidData)
+		out <- ExitCodeInvalidData
 		return out
 	}
 
 	outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 	if err != nil {
 		logger.Errorf("Workflow execution failed (%v)", err)
-		out <- ArcaflowExitSignal(ExitCodeWorkflowFailed)
+		out <- ExitCodeWorkflowFailed
 		return out
 	}
 	data, err := yaml.Marshal(
@@ -268,16 +303,16 @@ func runWorkflow(sigs chan os.Signal, flow engine.WorkflowEngine, dirContext map
 	)
 	if err != nil {
 		logger.Errorf("Failed to marshal output (%v)", err)
-		out <- ArcaflowExitSignal(ExitCodeInvalidData)
+		out <- ExitCodeInvalidData
 		return out
 	}
 	_, _ = os.Stdout.Write(data)
 	if outputError {
-		out <- ArcaflowExitSignal(ExitCodeWorkflowErrorOutput)
+		out <- ExitCodeWorkflowErrorOutput
 		return out
 	}
 
-	out <- ArcaflowExitSignal(ExitCodeOK)
+	out <- ExitCodeOK
 	return out
 }
 
