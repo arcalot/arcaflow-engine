@@ -36,6 +36,13 @@ type WorkflowEngine interface {
 	)
 }
 
+type WorkflowResult struct {
+	OutputID      string
+	OutputData    any
+	OutputIsError bool
+	Err           error
+}
+
 // Workflow is a runnable, queryable workflow. You can execute it, or query it for schema information.
 type Workflow interface {
 	// Run executes the workflow with the passed, YAML-formatted input data.
