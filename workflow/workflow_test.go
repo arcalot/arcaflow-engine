@@ -159,12 +159,12 @@ steps:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 5000
+      wait_time_ms: 500
   second_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 5000
+      wait_time_ms: 500
     wait_for: !expr $.steps.first_wait.outputs.success
 outputs:
   success:
@@ -215,12 +215,12 @@ func TestWaitForSerial(t *testing.T) {
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
 	var waitSuccess bool
-	if duration >= 10*time.Second {
+	if duration >= 1*time.Second {
 		waitSuccess = true
-		t.Logf("Test execution time is greater than 10 seconds, steps are running serially due to the wait_for condition.")
+		t.Logf("Test execution time is greater than 1 second, steps are running serially due to the wait_for condition.")
 	} else {
 		waitSuccess = false
-		t.Logf("Test execution time is lesser than 10 seconds, steps are not running serially.")
+		t.Logf("Test execution time is lesser than 1 seconds, steps are not running serially.")
 	}
 	assert.Equals(t, waitSuccess, true)
 }
@@ -237,23 +237,23 @@ steps:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 5000
+      wait_time_ms: 500
   second_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 5000
+      wait_time_ms: 500
     wait_for: !expr $.steps.first_wait.outputs.success
   third_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 5000
+      wait_time_ms: 500
     wait_for: !expr $.steps.first_wait.outputs.success
 outputs:
   success:
-    second_step_output: !expr $.steps.second_wait.outputs.success
-    third_step_output: !expr $.steps.third_wait.outputs.success
+    third_step_output: !expr $.steps.third_wait.outputs
+    second_step_output: !expr $.steps.second_wait.outputs
 `
 
 func TestWaitForParallel(t *testing.T) {
@@ -295,7 +295,7 @@ func TestWaitForParallel(t *testing.T) {
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
 	var waitSuccess bool
-	if duration > 5*time.Second && duration < 15*time.Second {
+	if duration > 1*time.Second && duration < 2*time.Second {
 		waitSuccess = true
 		t.Logf("Steps second_wait and third_wait are running in parallel after waiting for the first_wait step.")
 	} else {
