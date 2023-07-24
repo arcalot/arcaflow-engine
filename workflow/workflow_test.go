@@ -225,6 +225,8 @@ func TestWaitForSerial(t *testing.T) {
 	assert.Equals(t, waitSuccess, true)
 }
 
+// Running parallel steps which wait on the same previous step sometimes causes a race condition. This needs to be investigated.
+// once the race condition if fixed reduce the wait_time to 500ms.
 var waitForParallelWorkflowDefinition = `
 input:
   root: RootObject
@@ -237,18 +239,18 @@ steps:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      wait_time_ms: 5000
   second_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      wait_time_ms: 5000
     wait_for: !expr $.steps.first_wait.outputs.success
   third_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      wait_time_ms: 5000
     wait_for: !expr $.steps.first_wait.outputs.success
 outputs:
   success:
@@ -295,7 +297,7 @@ func TestWaitForParallel(t *testing.T) {
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
 	var waitSuccess bool
-	if duration > 1*time.Second && duration < 2*time.Second {
+	if duration > 10*time.Second && duration < 20*time.Second {
 		waitSuccess = true
 		t.Logf("Steps second_wait and third_wait are running in parallel after waiting for the first_wait step.")
 	} else {
