@@ -122,9 +122,8 @@ var startingLifecycleStage = step.LifecycleStage{
 	RunningName:  "starting",
 	FinishedName: "started",
 	InputFields: map[string]struct{}{
-		//nolint:godox
-		// TODO: Add wait_for here. Empty struct.
-		"input": {},
+		"input":    {},
+		"wait_for": {},
 	},
 	NextStages: []string{
 		string(StageIDRunning), string(StageIDCrashed),
@@ -317,13 +316,24 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 			{
 				LifecycleStage: startingLifecycleStage,
 				InputSchema: map[string]*schema.PropertySchema{
-					//nolint:godox
-					// TODO: Add wait_for right here. Should be an any type.
-					// Also add to section above.
 					"input": schema.NewPropertySchema(
 						stepSchema.Input(),
 						stepSchema.Display(),
 						true,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+					),
+					"wait_for": schema.NewPropertySchema(
+						schema.NewAnySchema(),
+						schema.NewDisplayValue(
+							schema.PointerTo("Wait for condition"),
+							schema.PointerTo("Used to wait for a previous step stage to complete before running the step which is waiting."),
+							nil,
+						),
+						false,
 						nil,
 						nil,
 						nil,
