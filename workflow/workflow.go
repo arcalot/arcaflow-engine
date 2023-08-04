@@ -110,7 +110,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 			},
 		}
 		e.logger.Debugf("Launching step %s...", stepID)
-		runningStep, err := runnableStep.Start(e.stepRunData[stepID], stageHandler)
+		runningStep, err := runnableStep.Start(e.stepRunData[stepID], stepID, stageHandler)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to launch step %s (%w)", stepID, err)
 		}

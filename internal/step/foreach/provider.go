@@ -319,9 +319,10 @@ func (r *runnableStep) RunSchema() map[string]*schema.PropertySchema {
 	return map[string]*schema.PropertySchema{}
 }
 
-func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
+func (r *runnableStep) Start(_ map[string]any, runID string, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	rs := &runningStep{
+		runID:              runID,
 		ctx:                ctx,
 		cancel:             cancel,
 		lock:               &sync.Mutex{},
@@ -338,6 +339,7 @@ func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChan
 }
 
 type runningStep struct {
+	runID              string
 	workflow           workflow.ExecutableWorkflow
 	currentStage       StageID
 	lock               *sync.Mutex
@@ -363,13 +365,13 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			_, err := r.workflow.Input().Unserialize(item)
 			if err != nil {
 				r.lock.Unlock()
-				return fmt.Errorf("invalid input item %d for subworkflow (%w)", i, err)
+				return fmt.Errorf("invalid input item %d for subworkflow (%w) for run/step %s", i, err, r.runID)
 			}
 			input[i] = item
 		}
 		if r.inputAvailable {
 			r.lock.Unlock()
-			return fmt.Errorf("input for execute workflow provided twice")
+			return fmt.Errorf("input for execute workflow provided twice for run/step %s", r.runID)
 		}
 		if r.currentState == step.RunningStepStateWaitingForInput && r.currentStage == StageIDExecute {
 			r.currentState = step.RunningStepStateRunning
@@ -435,7 +437,7 @@ func (r *runningStep) run() {
 		itemOutputs := make([]any, len(loopData))
 		itemErrors := make(map[int]string, len(loopData))
 
-		r.logger.Debugf("Executing subworkflow...")
+		r.logger.Debugf("Executing subworkflow for step %s...", r.runID)
 		wg := &sync.WaitGroup{}
 		wg.Add(len(loopData))
 		errors := false
@@ -471,7 +473,7 @@ func (r *runningStep) run() {
 			}()
 		}
 		wg.Wait()
-		r.logger.Debugf("Subworkflow complete.")
+		r.logger.Debugf("Subworkflow %s complete.", r.runID)
 		r.lock.Lock()
 		previousStage := string(r.currentStage)
 		r.currentState = step.RunningStepStateRunning

@@ -176,7 +176,7 @@ func (r *runnableStep) Lifecycle(_ map[string]any) (result step.Lifecycle[step.L
 	}, nil
 }
 
-func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
+func (r *runnableStep) Start(_ map[string]any, runID string, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -189,6 +189,7 @@ func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChan
 		// the ProvideInputStage is not blocked.
 		name:  make(chan string, 1),
 		state: step.RunningStepStateStarting,
+		runID: runID,
 	}
 
 	go s.run()
@@ -204,6 +205,7 @@ type runningStep struct {
 	name               chan string
 	state              step.RunningStepState
 	inputAvailable     bool
+	runID              string
 }
 
 func (r *runningStep) State() step.RunningStepState {

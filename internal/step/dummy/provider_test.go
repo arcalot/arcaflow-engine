@@ -49,7 +49,7 @@ func TestProvider(t *testing.T) {
 		message: make(chan string),
 	}
 
-	running, err := runnable.Start(map[string]any{}, handler)
+	running, err := runnable.Start(map[string]any{}, t.Name(), handler)
 	assert.NoError(t, err)
 	assert.NoError(t, running.ProvideStageInput("greet", map[string]any{
 		"name": "Arca Lot",

@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"go.flow.arcalot.io/deployer"
+	"go.flow.arcalot.io/pluginsdk/plugin"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	podman "go.flow.arcalot.io/podmandeployer"
 	"os"
 	"os/signal"
@@ -74,12 +76,19 @@ func main() {
 	ctrlC := make(chan os.Signal, 1)
 	signal.Notify(ctrlC, os.Interrupt)
 
+	// Set up the signal channel to send cancel signal on ctrl-c
+	toStepSignals := make(chan schema.Input, 3)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
 		select {
 		case <-ctrlC:
-			fmt.Println("Received CTRL-C. Cancelling the context to cancel the step...")
+			fmt.Println("Received CTRL-C. Sending cancel signal...")
+			toStepSignals <- schema.Input{
+				ID:        plugin.CancellationSignalSchema.ID(),
+				InputData: make(map[string]any),
+			}
+			fmt.Println("Signal sent.")
 			cancel()
 		case <-ctx.Done():
 			// Done here.
@@ -120,7 +129,11 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("Running step %s\n", stepID)
-	outputID, outputData, err := atpClient.Execute(stepID, input)
+	outputID, outputData, err := atpClient.Execute(
+		schema.Input{ID: stepID, InputData: input},
+		nil,
+		nil,
+	)
 	output := map[string]any{
 		"outputID":   outputID,
 		"outputData": outputData,

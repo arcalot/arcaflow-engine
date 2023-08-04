@@ -67,6 +67,7 @@ type RunnableStep interface {
 	// match the RunSchema.
 	Start(
 		input map[string]any,
+		runID string,
 		stageChangeHandler StageChangeHandler,
 	) (RunningStep, error)
 }

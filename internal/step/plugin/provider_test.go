@@ -182,11 +182,11 @@ func TestProvider_HappyError(t *testing.T) {
 	}
 
 	// start with a step id that is not in the schema
-	_, err = runnable.Start(map[string]any{"step": "wrong_stepid"}, handler)
+	_, err = runnable.Start(map[string]any{"step": "wrong_stepid"}, t.Name(), handler)
 	assert.Error(t, err)
 
 	// default step id
-	running, err := runnable.Start(map[string]any{"step": nil}, handler)
+	running, err := runnable.Start(map[string]any{"step": nil}, t.Name(), handler)
 	assert.NoError(t, err)
 
 	// non-existent stage
@@ -290,7 +290,7 @@ func TestProvider_DeployFail(t *testing.T) {
 	}
 
 	// default step id
-	running, err := runnable.Start(map[string]any{"step": nil}, handler)
+	running, err := runnable.Start(map[string]any{"step": nil}, t.Name(), handler)
 	assert.NoError(t, err)
 
 	assert.NoError(t, running.ProvideStageInput(
@@ -353,7 +353,7 @@ func TestProvider_StartFail(t *testing.T) {
 		message: make(chan string),
 	}
 
-	running, err := runnable.Start(map[string]any{"step": "wait"}, handler)
+	running, err := runnable.Start(map[string]any{"step": "wait"}, t.Name(), handler)
 	assert.NoError(t, err)
 
 	// tell deployer that this run should not succeed

@@ -122,7 +122,15 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 		return nil, err
 	}
 
-	// Stage 5: The output data model
+	// Stage 5: Verify stage inputs
+	// Now that the output properties are here and the internal data model is here, it should be possible to loop
+	// through them again to verify that all inputs are valid. So verify that all required inputs are present, schemas
+	// are valid, etc.
+	// Do this by looping through the steps' inputs, then verifying that the dag can provide them.
+	if err := e.verifyStageInputs(workflow, workflowContext, stepLifecycles, dag, internalDataModel); err != nil {
+		return nil, err
+	}
+	// Stage 6: The output data model
 	//goland:noinspection GoDeprecation
 	if workflow.Output != nil {
 		if len(workflow.Outputs) > 0 {
@@ -277,6 +285,7 @@ func (e *executor) processSteps(
 			nil,
 		)
 	}
+
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
 }
 
@@ -321,6 +330,135 @@ func (e *executor) connectStepDependencies(
 		}
 	}
 	return nil
+}
+
+// verifyStageInputs verifies the schemas of the step inputs
+func (e *executor) verifyStageInputs(
+	workflow *Workflow,
+	workflowContext map[string][]byte,
+	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
+	dag dgraph.DirectedGraph[*DAGItem],
+	internalDataModel *schema.ScopeSchema,
+) error {
+	for stepID, _ /*stepData*/ := range workflow.Steps {
+		lifecycle := stepLifecycles[stepID]
+		for _, stage := range lifecycle.Stages {
+			currentStageNode, err := dag.GetNodeByID(GetStageNodeID(stepID, stage.ID))
+			if err != nil {
+				return fmt.Errorf("bug: node for current stage not found (%w)", err)
+			}
+			// stageData provides the info needed for this node, without the expressions resolved.
+			stageData := currentStageNode.Item().Data
+
+			// Use reflection to convert the stage's input data to a readable map.
+			parsedInputs := make(map[string]any)
+			if stageData != nil {
+				v := reflect.ValueOf(stageData)
+				if v.Kind() != reflect.Map {
+					return fmt.Errorf("could not validate input. Stage data is not a map. It is %s", v.Kind())
+				}
+
+				for _, reflectedKey := range v.MapKeys() {
+					if reflectedKey.Kind() != reflect.Interface {
+						return fmt.Errorf("expected input key to be interface of a string. Got %s", reflectedKey.Kind())
+					}
+					// Now convert interface to string
+					key, ok := reflectedKey.Interface().(string)
+					if !ok {
+						return fmt.Errorf("error converting input key to string")
+					}
+					value := v.MapIndex(reflectedKey).Interface()
+					parsedInputs[key] = value
+				}
+			}
+			// Next, loop through the input schema fields.
+			for name, stageInputSchema := range stage.InputSchema {
+				providedInputForField := parsedInputs[name]
+				// Check if the field is present in the stage data.
+				// If it is NOT present and is NOT required, continue to next field.
+				// If it is NOT present and IS required, fail
+				// If it IS present, verify whether schema is compatible with the schema of the provided data,
+				// then notify the provider that the data is present.
+				// This is running pre-workflow run, so you can check the schemas, but most fields won't be able to be
+				// resolved to an actual value.
+				if providedInputForField == nil {
+					// not present
+					if stageInputSchema.RequiredValue {
+						return fmt.Errorf("required input %s of type %s not found for step %s",
+							name, stageInputSchema.TypeID(), stepID)
+					}
+				} else {
+					// It is present, so make sure it is compatible.
+					err := e.preValidateCompatibility(internalDataModel, providedInputForField, stageInputSchema, workflowContext)
+					if err != nil {
+						return fmt.Errorf("input validation failed for workflow step %s stage %s (%w)", stepID, stage.ID, err)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (e *executor) preValidateCompatibility(rootSchema schema.Scope, inputField any, propertySchema *schema.PropertySchema,
+	workflowContext map[string][]byte) error {
+	// Get the type/value structure
+	inputTypeStructure, err := e.createTypeStructure(rootSchema, inputField, workflowContext)
+	if err != nil {
+		return err
+	}
+	// Now validate
+	return propertySchema.ValidateCompatibility(inputTypeStructure)
+}
+
+// createTypeStructure generates a structure of all the type information of the input field.
+// When the literal is known, it includes the original value.
+// When the literal is not known, but the schema is, it includes the value.
+// When it encounters a map or list, it preserves it and recursively continues.
+func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, workflowContext map[string][]byte) (any, error) {
+
+	// Expression, so the exact value may not be known yet. So just get the type from it.
+	if expr, ok := inputField.(expressions.Expression); ok {
+		// Is expression, so evaluate it.
+		e.logger.Debugf("Evaluating expression %s...", expr.String())
+		return expr.Type(rootSchema, workflowContext)
+	}
+
+	v := reflect.ValueOf(inputField)
+	switch v.Kind() {
+	case reflect.Slice:
+		// Okay. Construct the list of schemas, and pass it into the
+
+		result := make([]any, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			value := v.Index(i).Interface()
+			newValue, err := e.createTypeStructure(rootSchema, value, workflowContext)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve expressions (%w)", err)
+			}
+			result[i] = newValue
+		}
+		return result, nil
+	case reflect.Map:
+		result := make(map[string]any, v.Len())
+		for _, reflectedKey := range v.MapKeys() {
+			key := reflectedKey.Interface()
+			keyAsStr, ok := key.(string)
+			if !ok {
+				return nil, fmt.Errorf("failed to generate type structure. Key is not of type string")
+			}
+			value := v.MapIndex(reflectedKey).Interface()
+			newValue, err := e.createTypeStructure(rootSchema, value, workflowContext)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve expressions (%w)", err)
+			}
+			result[keyAsStr] = newValue
+		}
+		return result, nil
+	default:
+		// Not an expression, so it's actually data. Just return the input
+		return inputField, nil
+	}
 }
 
 // buildInternalDataModel builds an internal data model that the expressions can query.

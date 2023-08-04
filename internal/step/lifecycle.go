@@ -73,6 +73,8 @@ type LifecycleStage struct {
 	// It will automatically create a DAG node between the current and the described next stages to ensure
 	// that it is running in order.
 	NextStages []string
+	// RemovedStages describes stages that should be removed from the DAG if this stage is run.
+	RemovedStages []string
 	// Fatal indicates that this stage should be treated as fatal unless handled by the workflow.
 	Fatal bool
 }
