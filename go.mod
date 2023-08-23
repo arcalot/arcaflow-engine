@@ -13,7 +13,7 @@ require (
 	go.flow.arcalot.io/kubernetesdeployer v0.5.1
 	go.flow.arcalot.io/pluginsdk v0.3.0-beta.1
 	go.flow.arcalot.io/podmandeployer v0.3.1
-	go.flow.arcalot.io/pythondeployer v0.1.2
+	go.flow.arcalot.io/pythondeployer v0.1.3
 	go.flow.arcalot.io/testdeployer v0.2.0
 	gopkg.in/yaml.v3 v3.0.1
 )
