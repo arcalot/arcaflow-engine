@@ -65,11 +65,11 @@ func main() {
 	default:
 		panic("No deployer or invalid deployer selected. Options: docker, podman, testimpl. Select with -deployer")
 	}
-
-	connector, err := d.Create(defaultConfig, log.New(log.Config{
+	logger := log.New(log.Config{
 		Level:       log.LevelDebug,
 		Destination: log.DestinationStdout,
-	}))
+	})
+	connector, err := d.Create(defaultConfig, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -83,19 +83,19 @@ func main() {
 	go func() {
 		select {
 		case <-ctrlC:
-			fmt.Println("Received CTRL-C. Sending cancel signal...")
+			logger.Infof("Received CTRL-C. Sending cancel signal...")
 			toStepSignals <- schema.Input{
 				ID:        plugin.CancellationSignalSchema.ID(),
 				InputData: make(map[string]any),
 			}
-			fmt.Println("Signal sent.")
+			logger.Infof("Signal request sent to ATP client.")
 			cancel()
 		case <-ctx.Done():
 			// Done here.
 		}
 	}()
 
-	fmt.Println("Deploying")
+	logger.Infof("Deploying")
 	plugin, err := connector.Deploy(ctx, image)
 	if err != nil {
 		panic(err)
@@ -106,8 +106,8 @@ func main() {
 		}
 	}()
 
-	atpClient := atp.NewClient(plugin)
-	fmt.Println("Getting schema")
+	atpClient := atp.NewClientWithLogger(plugin, logger)
+	logger.Infof("Getting schema")
 	pluginSchema, err := atpClient.ReadSchema()
 	if err != nil {
 		panic(err)
@@ -131,7 +131,7 @@ func main() {
 	fmt.Printf("Running step %s\n", stepID)
 	outputID, outputData, err := atpClient.Execute(
 		schema.Input{ID: stepID, InputData: input},
-		nil,
+		toStepSignals,
 		nil,
 	)
 	output := map[string]any{

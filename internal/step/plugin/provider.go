@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go.flow.arcalot.io/pluginsdk/plugin"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -285,7 +286,8 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 	cancelSignal := stepSchema.SignalHandlers()[plugin.CancellationSignalSchema.ID()]
 	if cancelSignal == nil {
 		// Not present
-		stopIfProperty.Disable(fmt.Sprintf("Cancel signal is not present in plugin image '%s', step '%s'", r.image, stepID))
+		stopIfProperty.Disable(fmt.Sprintf("Cancel signal with ID '%s' is not present in plugin image '%s', step '%s'. Signal handler IDs present: %v",
+			plugin.CancellationSignalSchema.ID(), r.image, stepID, reflect.ValueOf(stepSchema.SignalHandlers()).MapKeys()))
 	} else if err := plugin.CancellationSignalSchema.DataSchemaValue.ValidateCompatibility(cancelSignal.DataSchemaValue); err != nil {
 		// Present but incompatible
 		stopIfProperty.Disable(fmt.Sprintf("Cancel signal invalid schema in plugin image '%s', step '%s' (%s)", r.image, stepID, err))
@@ -513,13 +515,15 @@ type runningStep struct {
 func (r *runningStep) CurrentStage() string {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	return string(r.currentStage)
+	tempStage := string(r.currentStage)
+	return tempStage
 }
 
 func (r *runningStep) State() step.RunningStepState {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	return r.state
+	tempState := r.state
+	return tempState
 }
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {
@@ -527,6 +531,8 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 	// affect the counting of step states in the workflow's Execute function
 	// and notifySteps function.
 	r.lock.Lock()
+	r.logger.Debugf("ProvideStageInput START")
+	defer r.logger.Debugf("ProvideStageInput END")
 
 	// Checks which stage it is getting input for
 	switch stage {
@@ -554,9 +560,16 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
 			r.state = step.RunningStepStateRunning
 		}
-		r.lock.Unlock()
+
+		// TODO: CHECK IF THIS IS OKAY
 		// Feed the deploy step its input.
-		r.deployInput <- unserializedDeployerConfig
+		select {
+		case r.deployInput <- unserializedDeployerConfig:
+		default:
+			r.lock.Unlock()
+			return fmt.Errorf("unable to provide input to deploy stage for step %s/%s", r.runID, r.pluginStepID)
+		}
+		r.lock.Unlock()
 		return nil
 	case string(StageIDStarting):
 		if r.runInputAvailable {
@@ -575,14 +588,22 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		}
 		// Make sure we transition the state before unlocking so there are no race conditions.
 		r.runInputAvailable = true
-		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDStarting {
-			r.state = step.RunningStepStateRunning
-		}
+		//if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
+		//	r.logger.Debugf("Input available. State set to running.")
+		//	r.state = step.RunningStepStateRunning
+		//}
 		// Unlock before passing the data over the channel to prevent a deadlock.
 		// The other end of the channel needs to be unlocked to read the data.
-		r.lock.Unlock()
+
+		// TODO: CHECK IF THIS WORKS
 		// Feed the run step its input over the channel.
-		r.runInput <- input["input"]
+		select {
+		case r.runInput <- input["input"]:
+		default:
+			r.lock.Unlock()
+			return fmt.Errorf("unable to provide input to run stage for step %s/%s", r.runID, r.pluginStepID)
+		}
+		r.lock.Unlock()
 		return nil
 	case string(StageIDRunning):
 		r.lock.Unlock()
@@ -672,7 +693,9 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	r.logger.Debugf("Deploying stage for step %s/%s", r.runID, r.pluginStepID)
 	r.lock.Lock()
 	if !r.deployInputAvailable {
-		r.state = step.RunningStepStateWaitingForInput
+		r.logger.Debugf("PROCESSING inputs state while deploying.")
+		//r.state = step.RunningStepStateWaitingForInput
+		r.state = step.RunningStepStateRunning
 	} else {
 		r.state = step.RunningStepStateRunning
 	}
@@ -690,15 +713,29 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 
 	var deployerConfig any
 	var useLocalDeployer bool
+	// First, non-blocking retrieval
 	select {
 	case deployerConfig = <-r.deployInput:
 		r.lock.Lock()
 		r.state = step.RunningStepStateRunning
-		useLocalDeployer = r.useLocalDeployer
 		r.lock.Unlock()
-	case <-r.ctx.Done():
-		return nil, fmt.Errorf("step closed before deployment config could be obtained")
+	default: // Default, so it doesn't block on this receive
+		// It's waiting now.
+		r.lock.Lock()
+		r.state = step.RunningStepStateWaitingForInput
+		r.lock.Unlock()
+		select {
+		case deployerConfig = <-r.deployInput:
+			r.lock.Lock()
+			r.state = step.RunningStepStateRunning
+			r.lock.Unlock()
+		case <-r.ctx.Done():
+			return nil, fmt.Errorf("step closed before deployment config could be obtained")
+		}
 	}
+	r.lock.Lock()
+	useLocalDeployer = r.useLocalDeployer
+	r.lock.Unlock()
 
 	var stepDeployer = r.localDeployer
 	if !useLocalDeployer {
@@ -726,12 +763,26 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDStarting
+	inputRecievedEarly := false
 
-	if !r.runInputAvailable {
-		r.state = step.RunningStepStateWaitingForInput
-	} else {
+	var runInput any
+	select {
+	case runInput = <-r.runInput:
+		// Good. It received it immediately.
 		r.state = step.RunningStepStateRunning
+		inputRecievedEarly = true
+	default: // The default makes it not wait.
+		r.state = step.RunningStepStateWaitingForInput
 	}
+
+	//if !r.runInputAvailable {
+	//	r.logger.Debugf("Waiting for input state while starting 1.")
+	//	//r.state = step.RunningStepStateWaitingForInput
+	//	// TEMP: Assume running until stage change
+	//	r.state = step.RunningStepStateRunning
+	//} else {
+	//	r.state = step.RunningStepStateRunning
+	//}
 	runInputAvailable := r.runInputAvailable
 	r.lock.Unlock()
 
@@ -746,17 +797,29 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 
 	r.lock.Lock()
 	r.currentStage = StageIDStarting
-	r.state = step.RunningStepStateWaitingForInput
+	r.logger.Debugf("Waiting for input state while starting 2.")
 	r.lock.Unlock()
 
-	var runInput any
-	select {
-	case runInput = <-r.runInput:
+	// First, try to non-blocking retrieve the runInput.
+	// If not yet available, set to state waiting for input and do a blocking receive.
+	// If it is available, continue.
+	if !inputRecievedEarly {
+		// Input is not yet available. Now waiting.
 		r.lock.Lock()
-		r.state = step.RunningStepStateRunning
+		if r.state != step.RunningStepStateWaitingForInput {
+			r.logger.Warningf("State not waiting for input when receiving from channel.")
+		}
 		r.lock.Unlock()
-	case <-r.ctx.Done():
-		return fmt.Errorf("step closed while waiting for run configuration")
+
+		// Do a blocking wait for input now.
+		select {
+		case runInput = <-r.runInput:
+			r.lock.Lock()
+			r.state = step.RunningStepStateRunning
+			r.lock.Unlock()
+		case <-r.ctx.Done():
+			return fmt.Errorf("step closed while waiting for run configuration")
+		}
 	}
 	atpClient := atp.NewClientWithLogger(container, r.logger)
 

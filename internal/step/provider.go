@@ -42,7 +42,7 @@ type StageChangeHandler interface {
 		previousStageOutputID *string,
 		previousStageOutput *any,
 		newStage string,
-		waitingForInput bool,
+		inputAvailable bool,
 	)
 
 	// OnStepComplete is called when the step has completed a final stage in its lifecycle and communicates the output.
@@ -82,7 +82,7 @@ const (
 	RunningStepStateWaitingForInput RunningStepState = "waiting_for_input"
 	// RunningStepStateRunning indicates that the step is working.
 	RunningStepStateRunning RunningStepState = "running"
-	// RunningStepStateFinished indicates that the step has finished.
+	// RunningStepStateFinished indicates that the step has finished, including failure cases.
 	RunningStepStateFinished RunningStepState = "finished"
 )
 

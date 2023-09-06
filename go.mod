@@ -11,7 +11,7 @@ require (
 	go.flow.arcalot.io/dockerdeployer v0.3.0
 	go.flow.arcalot.io/expressions v0.2.0
 	go.flow.arcalot.io/kubernetesdeployer v0.5.1
-	go.flow.arcalot.io/pluginsdk v0.3.0-beta.1.0.20230803174348-19bdaeed3fa7
+	go.flow.arcalot.io/pluginsdk v0.4.0-beta.1.0.20230830170647-4f3b981c11a1
 	go.flow.arcalot.io/podmandeployer v0.3.1
 	go.flow.arcalot.io/pythondeployer v0.1.2
 	go.flow.arcalot.io/testdeployer v0.2.0

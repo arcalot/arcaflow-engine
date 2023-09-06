@@ -177,7 +177,7 @@ steps:
     # Delay needs to be delayed long enough to ensure that it's in a deploy state when it's cancelled by short_wait
     deploy:
       type: "test-impl"
-      deploy_time: 50 # 5 ms
+      deploy_time: 50 # 50 ms
   short_wait:
     plugin: "n/a"
     step: wait
@@ -399,4 +399,77 @@ func TestWaitForParallel(t *testing.T) {
 		t.Logf("Steps second_wait and third_wait are not running in parallel.")
 	}
 	assert.Equals(t, waitSuccess, true)
+}
+
+var missingInputsFailedDeploymentWorkflowDefinition = `
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_1:
+    plugin: "n/a"
+    step: wait
+    input:
+      wait_time_ms: 0
+    deploy:
+      type: "test-impl"
+      #deploy_time: 20000 # 10 ms
+      deploy_succeed: false
+  wait_2:
+    plugin: "n/a"
+    step: wait
+    wait_for: !expr $.steps.wait_1.outputs.success
+    input:
+      wait_time_ms: 0
+outputs:
+  a:
+    b: !expr $.steps.wait_2.outputs
+`
+
+func TestMissingInputsFailedDeployment(t *testing.T) {
+	// For this test, the workflow should fail, not deadlock, due to no inputs possible.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, missingInputsFailedDeploymentWorkflowDefinition),
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.Error(t, err)
+	assert.Equals(t, outputID, "")
+}
+
+var missingInputsWrongOutputWorkflowDefinition = `
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_1:
+    plugin: "n/a"
+    step: wait
+    input:
+      wait_time_ms: 0
+  wait_2:
+    plugin: "n/a"
+    step: wait
+    # No stop_if, so this shouldn't happen.
+    wait_for: !expr $.steps.wait_1.outputs.cancelled_early
+    input:
+      wait_time_ms: 0
+outputs:
+  a:
+    b: !expr $.steps.wait_2.outputs
+`
+
+func TestMissingInputsWrongOutput(t *testing.T) {
+	// For this test, the workflow should fail, not deadlock, due to no inputs possible.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, missingInputsWrongOutputWorkflowDefinition),
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.Error(t, err)
+	assert.Equals(t, outputID, "")
 }
