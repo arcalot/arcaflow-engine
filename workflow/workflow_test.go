@@ -3,13 +3,13 @@ package workflow_test
 import (
 	"context"
 	"errors"
+	"go.arcalot.io/assert"
 	"go.arcalot.io/lang"
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/config"
 	"testing"
 	"time"
 
-	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/workflow"
 )
 
@@ -253,12 +253,13 @@ steps:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      # Note: 5ms left only a 2.5ms margin for error. 10ms left almost 6ms. So 10ms min is recommended.
+      wait_time_ms: 10
   second_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      wait_time_ms: 10
     wait_for: !expr $.steps.first_wait.outputs.success
 outputs:
   success:
@@ -308,15 +309,11 @@ func TestWaitForSerial(t *testing.T) {
 
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
-	var waitSuccess bool
-	if duration >= 1*time.Second {
-		waitSuccess = true
-		t.Logf("Test execution time is greater than 1 second, steps are running serially due to the wait_for condition.")
+	if duration >= 20*time.Millisecond {
+		t.Logf("Test execution time is greater than 20 milliseconds; steps are correctly running serially due to the wait_for condition.")
 	} else {
-		waitSuccess = false
-		t.Logf("Test execution time is lesser than 1 seconds, steps are not running serially.")
+		t.Fatalf("Test execution time is less than 20 milliseconds; steps are not running serially.")
 	}
-	assert.Equals(t, waitSuccess, true)
 }
 
 // Running parallel steps which wait on the same previous step sometimes causes a race condition. This needs to be investigated.
@@ -333,18 +330,18 @@ steps:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      wait_time_ms: 10
   second_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      wait_time_ms: 10
     wait_for: !expr $.steps.first_wait.outputs.success
   third_wait:
     plugin: "n/a"
     step: wait
     input:
-      wait_time_ms: 500
+      wait_time_ms: 10
     wait_for: !expr $.steps.first_wait.outputs.success
 outputs:
   success:
@@ -390,15 +387,11 @@ func TestWaitForParallel(t *testing.T) {
 
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
-	var waitSuccess bool
-	if duration > 1*time.Second && duration < 2*time.Second {
-		waitSuccess = true
-		t.Logf("Steps second_wait and third_wait are running in parallel after waiting for the first_wait step.")
+	if duration > 20*time.Millisecond && duration < 40*time.Millisecond {
+		t.Logf("Steps second_wait and third_wait are correctly running in parallel after waiting for the first_wait step.")
 	} else {
-		waitSuccess = false
-		t.Logf("Steps second_wait and third_wait are not running in parallel.")
+		t.Fatalf("Steps second_wait and third_wait are not running in parallel.")
 	}
-	assert.Equals(t, waitSuccess, true)
 }
 
 var missingInputsFailedDeploymentWorkflowDefinition = `
