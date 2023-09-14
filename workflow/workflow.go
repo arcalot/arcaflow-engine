@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"runtime"
 	"sync"
+	"time"
 
 	"go.flow.arcalot.io/engine/config"
 
@@ -211,7 +211,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 	l.lock.Lock()
 	defer func() {
 		if previousStage != nil {
-			l.checkForDeadlocks()
+			l.checkForDeadlocks(3)
 		}
 		l.lock.Unlock()
 	}()
@@ -369,7 +369,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 	}
 }
 
-func (l *loopState) checkForDeadlocks() {
+func (l *loopState) checkForDeadlocks(retries int) {
 	// Here we make sure we don't have a deadlock.
 	counters := struct {
 		starting              int
@@ -437,12 +437,22 @@ func (l *loopState) checkForDeadlocks() {
 		counters.finished,
 	)
 	if counters.starting == 0 && counters.running == 0 && counters.waitingWithoutInbound == 0 && !l.outputDone {
-		l.lastError = &ErrNoMorePossibleSteps{
-			l.dag,
+		if retries <= 0 {
+			l.lastError = &ErrNoMorePossibleSteps{
+				l.dag,
+			}
+			l.logger.Errorf("%v", l.lastError)
+			l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
+			l.cancel()
+		} else {
+			// Retry. There are times when all the steps are in a transition state.
+			// Retrying will delay the check until after they are done with the transition.
+			l.logger.Warningf("No running steps. Rechecking...")
+			go func() {
+				time.Sleep(5 * time.Millisecond)
+				l.checkForDeadlocks(retries - 1)
+			}()
 		}
-		l.logger.Errorf("%v", l.lastError)
-		l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
-		l.cancel()
 	}
 }
 
