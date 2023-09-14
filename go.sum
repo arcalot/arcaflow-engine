@@ -40,6 +40,7 @@ github.com/evanphx/json-patch v4.12.0+incompatible h1:4onqiflcdA9EOZ4RxV643DvftH
 github.com/flowstack/go-jsonschema v0.1.1/go.mod h1:yL7fNggx1o8rm9RlgXv7hTBWxdBM0rVwpMwimd3F3N0=
 github.com/fxamacker/cbor/v2 v2.4.0 h1:ri0ArlOR+5XunOP8CRUowT0pSJOwhW098ZCUyskZD88=
 github.com/fxamacker/cbor/v2 v2.4.0/go.mod h1:TA1xS00nchWmaBnEIxPSE5oHLuJBAVvqrtAnWBwBCVo=
+github.com/fxamacker/cbor/v2 v2.5.0 h1:oHsG0V/Q6E/wqTS2O1Cozzsy69nqCiguo5Q1a1ADivE=
 github.com/fxamacker/cbor/v2 v2.5.0/go.mod h1:TA1xS00nchWmaBnEIxPSE5oHLuJBAVvqrtAnWBwBCVo=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/go-logr/logr v1.2.0/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
@@ -175,6 +176,8 @@ go.flow.arcalot.io/pythondeployer v0.1.2 h1:IUIoYTuw+2N1zrpSv8yaO3wsS6aWAFwbLlYN
 go.flow.arcalot.io/pythondeployer v0.1.2/go.mod h1:vCkwB72TinFVb367/o0djptTvR+V004i1I5OQUeCcPU=
 go.flow.arcalot.io/testdeployer v0.2.0 h1:4/cLr58/e6o5ouVRuJ5hM28nhciwJrL9AOE5Sdb7rN0=
 go.flow.arcalot.io/testdeployer v0.2.0/go.mod h1:vy3Iu+9SHmugvOJRtMWAj8R+SE9BYi7k9Xi7DM5n7eQ=
+go.flow.arcalot.io/testdeployer v0.2.1-0.20230914223701-544954f47aee h1:ZtvcstJb4Lh+1EWJvwuBATV1jWivzFIl+TzJRoDXAbA=
+go.flow.arcalot.io/testdeployer v0.2.1-0.20230914223701-544954f47aee/go.mod h1:nvz66pthT7pCYN0NMOfIErNlbNz/FcSfmIQ4kSCXBS0=
 go.flow.arcalot.io/testplugin v0.1.0 h1:I2BT978XISjaSnQbpaJfmjo2cTmTeBV7q+1IwTGbrig=
 go.flow.arcalot.io/testplugin v0.1.0/go.mod h1:RsEWotEbX4irH+OM/d3dUOZMhHeBDDhqUymIKqZlESU=
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
