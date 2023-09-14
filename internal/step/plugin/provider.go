@@ -490,6 +490,7 @@ type runningStep struct {
 	stepSchema           schema.Step
 	stageChangeHandler   step.StageChangeHandler
 	lock                 *sync.Mutex
+	wg                   sync.WaitGroup
 	ctx                  context.Context
 	cancel               context.CancelFunc
 	deployInput          chan any
@@ -655,12 +656,16 @@ func (r *runningStep) Close() error {
 	}
 	r.container = nil
 	r.lock.Unlock()
+	// Wait for the run to finish to ensure that it's not running after closing.
+	r.wg.Wait()
 	return nil
 }
 
 func (r *runningStep) run() {
+	r.wg.Add(1) // Wait for the run to finish before closing.
 	defer func() {
-		r.cancel()
+		r.cancel()  // Close before WaitGroup done
+		r.wg.Done() // Done. Close may now exit.
 	}()
 	container, err := r.deployStage()
 	if err != nil {
