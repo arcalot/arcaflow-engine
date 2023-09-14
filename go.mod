@@ -3,7 +3,8 @@ module go.flow.arcalot.io/engine
 go 1.18
 
 require (
-	go.arcalot.io/assert v1.4.0
+	github.com/stretchr/testify v1.8.1
+	go.arcalot.io/assert v1.5.0
 	go.arcalot.io/dgraph v1.1.0
 	go.arcalot.io/lang v1.0.0
 	go.arcalot.io/log/v2 v2.0.0
@@ -47,6 +48,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.flow.arcalot.io/testplugin v0.1.0 // indirect
 	golang.org/x/mod v0.11.0 // indirect
