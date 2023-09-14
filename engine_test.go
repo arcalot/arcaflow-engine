@@ -133,7 +133,7 @@ func TestE2E(t *testing.T) {
             type_id: string
 steps:
   example:
-    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.1.0
+    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
     input:
       name: !expr $.input.name
 output:
@@ -163,7 +163,7 @@ func TestE2EMultipleOutputs(t *testing.T) {
             type_id: string
 steps:
   example:
-    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.1.0
+    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
     input:
       name: !expr $.input.name
 outputs:
