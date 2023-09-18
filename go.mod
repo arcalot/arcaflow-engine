@@ -3,7 +3,6 @@ module go.flow.arcalot.io/engine
 go 1.18
 
 require (
-	github.com/stretchr/testify v1.8.1
 	go.arcalot.io/assert v1.5.0
 	go.arcalot.io/dgraph v1.1.0
 	go.arcalot.io/lang v1.0.0
@@ -14,8 +13,8 @@ require (
 	go.flow.arcalot.io/kubernetesdeployer v0.5.1
 	go.flow.arcalot.io/pluginsdk v0.4.0-beta.1.0.20230914222256-af7a31f84b1e
 	go.flow.arcalot.io/podmandeployer v0.3.1
-	go.flow.arcalot.io/pythondeployer v0.1.2
-	go.flow.arcalot.io/testdeployer v0.2.1-0.20230914223701-544954f47aee
+	go.flow.arcalot.io/pythondeployer v0.1.4
+	go.flow.arcalot.io/testdeployer v0.2.1-0.20230914224521-f83e94942739
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -48,9 +47,8 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	go.flow.arcalot.io/testplugin v0.1.0 // indirect
+	go.flow.arcalot.io/testplugin v0.1.1-0.20230914224236-656dd83abb0e // indirect
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/oauth2 v0.2.0 // indirect
