@@ -30,7 +30,7 @@ func NewExecutor(
 		return nil, fmt.Errorf("bug: no step registry passed to NewExecutor")
 	}
 	return &executor{
-		logger:       logger,
+		logger:       logger.WithLabel("source", "executor"),
 		stepRegistry: stepRegistry,
 		config:       config,
 	}, nil

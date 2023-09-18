@@ -31,12 +31,12 @@ func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
 	}
-	localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger)
+	localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid local deployer configuration, please check your Arcaflow configuration file (%w)", err)
 	}
 	return &pluginProvider{
-		logger:           logger,
+		logger:           logger.WithLabel("source", "plugin-provider"),
 		deployerRegistry: deployerRegistry,
 		localDeployer:    localDeployer,
 	}, nil
@@ -745,7 +745,7 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	var stepDeployer = r.localDeployer
 	if !useLocalDeployer {
 		var err error
-		stepDeployer, err = r.deployerRegistry.Create(deployerConfig, r.logger)
+		stepDeployer, err = r.deployerRegistry.Create(deployerConfig, r.logger.WithLabel("source", "deployer"))
 		if err != nil {
 			return nil, err
 		}

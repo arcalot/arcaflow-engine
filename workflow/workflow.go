@@ -60,7 +60,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 	defer cancel()
 
 	l := &loopState{
-		logger: e.logger,
+		logger: e.logger.WithLabel("source", "workflow"),
 		config: e.config,
 		lock:   &sync.Mutex{},
 		data: map[string]any{

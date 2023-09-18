@@ -19,7 +19,7 @@ func New(
 	executorFactory func(logger log.Logger) (workflow.Executor, error),
 ) (step.Provider, error) {
 	return &forEachProvider{
-		logger:            logger,
+		logger:            logger.WithLabel("source", "foreach-provider"),
 		yamlParserFactory: yamlParserFactory,
 		executorFactory:   executorFactory,
 	}, nil
