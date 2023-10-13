@@ -4,15 +4,13 @@ package engine
 import (
 	"context"
 	"fmt"
-
 	log "go.arcalot.io/log/v2"
-	"go.flow.arcalot.io/engine/internal/step"
-	"go.flow.arcalot.io/engine/workflow"
-	"go.flow.arcalot.io/pluginsdk/schema"
-
 	"go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/yaml"
+	"go.flow.arcalot.io/engine/workflow"
+	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
 // WorkflowEngine is responsible for executing workflows and returning their result.
@@ -88,6 +86,12 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
+	v, err := SupportedApiVersion(wf.ApiVersion)
+	if err != nil {
+		return nil, err
+	}
+	wf.ApiVersion = v
+
 	executor, err := workflow.NewExecutor(w.logger, w.config, w.stepRegistry)
 	if err != nil {
 		return nil, err
@@ -101,6 +105,32 @@ func (w workflowEngine) Parse(
 	return &engineWorkflow{
 		workflow: preparedWorkflow,
 	}, nil
+}
+
+var supportedApiVersions = map[string]struct{}{
+	"0.1.0": struct{}{},
+}
+
+func SupportedApiVersion(apiVersion string) (string, error) {
+	//v, err := semver.NewVersion(apiVersion)
+	//if err != nil {
+	//	return apiVersion, fmt.Errorf("invalid semantic versioning of apiVersion: %s", apiVersion)
+	//}
+	//_, ok := supportedApiVersions[v.String()]
+	//
+	//if !ok {
+	//	return apiVersion, fmt.Errorf("unsupported workflow schema apiVersion: %s", apiVersion)
+	//}
+	//return v.String(), nil
+
+	// schema validation already covers regex for x.y.z format
+
+	_, ok := supportedApiVersions[apiVersion]
+
+	if !ok {
+		return apiVersion, fmt.Errorf("unsupported workflow schema apiVersion: %s", apiVersion)
+	}
+	return apiVersion, nil
 }
 
 type engineWorkflow struct {

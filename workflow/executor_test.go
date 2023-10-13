@@ -14,6 +14,7 @@ import (
 )
 
 var sharedInputWorkflowYAML = `---
+apiVersion: 0.1.0
 input:
   root: RootObject
   objects:

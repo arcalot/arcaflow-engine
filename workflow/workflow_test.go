@@ -22,6 +22,7 @@ import (
 )
 
 var badWorkflowDefinition = `
+apiVersion: 0.1.0
 input:
   root: name
   objects:
@@ -70,6 +71,7 @@ func TestOutputFailed(t *testing.T) {
 }
 
 var stepCancellationWorkflowDefinition = `
+apiVersion: 0.1.0
 input:
   root: RootObject
   objects:
@@ -148,6 +150,7 @@ func TestStepCancellation(t *testing.T) {
 }
 
 var waitForSerialWorkflowDefinition = `
+apiVersion: 0.1.0
 input:
   root: RootObject
   objects:
@@ -228,6 +231,7 @@ func TestWaitForSerial(t *testing.T) {
 // Running parallel steps which wait on the same previous step sometimes causes a race condition. This needs to be investigated.
 // once the race condition if fixed reduce the wait_time to 500ms.
 var waitForParallelWorkflowDefinition = `
+apiVersion: 0.1.0
 input:
   root: RootObject
   objects:
