@@ -12,8 +12,8 @@ import (
 
 // Workflow is the primary data structure describing workflows.
 type Workflow struct {
-	// ApiVersion determines which set of the arcaflow workflow external interface will be used in the workflow.
-	ApiVersion string `json:"apiVersion""`
+	// Version determines which set of the arcaflow workflow external interface will be used in the workflow.
+	Version string `json:"version"`
 	// Input describe the input schema for a workflow. These values can be referenced from expressions. The structure
 	// must be a scope described in primitive types. This is done so later on a forward reference to a step input can
 	// be used.
@@ -41,14 +41,14 @@ func getSchema() *schema.TypedScopeSchema[*Workflow] {
 		schema.NewStructMappedObjectSchema[*Workflow](
 			"Workflow",
 			map[string]*schema.PropertySchema{
-				"apiVersion": schema.NewPropertySchema(
+				"version": schema.NewPropertySchema(
 					schema.NewStringSchema(
 						schema.IntPointer(1),
 						schema.IntPointer(255),
-						regexp.MustCompile("^\\d+\\.\\d+\\.\\d+$")),
+						regexp.MustCompile(`^v\d+\.\d+\.\d+$`)),
 					schema.NewDisplayValue(
-						schema.PointerTo("ApiVersion"),
-						schema.PointerTo("Arcaflow Workflow Schema definition interface to be used."),
+						schema.PointerTo("Version"),
+						schema.PointerTo("Arcaflow Workflow specification version to be used."),
 						nil,
 					),
 					true,

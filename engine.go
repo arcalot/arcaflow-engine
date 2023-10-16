@@ -13,6 +13,10 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
+var supportedVersions = map[string]struct{}{
+	"v0.1.0": {},
+}
+
 // WorkflowEngine is responsible for executing workflows and returning their result.
 type WorkflowEngine interface {
 	// RunWorkflow is a simplified shortcut to parse and immediately run a workflow.
@@ -86,11 +90,11 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	v, err := SupportedApiVersion(wf.ApiVersion)
+	v, err := SupportedVersion(wf.Version)
 	if err != nil {
 		return nil, err
 	}
-	wf.ApiVersion = v
+	wf.Version = v
 
 	executor, err := workflow.NewExecutor(w.logger, w.config, w.stepRegistry)
 	if err != nil {
@@ -107,30 +111,17 @@ func (w workflowEngine) Parse(
 	}, nil
 }
 
-var supportedApiVersions = map[string]struct{}{
-	"0.1.0": struct{}{},
-}
-
-func SupportedApiVersion(apiVersion string) (string, error) {
-	//v, err := semver.NewVersion(apiVersion)
-	//if err != nil {
-	//	return apiVersion, fmt.Errorf("invalid semantic versioning of apiVersion: %s", apiVersion)
-	//}
-	//_, ok := supportedApiVersions[v.String()]
-	//
-	//if !ok {
-	//	return apiVersion, fmt.Errorf("unsupported workflow schema apiVersion: %s", apiVersion)
-	//}
-	//return v.String(), nil
-
-	// schema validation already covers regex for x.y.z format
-
-	_, ok := supportedApiVersions[apiVersion]
-
+// SupportedVersion confirms whether a given version string
+// is in the set of supported workflow specifications. It
+// returns true when the version is in the set, false otherwise.
+// Earlier schema validation already applies version's
+// regular expression.
+func SupportedVersion(version string) (string, error) {
+	_, ok := supportedVersions[version]
 	if !ok {
-		return apiVersion, fmt.Errorf("unsupported workflow schema apiVersion: %s", apiVersion)
+		return version, fmt.Errorf("unsupported workflow schema version: %s", version)
 	}
-	return apiVersion, nil
+	return version, nil
 }
 
 type engineWorkflow struct {
