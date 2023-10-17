@@ -4,16 +4,18 @@ package engine
 import (
 	"context"
 	"fmt"
-
 	log "go.arcalot.io/log/v2"
-	"go.flow.arcalot.io/engine/internal/step"
-	"go.flow.arcalot.io/engine/workflow"
-	"go.flow.arcalot.io/pluginsdk/schema"
-
 	"go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/yaml"
+	"go.flow.arcalot.io/engine/workflow"
+	"go.flow.arcalot.io/pluginsdk/schema"
 )
+
+var supportedVersions = map[string]struct{}{
+	"v0.1.0": {},
+}
 
 // WorkflowEngine is responsible for executing workflows and returning their result.
 type WorkflowEngine interface {
@@ -88,6 +90,12 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
+	v, err := SupportedVersion(wf.Version)
+	if err != nil {
+		return nil, err
+	}
+	wf.Version = v
+
 	executor, err := workflow.NewExecutor(w.logger, w.config, w.stepRegistry)
 	if err != nil {
 		return nil, err
@@ -101,6 +109,19 @@ func (w workflowEngine) Parse(
 	return &engineWorkflow{
 		workflow: preparedWorkflow,
 	}, nil
+}
+
+// SupportedVersion confirms whether a given version string
+// is in the set of supported workflow specifications. It
+// returns true when the version is in the set, false otherwise.
+// Earlier schema validation already applies version's
+// regular expression.
+func SupportedVersion(version string) (string, error) {
+	_, ok := supportedVersions[version]
+	if !ok {
+		return version, fmt.Errorf("unsupported workflow schema version: %s", version)
+	}
+	return version, nil
 }
 
 type engineWorkflow struct {
