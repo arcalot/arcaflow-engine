@@ -21,6 +21,7 @@ This binary can then be used to run Arcaflow workflows.
 The simplest workflow is the example plugin workflow: (save it to workflow.yaml)
 
 ```yaml
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -89,7 +90,7 @@ deployment:
   host: # Host options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
   network: # Network options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
   platform: # Platform options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-  
+
   # Pull policy, similar to Kubernetes
   imagePullPolicy: Always|IfNotPresent|Never
 timeouts:
