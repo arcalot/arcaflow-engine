@@ -18,7 +18,7 @@ var configLoadData = map[string]struct {
 		input: "",
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
-			LocalDeployer: map[string]any{
+			LocalDeployers: map[string]any{
 				"type": "docker",
 			},
 			Log: log.Config{
@@ -34,7 +34,7 @@ log:
 `,
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
-			LocalDeployer: map[string]any{
+			LocalDeployers: map[string]any{
 				"type": "docker",
 			},
 			Log: log.Config{
@@ -50,7 +50,7 @@ deployer:
 `,
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
-			LocalDeployer: map[string]any{
+			LocalDeployers: map[string]any{
 				"type": "kubernetes",
 			},
 			Log: log.Config{
@@ -68,7 +68,7 @@ plugins:
 			TypeHintPlugins: []string{
 				"quay.io/arcalot/example-plugin:latest",
 			},
-			LocalDeployer: map[string]any{
+			LocalDeployers: map[string]any{
 				"type": "docker",
 			},
 			Log: log.Config{

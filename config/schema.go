@@ -45,12 +45,12 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 				),
-				"deployer": schema.NewPropertySchema(
-					schema.NewAnySchema(),
+				"deployers": schema.NewPropertySchema(
+					schema.NewRefSchema("LocalDeployers", nil),
 					schema.NewDisplayValue(
-						schema.PointerTo("Local deployer"),
+						schema.PointerTo("Local deployers"),
 						schema.PointerTo(
-							"Local container environment configuration the workflow engine can use to test-deploy plugins before the workflow execution.",
+							"Default deployers for each plugin type.",
 						),
 						nil,
 					),
@@ -58,7 +58,7 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 					nil,
-					schema.PointerTo("{\"type\":\"docker\"}"),
+					nil,
 					nil,
 				),
 				"logged_outputs": schema.NewPropertySchema(
@@ -153,6 +153,47 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 					schema.PointerTo(util.JSONEncode(log.DestinationStdout)),
+					nil,
+				),
+			},
+		),
+		schema.NewStructMappedObjectSchema[*LocalDeployers](
+			"LocalDeployers",
+			map[string]*schema.PropertySchema{
+				"image": schema.NewPropertySchema(
+					schema.NewAnySchema(),
+					schema.NewDisplayValue(
+						schema.PointerTo("Local image deployer"),
+						schema.PointerTo(
+							"Local container environment configuration the workflow engine can use to test-deploy plugins before the workflow execution.",
+						),
+						nil,
+					),
+					//true,
+					false,
+					nil,
+					nil,
+					nil,
+					//schema.PointerTo("{\"type\":\"docker\"}"),
+					nil,
+					nil,
+				),
+				"python": schema.NewPropertySchema(
+					schema.NewAnySchema(),
+					schema.NewDisplayValue(
+						schema.PointerTo("Local python deployer"),
+						schema.PointerTo(
+							"Local python environment configuration the workflow engine can use to test-deploy plugins before the workflow execution.",
+						),
+						nil,
+					),
+					//true,
+					false,
+					nil,
+					nil,
+					nil,
+					//schema.PointerTo("{\"type\":\"python\"}"),
+					nil,
 					nil,
 				),
 			},

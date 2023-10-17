@@ -19,7 +19,7 @@ func NewDefaultStepRegistry(
 	deployerRegistry deployerRegistry.Registry,
 	config *config.Config,
 ) (step.Registry, error) {
-	pluginProvider, err := plugin.New(logger, deployerRegistry, config.LocalDeployer)
+	pluginProvider, err := plugin.New(logger, deployerRegistry, config.LocalDeployers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin step provider (%w)", err)
 	}

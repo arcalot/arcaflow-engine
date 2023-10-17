@@ -15,11 +15,16 @@ type Config struct {
 	// TypeHintPlugins holds a list of plugins that will be used when building a type hint (e.g. JSONSchema) file for
 	// workflows.
 	TypeHintPlugins []string `json:"plugins" yaml:"plugins"`
-	// LocalDeployer holds the configuration for executing plugins locally. This deployer is used to obtain the schema
+	// LocalDeployers holds the configuration for executing plugins locally. This deployer is used to obtain the schema
 	// from the plugins before executing them in a remote environment.
-	LocalDeployer any `json:"deployer" yaml:"deployer"`
+	LocalDeployers LocalDeployers `json:"deployers" yaml:"deployers"`
 	// Log configures logging for workflow runs.
 	Log log.Config `json:"log" yaml:"log"`
 	// StepOutputLogging allows logging of step output
 	LoggedOutputConfigs map[string]*StepOutputLogConfig `json:"logged_outputs" yaml:"logged_outputs"`
+}
+
+type LocalDeployers struct {
+	image  string `json:"image" yaml:"image"`
+	python string `json:"python" yaml:"python"`
 }
