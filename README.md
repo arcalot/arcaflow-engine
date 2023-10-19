@@ -18,9 +18,10 @@ This binary can then be used to run Arcaflow workflows.
 
 ## Building a simple workflow
 
-The simplest workflow is the example plugin workflow: (save it to workflow.yaml)
+The simplest workflow is the example plugin workflow using the workflow schema version `v0.1.0`: (save it to workflow.yaml)
 
 ```yaml
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -43,7 +44,7 @@ output:
   message: !expr $.steps.example.outputs.success.message
 ```
 
-As you can see, it has an input, a list of steps, and an output definition. These can be linked together using JSONPath expressions (not all features are supported). The expressions also determine the execution order of plugins.
+As you can see, it has a `version`, `input`, a list of `steps`, and an `output` definition. Each of these keys is required in a workflow. These can be linked together using JSONPath expressions (not all features are supported). The expressions also determine the execution order of plugins.
 
 You can now create an input YAML for this workflow: (save it to input.yaml)
 
@@ -69,6 +70,10 @@ log:
 
 You can load this config by passing the `-config` flag to Arcaflow.
 
+### Supported Workflow Schema Versions
+
+- v0.1.0
+
 ## Deployer options
 
 Currently, the two deployer types supported are Docker and Kubernetes.
@@ -89,7 +94,7 @@ deployment:
   host: # Host options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
   network: # Network options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
   platform: # Platform options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-  
+
   # Pull policy, similar to Kubernetes
   imagePullPolicy: Always|IfNotPresent|Never
 timeouts:
