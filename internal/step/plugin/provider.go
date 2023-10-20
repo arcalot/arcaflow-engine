@@ -205,6 +205,10 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 		cancel()
 		return nil, fmt.Errorf("failed to read plugin schema from %s (%w)", image, err)
 	}
+	// Tell the server that the client is done
+	if err := transport.Close(); err != nil {
+		return nil, fmt.Errorf("failed to instruct client to shut down image %s (%w)", image, err)
+	}
 	// Shut down the plugin.
 	if err := plugin.Close(); err != nil {
 		return nil, fmt.Errorf("failed to shut down local plugin from %s (%w)", image, err)
@@ -474,7 +478,7 @@ func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHand
 		pluginStepID:       stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
-		executionChannel:   make(chan executionResult),
+		executionChannel:   make(chan atp.ExecutionResult),
 		signalToStep:       make(chan schema.Input),
 		signalFromStep:     make(chan schema.Input),
 		runID:              runID,
@@ -493,6 +497,7 @@ type runningStep struct {
 	wg                   sync.WaitGroup
 	ctx                  context.Context
 	cancel               context.CancelFunc
+	atpClient            atp.Client
 	deployInput          chan any
 	deployInputAvailable bool
 	runInput             chan any
@@ -506,9 +511,10 @@ type runningStep struct {
 	useLocalDeployer     bool
 	localDeployer        deployer.Connector
 	container            deployer.Plugin
-	executionChannel     chan executionResult
+	executionChannel     chan atp.ExecutionResult
 	signalToStep         chan schema.Input // Communicates with the ATP client, not other steps.
 	signalFromStep       chan schema.Input // Communicates with the ATP client, not other steps.
+	closed               bool
 	// Store channels for sending pre-calculated signal outputs to other steps?
 	// Store channels for receiving pre-calculated signal inputs from other steps?
 }
@@ -623,7 +629,7 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 				// Canceling the context should be enough when the stage isn't running.
 				if r.currentStage == StageIDRunning {
 					// Validated. Now call the signal.
-					r.signalToStep <- schema.Input{ID: cancelSignal.ID(), InputData: map[any]any{}}
+					r.signalToStep <- schema.Input{RunID: r.runID, ID: cancelSignal.ID(), InputData: map[any]any{}}
 				}
 			}
 			// Now cancel the context to stop
@@ -649,15 +655,26 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 func (r *runningStep) Close() error {
 	r.cancel()
 	r.lock.Lock()
+	if r.closed {
+		return nil // Already closed
+	}
+	var atpErr error
+	var containerErr error
+	if r.atpClient != nil {
+		atpErr = r.atpClient.Close()
+	}
 	if r.container != nil {
-		if err := r.container.Close(); err != nil {
-			return fmt.Errorf("failed to stop container (%w)", err)
-		}
+		containerErr = r.container.Close()
 	}
 	r.container = nil
 	r.lock.Unlock()
+	if containerErr != nil || atpErr != nil {
+		return fmt.Errorf("failed to stop atp client (%w) or container (%w)", atpErr, containerErr)
+		// Do not wait in this case. It may never get resolved.
+	}
 	// Wait for the run to finish to ensure that it's not running after closing.
 	r.wg.Wait()
+	r.closed = true
 	return nil
 }
 
@@ -714,6 +731,7 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 		nil,
 		string(StageIDDeploy),
 		deployInputAvailable,
+		&r.wg,
 	)
 
 	var deployerConfig any
@@ -757,12 +775,6 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	return container, nil
 }
 
-type executionResult struct {
-	outputID   string
-	outputData any
-	err        error
-}
-
 func (r *runningStep) startStage(container deployer.Plugin) error {
 	r.logger.Debugf("Starting stage for step %s/%s", r.runID, r.pluginStepID)
 	r.lock.Lock()
@@ -798,6 +810,7 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 		nil,
 		string(StageIDStarting),
 		runInputAvailable,
+		&r.wg,
 	)
 
 	r.lock.Lock()
@@ -826,9 +839,9 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 			return fmt.Errorf("step closed while waiting for run configuration")
 		}
 	}
-	atpClient := atp.NewClientWithLogger(container, r.logger)
+	r.atpClient = atp.NewClientWithLogger(container, r.logger)
 
-	inputSchema, err := atpClient.ReadSchema()
+	inputSchema, err := r.atpClient.ReadSchema()
 	if err != nil {
 		return err
 	}
@@ -845,13 +858,15 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	// Runs the ATP client in a goroutine in order to wait for it.
 	// On context done, the deployer has 30 seconds before it will error out.
 	go func() {
-		outputID, outputData, err := atpClient.Execute(
-			schema.Input{ID: r.pluginStepID, InputData: runInput},
+		result := r.atpClient.Execute(
+			schema.Input{RunID: r.runID, ID: r.pluginStepID, InputData: runInput},
 			r.signalToStep,
 			r.signalFromStep,
 		)
-		r.executionChannel <- executionResult{outputID, outputData, err}
-
+		r.executionChannel <- result
+		if err = r.atpClient.Close(); err != nil {
+			r.logger.Warningf("Error while closing ATP client: %s", err)
+		}
 	}()
 	return nil
 }
@@ -871,13 +886,14 @@ func (r *runningStep) runStage() error {
 		nil,
 		string(StageIDRunning),
 		false,
+		&r.wg,
 	)
 
-	var result executionResult
+	var result atp.ExecutionResult
 	select {
 	case result = <-r.executionChannel:
-		if result.err != nil {
-			return result.err
+		if result.Error != nil {
+			return result.Error
 		}
 	case <-r.ctx.Done():
 		// In this case, it is being instructed to stop. A signal should have been sent.
@@ -913,7 +929,9 @@ func (r *runningStep) runStage() error {
 		nil,
 		nil,
 		string(r.currentStage),
-		false)
+		false,
+		&r.wg,
+	)
 
 	r.lock.Lock()
 	r.state = step.RunningStepStateFinished
@@ -921,8 +939,9 @@ func (r *runningStep) runStage() error {
 	r.stageChangeHandler.OnStepComplete(
 		r,
 		string(r.currentStage),
-		&result.outputID,
-		&result.outputData,
+		&result.OutputID,
+		&result.OutputData,
+		&r.wg,
 	)
 
 	return nil
@@ -945,6 +964,7 @@ func (r *runningStep) deployFailed(err error) {
 		nil,
 		string(StageIDDeployFailed),
 		false,
+		&r.wg,
 	)
 	r.logger.Warningf("Plugin step %s/%s deploy failed. %v", r.runID, r.pluginStepID, err)
 
@@ -963,6 +983,7 @@ func (r *runningStep) deployFailed(err error) {
 		string(r.currentStage),
 		&outputID,
 		&output,
+		&r.wg,
 	)
 }
 
@@ -979,7 +1000,9 @@ func (r *runningStep) startFailed(err error) {
 		nil,
 		nil,
 		string(r.currentStage),
-		false)
+		false,
+		&r.wg,
+	)
 	r.logger.Warningf("Plugin step %s/%s start failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
@@ -997,6 +1020,7 @@ func (r *runningStep) startFailed(err error) {
 		string(r.currentStage),
 		&outputID,
 		&output,
+		&r.wg,
 	)
 }
 
@@ -1018,7 +1042,9 @@ func (r *runningStep) runFailed(err error) {
 		nil,
 		nil,
 		string(r.currentStage),
-		false)
+		false,
+		&r.wg,
+	)
 
 	r.logger.Warningf("Plugin step %s/%s run failed. %v", r.runID, r.pluginStepID, err)
 
@@ -1037,5 +1063,6 @@ func (r *runningStep) runFailed(err error) {
 		string(r.currentStage),
 		&outputID,
 		&output,
+		&r.wg,
 	)
 }

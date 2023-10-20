@@ -347,6 +347,7 @@ type runningStep struct {
 	inputAvailable     bool
 	inputData          chan []any
 	ctx                context.Context
+	wg                 sync.WaitGroup
 	cancel             context.CancelFunc
 	stageChangeHandler step.StageChangeHandler
 	parallelism        int64
@@ -406,11 +407,16 @@ func (r *runningStep) State() step.RunningStepState {
 
 func (r *runningStep) Close() error {
 	r.cancel()
+	r.wg.Wait()
 	return nil
 }
 
 func (r *runningStep) run() {
-	defer close(r.inputData)
+	r.wg.Add(1)
+	defer func() {
+		close(r.inputData)
+		r.wg.Done()
+	}()
 	waitingForInput := false
 	r.lock.Lock()
 	if !r.inputAvailable {
@@ -427,6 +433,7 @@ func (r *runningStep) run() {
 		nil,
 		string(StageIDExecute),
 		waitingForInput,
+		&r.wg,
 	)
 	select {
 	case loopData, ok := <-r.inputData:
@@ -508,12 +515,13 @@ func (r *runningStep) run() {
 			nil,
 			string(currentStage),
 			false,
+			&r.wg,
 		)
 		r.lock.Lock()
 		r.currentState = step.RunningStepStateFinished
 		previousStage = string(r.currentStage)
 		r.lock.Unlock()
-		r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData)
+		r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData, &r.wg)
 	case <-r.ctx.Done():
 		return
 	}

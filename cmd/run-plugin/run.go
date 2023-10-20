@@ -28,6 +28,7 @@ func main() {
 	var d deployer.AnyConnectorFactory
 	var defaultConfig any
 	var deployerID = "docker"
+	var runID = "run"
 	var workingDir string
 
 	flag.StringVar(&image, "image", image, "Docker image to run")
@@ -102,6 +103,7 @@ func main() {
 		case <-ctrlC:
 			logger.Infof("Received CTRL-C. Sending cancel signal...")
 			toStepSignals <- schema.Input{
+				RunID:     runID,
 				ID:        plugin.CancellationSignalSchema.ID(),
 				InputData: make(map[string]any),
 			}
@@ -147,19 +149,22 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("Running step %s\n", stepID)
-	outputID, outputData, err := atpClient.Execute(
-		schema.Input{ID: stepID, InputData: input},
+	result := atpClient.Execute(
+		schema.Input{RunID: runID, ID: stepID, InputData: input},
 		toStepSignals,
 		nil,
 	)
-	output := map[string]any{
-		"outputID":   outputID,
-		"outputData": outputData,
-		"err":        err,
+	if err := atpClient.Close(); err != nil {
+		fmt.Printf("Error closing ATP client: %s", err)
 	}
-	result, err := yaml.Marshal(output)
+	output := map[string]any{
+		"outputID":   result.OutputID,
+		"outputData": result.OutputData,
+		"err":        result.Error,
+	}
+	resultStr, err := yaml.Marshal(output)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s", result)
+	fmt.Printf("%s", resultStr)
 }

@@ -2,6 +2,7 @@ package step
 
 import (
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"sync"
 )
 
 // Provider is the description of an item that fits in a workflow. Its implementation provide the
@@ -43,6 +44,7 @@ type StageChangeHandler interface {
 		previousStageOutput *any,
 		newStage string,
 		inputAvailable bool,
+		wg *sync.WaitGroup,
 	)
 
 	// OnStepComplete is called when the step has completed a final stage in its lifecycle and communicates the output.
@@ -52,6 +54,7 @@ type StageChangeHandler interface {
 		previousStage string,
 		previousStageOutputID *string,
 		previousStageOutput *any,
+		wg *sync.WaitGroup,
 	)
 }
 

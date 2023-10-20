@@ -74,6 +74,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		outputDone:        false,
 		cancel:            cancel,
 		workflowContext:   e.workflowContext,
+		recentErrors:      make(chan error, 20), // Big buffer in case there are lots of subsequent errors.
 	}
 
 	l.lock.Lock()
@@ -95,22 +96,36 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		l.data["steps"].(map[string]any)[stepID] = stepDataModel
 
 		var stageHandler step.StageChangeHandler = &stageChangeHandler{
-			onStageChange: func(step step.RunningStep, previousStage *string, previousStageOutputID *string, previousStageOutput *any, stage string, inputAvailable bool) {
+			onStageChange: func(
+				step step.RunningStep,
+				previousStage *string,
+				previousStageOutputID *string,
+				previousStageOutput *any,
+				stage string,
+				inputAvailable bool,
+				wg *sync.WaitGroup,
+			) {
 				waitingForInputText := ""
 				if !inputAvailable {
 					waitingForInputText = " and is waiting for input"
 				}
 				e.logger.Debugf("START Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
-				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput)
+				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput, wg)
 				e.logger.Debugf("DONE Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
 			},
-			onStepComplete: func(step step.RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any) {
+			onStepComplete: func(
+				step step.RunningStep,
+				previousStage string,
+				previousStageOutputID *string,
+				previousStageOutput *any,
+				wg *sync.WaitGroup,
+			) {
 				if previousStageOutputID != nil {
 					e.logger.Debugf("Step %s completed with stage '%s', output '%s'...", stepID, previousStage, *previousStageOutputID)
 				} else {
 					e.logger.Debugf("Step %s completed with stage '%s'...", stepID, previousStage)
 				}
-				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput)
+				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput, wg)
 			},
 		}
 		e.logger.Debugf("Launching step %s...", stepID)
@@ -176,9 +191,10 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		}
 		return outputDataEntry.outputID, outputData, nil
 	case <-ctx.Done():
-		e.logger.Debugf("Workflow execution aborted. %s", l.lastError)
-		if l.lastError != nil {
-			return "", nil, l.lastError
+		lastErr := l.getLastError()
+		e.logger.Debugf("Workflow execution aborted. %s", lastErr)
+		if lastErr != nil {
+			return "", nil, lastErr
 		}
 		return "", nil, fmt.Errorf("workflow execution aborted (%w)", ctx.Err())
 	}
@@ -202,16 +218,39 @@ type loopState struct {
 	runningSteps      map[string]step.RunningStep
 	outputDataChannel chan outputDataType
 	outputDone        bool
-	lastError         error
+	recentErrors      chan error
 	cancel            context.CancelFunc
 	workflowContext   map[string][]byte
 }
 
-func (l *loopState) onStageComplete(stepID string, previousStage *string, previousStageOutputID *string, previousStageOutput *any) {
+// getLastError gathers the last errors. If there are several, it creates a new one that consolidates them.
+// This will read from the channel. Calling again will only gather new errors since the last call.
+func (l *loopState) getLastError() error {
+	var errors []error
+errGatherLoop:
+	for {
+		select {
+		case err := <-l.recentErrors:
+			errors = append(errors, err)
+		default:
+			break errGatherLoop // No more errors
+		}
+	}
+	switch len(errors) {
+	case 0:
+		return nil
+	case 1:
+		return errors[0]
+	default:
+		return fmt.Errorf("multiple errors: %v", errors)
+	}
+}
+
+func (l *loopState) onStageComplete(stepID string, previousStage *string, previousStageOutputID *string, previousStageOutput *any, wg *sync.WaitGroup) {
 	l.lock.Lock()
 	defer func() {
 		if previousStage != nil {
-			l.checkForDeadlocks(3)
+			l.checkForDeadlocks(3, wg)
 		}
 		l.lock.Unlock()
 	}()
@@ -222,14 +261,14 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 	stageNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, *previousStage))
 	if err != nil {
 		l.logger.Errorf("Failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
-		l.lastError = fmt.Errorf("failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+		l.recentErrors <- fmt.Errorf("failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
 		l.cancel()
 		return
 	}
 	l.logger.Debugf("Removed node '%s' from the DAG", stageNode.ID())
 	if err := stageNode.Remove(); err != nil {
 		l.logger.Errorf("Failed to remove stage node ID %s (%w)", stageNode.ID(), err)
-		l.lastError = fmt.Errorf("failed to remove stage node ID %s (%w)", stageNode.ID(), err)
+		l.recentErrors <- fmt.Errorf("failed to remove stage node ID %s (%w)", stageNode.ID(), err)
 		l.cancel()
 		return
 	}
@@ -237,7 +276,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		outputNode, err := l.dag.GetNodeByID(GetOutputNodeID(stepID, *previousStage, *previousStageOutputID))
 		if err != nil {
 			l.logger.Errorf("Failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
-			l.lastError = fmt.Errorf("failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+			l.recentErrors <- fmt.Errorf("failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
 			l.cancel()
 			return
 		}
@@ -245,7 +284,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		l.logger.Debugf("Removed node '%s' from the DAG", outputNode.ID())
 		if err := outputNode.Remove(); err != nil {
 			l.logger.Errorf("Failed to remove output node ID %s (%w)", outputNode.ID(), err)
-			l.lastError = fmt.Errorf("failed to remove output node ID %s (%w)", outputNode.ID(), err)
+			l.recentErrors <- fmt.Errorf("failed to remove output node ID %s (%w)", outputNode.ID(), err)
 			l.cancel()
 			return
 		}
@@ -315,7 +354,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			// Tries to match the schema
 			if _, err := node.Item().DataSchema.Unserialize(untypedInputData); err != nil {
 				l.logger.Errorf("Bug: schema evaluation resulted in invalid data for %s (%v)", node.ID(), err)
-				l.lastError = fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
+				l.recentErrors <- fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
 				l.cancel()
 				return
 			}
@@ -338,7 +377,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 				typedInputData,
 			); err != nil {
 				l.logger.Errorf("Bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
-				l.lastError = fmt.Errorf("bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
+				l.recentErrors <- fmt.Errorf("bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
 				l.cancel()
 				return
 			}
@@ -369,7 +408,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 	}
 }
 
-func (l *loopState) checkForDeadlocks(retries int) {
+func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 	// Here we make sure we don't have a deadlock.
 	counters := struct {
 		starting              int
@@ -438,19 +477,20 @@ func (l *loopState) checkForDeadlocks(retries int) {
 	)
 	if counters.starting == 0 && counters.running == 0 && counters.waitingWithoutInbound == 0 && !l.outputDone {
 		if retries <= 0 {
-			l.lastError = &ErrNoMorePossibleSteps{
+			l.recentErrors <- &ErrNoMorePossibleSteps{
 				l.dag,
 			}
-			l.logger.Errorf("%v", l.lastError)
 			l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
 			l.cancel()
 		} else {
 			// Retry. There are times when all the steps are in a transition state.
 			// Retrying will delay the check until after they are done with the transition.
 			l.logger.Warningf("No running steps. Rechecking...")
+			wg.Add(1)
 			go func() {
 				time.Sleep(5 * time.Millisecond)
-				l.checkForDeadlocks(retries - 1)
+				l.checkForDeadlocks(retries-1, wg)
+				wg.Done()
 			}()
 		}
 	}
@@ -493,15 +533,44 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 	}
 }
 
+// stageChangeHandler is implementing step.StageChangeHandler
 type stageChangeHandler struct {
-	onStageChange  func(step step.RunningStep, previousStage *string, previousStageOutputID *string, previousStageOutput *any, stage string, waitingForInput bool)
-	onStepComplete func(step step.RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any)
+	onStageChange func(
+		step step.RunningStep,
+		previousStage *string,
+		previousStageOutputID *string,
+		previousStageOutput *any,
+		stage string,
+		waitingForInput bool,
+		wg *sync.WaitGroup,
+	)
+	onStepComplete func(
+		step step.RunningStep,
+		previousStage string,
+		previousStageOutputID *string,
+		previousStageOutput *any,
+		wg *sync.WaitGroup,
+	)
 }
 
-func (s stageChangeHandler) OnStageChange(step step.RunningStep, previousStage *string, previousStageOutputID *string, previousStageOutput *any, stage string, waitingForInput bool) {
-	s.onStageChange(step, previousStage, previousStageOutputID, previousStageOutput, stage, waitingForInput)
+func (s stageChangeHandler) OnStageChange(
+	step step.RunningStep,
+	previousStage *string,
+	previousStageOutputID *string,
+	previousStageOutput *any,
+	stage string,
+	waitingForInput bool,
+	wg *sync.WaitGroup,
+) {
+	s.onStageChange(step, previousStage, previousStageOutputID, previousStageOutput, stage, waitingForInput, wg)
 }
 
-func (s stageChangeHandler) OnStepComplete(step step.RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any) {
-	s.onStepComplete(step, previousStage, previousStageOutputID, previousStageOutput)
+func (s stageChangeHandler) OnStepComplete(
+	step step.RunningStep,
+	previousStage string,
+	previousStageOutputID *string,
+	previousStageOutput *any,
+	wg *sync.WaitGroup,
+) {
+	s.onStepComplete(step, previousStage, previousStageOutputID, previousStageOutput, wg)
 }
