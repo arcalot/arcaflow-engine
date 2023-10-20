@@ -13,6 +13,7 @@ import (
 )
 
 var workflowYAML = `---
+version: v0.1.0
 input:
   root: RootObject
   objects:

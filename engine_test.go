@@ -13,6 +13,13 @@ import (
 	"go.flow.arcalot.io/engine/config"
 )
 
+func TestEngineWorkflow_ParseVersion(t *testing.T) {
+	_, err := engine.SupportedVersion("v0.1.0")
+	assert.NoError(t, err)
+	_, err = engine.SupportedVersion("v0.11.0")
+	assert.Error(t, err)
+}
+
 func createTestEngine(t *testing.T) engine.WorkflowEngine {
 	cfg := config.Default()
 	cfg.Log.T = t
@@ -95,7 +102,8 @@ func TestEmptySteps(t *testing.T) {
 		context.Background(),
 		nil,
 		map[string][]byte{
-			"workflow.yaml": []byte(`output: []
+			"workflow.yaml": []byte(`version: v0.1.0
+output: []
 steps: []`),
 		},
 		"",
@@ -109,7 +117,8 @@ func TestNoSteps(t *testing.T) {
 		context.Background(),
 		nil,
 		map[string][]byte{
-			"workflow.yaml": []byte(`output: []`),
+			"workflow.yaml": []byte(`version: v0.1.0
+output: []`),
 		},
 		"",
 	)
@@ -122,7 +131,8 @@ func TestE2E(t *testing.T) {
 		context.Background(),
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
-			"workflow.yaml": []byte(`input:
+			"workflow.yaml": []byte(`version: v0.1.0
+input:
   root: RootObject
   objects:
     RootObject:
@@ -152,7 +162,8 @@ func TestE2EMultipleOutputs(t *testing.T) {
 		context.Background(),
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
-			"workflow.yaml": []byte(`input:
+			"workflow.yaml": []byte(`version: v0.1.0
+input:
   root: RootObject
   objects:
     RootObject:
