@@ -192,6 +192,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	plugin, err := p.localDeployer.Deploy(ctx, image)
 	if err != nil {
 		cancel()
@@ -652,7 +653,26 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 	}
 }
 
+// ForceClose closes the step without waiting for a graceful shutdown of the ATP client
+// Warning: This means that
+func (r *runningStep) ForceClose() error {
+	err := r.closeComponents(false)
+	// Wait for the run to finish to ensure that it's not running after closing.
+	r.wg.Wait()
+	r.closed = true
+	r.logger.Warningf("Step %s/%s force closed.", r.runID, r.pluginStepID)
+	return err
+}
+
 func (r *runningStep) Close() error {
+	err := r.closeComponents(true)
+	// Wait for the run to finish to ensure that it's not running after closing.
+	r.wg.Wait()
+	r.closed = true
+	return err
+}
+
+func (r *runningStep) closeComponents(closeATP bool) error {
 	r.cancel()
 	r.lock.Lock()
 	if r.closed {
@@ -660,7 +680,7 @@ func (r *runningStep) Close() error {
 	}
 	var atpErr error
 	var containerErr error
-	if r.atpClient != nil {
+	if r.atpClient != nil && closeATP {
 		atpErr = r.atpClient.Close()
 	}
 	if r.container != nil {
@@ -672,9 +692,6 @@ func (r *runningStep) Close() error {
 		return fmt.Errorf("failed to stop atp client (%w) or container (%w)", atpErr, containerErr)
 		// Do not wait in this case. It may never get resolved.
 	}
-	// Wait for the run to finish to ensure that it's not running after closing.
-	r.wg.Wait()
-	r.closed = true
 	return nil
 }
 
@@ -903,9 +920,9 @@ func (r *runningStep) runStage() error {
 		case result = <-r.executionChannel:
 			// Successfully stopped before end of timeout.
 		case <-time.After(time.Duration(30) * time.Second):
-			r.logger.Warningf("Step %s/%s did not terminate within the 30 second time limit. Closing container.",
+			r.logger.Warningf("Step %s/%s did not complete within the 30 second time limit. Force closing container.",
 				r.runID, r.pluginStepID)
-			if err := r.Close(); err != nil {
+			if err := r.ForceClose(); err != nil {
 				r.logger.Warningf("Error in step %s/%s while closing plugin container (%w)", r.runID, r.pluginStepID, err)
 			}
 		}

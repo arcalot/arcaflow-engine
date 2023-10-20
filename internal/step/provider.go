@@ -101,4 +101,6 @@ type RunningStep interface {
 	State() RunningStepState
 	// Close shuts down the step and cleans up the resources associated with the step.
 	Close() error
+	// ForceClose shuts down the step forcefully.
+	ForceClose() error
 }

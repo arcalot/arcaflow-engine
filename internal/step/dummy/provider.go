@@ -252,6 +252,10 @@ func (r *runningStep) Close() error {
 	return nil
 }
 
+func (r *runningStep) ForceClose() error {
+	return r.Close()
+}
+
 func (r *runningStep) run() {
 	r.wg.Add(1)
 	defer func() {

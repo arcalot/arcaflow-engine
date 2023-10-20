@@ -141,7 +141,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		e.logger.Debugf("Terminating all steps...")
 		for stepID, runningStep := range l.runningSteps {
 			e.logger.Debugf("Terminating step %s...", stepID)
-			if err := runningStep.Close(); err != nil {
+			if err := runningStep.ForceClose(); err != nil {
 				panic(fmt.Errorf("failed to close step %s (%w)", stepID, err))
 			}
 		}

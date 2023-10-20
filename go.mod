@@ -3,7 +3,7 @@ module go.flow.arcalot.io/engine
 go 1.18
 
 require (
-	go.arcalot.io/assert v1.5.0
+	go.arcalot.io/assert v1.6.0
 	go.arcalot.io/dgraph v1.1.0
 	go.arcalot.io/lang v1.0.0
 	go.arcalot.io/log/v2 v2.0.0
@@ -11,7 +11,7 @@ require (
 	go.flow.arcalot.io/dockerdeployer v0.3.0
 	go.flow.arcalot.io/expressions v0.2.0
 	go.flow.arcalot.io/kubernetesdeployer v0.5.1
-	go.flow.arcalot.io/pluginsdk v0.4.0-beta.1.0.20230914222256-af7a31f84b1e
+	go.flow.arcalot.io/pluginsdk v0.5.0-beta.1
 	go.flow.arcalot.io/podmandeployer v0.3.1
 	go.flow.arcalot.io/pythondeployer v0.1.4
 	go.flow.arcalot.io/testdeployer v0.2.1-0.20230914224521-f83e94942739

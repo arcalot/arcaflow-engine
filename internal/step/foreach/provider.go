@@ -411,6 +411,11 @@ func (r *runningStep) Close() error {
 	return nil
 }
 
+func (r *runningStep) ForceClose() error {
+	// For now, unless it becomes a problem, we'll just call the normal close function.
+	return r.Close()
+}
+
 func (r *runningStep) run() {
 	r.wg.Add(1)
 	defer func() {
