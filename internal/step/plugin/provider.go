@@ -569,7 +569,6 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			r.state = step.RunningStepStateRunning
 		}
 
-		// TODO: CHECK IF THIS IS OKAY
 		// Feed the deploy step its input.
 		select {
 		case r.deployInput <- unserializedDeployerConfig:
@@ -596,14 +595,10 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		}
 		// Make sure we transition the state before unlocking so there are no race conditions.
 		r.runInputAvailable = true
-		//if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
-		//	r.logger.Debugf("Input available. State set to running.")
-		//	r.state = step.RunningStepStateRunning
-		//}
+
 		// Unlock before passing the data over the channel to prevent a deadlock.
 		// The other end of the channel needs to be unlocked to read the data.
 
-		// TODO: CHECK IF THIS WORKS
 		// Feed the run step its input over the channel.
 		select {
 		case r.runInput <- input["input"]:
@@ -809,14 +804,6 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 		r.state = step.RunningStepStateWaitingForInput
 	}
 
-	//if !r.runInputAvailable {
-	//	r.logger.Debugf("Waiting for input state while starting 1.")
-	//	//r.state = step.RunningStepStateWaitingForInput
-	//	// TEMP: Assume running until stage change
-	//	r.state = step.RunningStepStateRunning
-	//} else {
-	//	r.state = step.RunningStepStateRunning
-	//}
 	runInputAvailable := r.runInputAvailable
 	r.lock.Unlock()
 
