@@ -115,6 +115,7 @@ func TestSharedInput(t *testing.T) {
 }
 
 var missingInputWorkflowDefinition1 = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -132,6 +133,7 @@ outputs:
 `
 
 var missingInputWorkflowDefinition2 = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -157,6 +159,7 @@ func TestMissingInput(t *testing.T) {
 }
 
 var mismatchedStepInputTypesWorkflowDefinition = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -186,6 +189,7 @@ func TestMismatchedStepInputTypes(t *testing.T) {
 }
 
 var mismatchedInputTypesWorkflowDefinition = `
+version: v0.1.0
 input:
   root: RootObject
   objects:

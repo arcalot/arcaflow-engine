@@ -90,6 +90,7 @@ func TestStepCancellation(t *testing.T) {
 }
 
 var earlyStepCancellationWorkflowDefinition = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -155,6 +156,7 @@ func TestEarlyStepCancellation(t *testing.T) {
 }
 
 var deploymentStepCancellationWorkflowDefinition = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -216,6 +218,7 @@ func TestDeploymentStepCancellation(t *testing.T) {
 }
 
 var simpleValidLiteralInputWaitWorkflowDefinition = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -399,6 +402,7 @@ func TestWaitForParallel(t *testing.T) {
 }
 
 var missingInputsFailedDeploymentWorkflowDefinition = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
@@ -437,6 +441,7 @@ func TestMissingInputsFailedDeployment(t *testing.T) {
 }
 
 var missingInputsWrongOutputWorkflowDefinition = `
+version: v0.1.0
 input:
   root: RootObject
   objects:
