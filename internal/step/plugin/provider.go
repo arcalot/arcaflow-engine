@@ -726,13 +726,7 @@ func (r *runningStep) run() {
 func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	r.logger.Debugf("Deploying stage for step %s/%s", r.runID, r.pluginStepID)
 	r.lock.Lock()
-	if !r.deployInputAvailable {
-		r.logger.Debugf("PROCESSING inputs state while deploying.")
-		//r.state = step.RunningStepStateWaitingForInput
-		r.state = step.RunningStepStateRunning
-	} else {
-		r.state = step.RunningStepStateRunning
-	}
+	r.state = step.RunningStepStateRunning
 	deployInputAvailable := r.deployInputAvailable
 	r.lock.Unlock()
 
@@ -877,21 +871,7 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 
 func (r *runningStep) runStage() error {
 	r.logger.Debugf("Running stage for step %s/%s", r.runID, r.pluginStepID)
-	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDRunning
-	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(StageIDRunning),
-		false,
-		&r.wg,
-	)
+	r.transitionStage(StageIDRunning, step.RunningStepStateRunning)
 
 	var result atp.ExecutionResult
 	select {
@@ -916,157 +896,87 @@ func (r *runningStep) runStage() error {
 
 	}
 
-	// Execution complete, move to finished stage.
-	r.lock.Lock()
-	// Be careful that everything here is set correctly.
-	// Else it will cause undesired behavior.
-	previousStage = string(r.currentStage)
-	r.currentStage = StageIDOutput
-	// First running, then state change, then finished.
-	// This is so it properly steps through all the stages it needs to.
-	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(r.currentStage),
-		false,
-		&r.wg,
-	)
-
-	r.lock.Lock()
-	r.state = step.RunningStepStateFinished
-	r.lock.Unlock()
-	r.stageChangeHandler.OnStepComplete(
-		r,
-		string(r.currentStage),
-		&result.OutputID,
-		&result.OutputData,
-		&r.wg,
-	)
+	// Execution complete, move to state running stage outputs, then to state finished stage.
+	r.transitionStage(StageIDOutput, step.RunningStepStateRunning)
+	r.completeStage(r.currentStage, step.RunningStepStateFinished, &result.OutputID, &result.OutputData)
 
 	return nil
 }
 
 func (r *runningStep) deployFailed(err error) {
 	r.logger.Debugf("Deploy failed stage for step %s/%s", r.runID, r.pluginStepID)
-	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDDeployFailed
-	// Don't forget to update this, or else it will behave very oddly.
-	// First running, then finished. You can't skip states.
-	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(StageIDDeployFailed),
-		false,
-		&r.wg,
-	)
+	r.transitionStage(StageIDDeployFailed, step.RunningStepStateRunning)
 	r.logger.Warningf("Plugin step %s/%s deploy failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
-	r.lock.Lock()
-	r.currentStage = StageIDDeployFailed
-	r.state = step.RunningStepStateFinished
-	r.lock.Unlock()
-
 	outputID := errorStr
 	output := any(DeployFailed{
 		Error: err.Error(),
 	})
-	r.stageChangeHandler.OnStepComplete(
-		r,
-		string(r.currentStage),
-		&outputID,
-		&output,
-		&r.wg,
-	)
+	r.completeStage(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
 }
 
 func (r *runningStep) startFailed(err error) {
 	r.logger.Debugf("Start failed stage for step %s/%s", r.runID, r.pluginStepID)
-	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDCrashed
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(r.currentStage),
-		false,
-		&r.wg,
-	)
+	r.transitionStage(StageIDCrashed, step.RunningStepStateRunning)
 	r.logger.Warningf("Plugin step %s/%s start failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
-	r.lock.Lock()
-	r.currentStage = StageIDCrashed
-	r.state = step.RunningStepStateFinished
-	r.lock.Unlock()
-
 	outputID := errorStr
 	output := any(Crashed{
 		Output: err.Error(),
 	})
-	r.stageChangeHandler.OnStepComplete(
-		r,
-		string(r.currentStage),
-		&outputID,
-		&output,
-		&r.wg,
-	)
+
+	r.completeStage(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
 }
 
 func (r *runningStep) runFailed(err error) {
 	r.logger.Debugf("Run failed stage for step %s/%s", r.runID, r.pluginStepID)
+	r.transitionStage(StageIDCrashed, step.RunningStepStateRunning)
+	r.logger.Warningf("Plugin step %s/%s run failed. %v", r.runID, r.pluginStepID, err)
+
+	// Now it's done.
+	outputID := errorStr
+	output := any(Crashed{
+		Output: err.Error(),
+	})
+	r.completeStage(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
+}
+
+// TransitionStage transitions the stage to the specified stage, and the state to the specified state
+func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepState) {
 	// A current lack of observability into the atp client prevents
 	// non-fragile testing of this function.
-
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
-	r.currentStage = StageIDCrashed
+	r.currentStage = newStage
 	// Don't forget to update this, or else it will behave very oddly.
-	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
+	// First running, then finished. You can't skip states.
+	r.state = state
 	r.lock.Unlock()
-
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
 		nil,
 		nil,
-		string(r.currentStage),
+		string(newStage),
 		false,
 		&r.wg,
 	)
+}
 
-	r.logger.Warningf("Plugin step %s/%s run failed. %v", r.runID, r.pluginStepID, err)
-
-	// Now it's done.
+func (r *runningStep) completeStage(currentStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	r.lock.Lock()
-	r.currentStage = StageIDCrashed
-	r.state = step.RunningStepStateFinished
+	previousStage := string(r.currentStage)
+	r.currentStage = currentStage
+	r.state = state
 	r.lock.Unlock()
 
-	outputID := errorStr
-	output := any(Crashed{
-		Output: err.Error(),
-	})
 	r.stageChangeHandler.OnStepComplete(
 		r,
-		string(r.currentStage),
-		&outputID,
-		&output,
+		previousStage,
+		outputID,
+		previousStageOutput,
 		&r.wg,
 	)
 }
