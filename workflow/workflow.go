@@ -533,7 +533,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 	}
 }
 
-// stageChangeHandler is implementing step.StageChangeHandler
+// stageChangeHandler is implementing step.StageChangeHandler.
 type stageChangeHandler struct {
 	onStageChange func(
 		step step.RunningStep,

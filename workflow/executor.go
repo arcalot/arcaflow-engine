@@ -127,7 +127,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	// through them again to verify that all inputs are valid. So verify that all required inputs are present, schemas
 	// are valid, etc.
 	// Do this by looping through the steps' inputs, then verifying that the dag can provide them.
-	if err := e.verifyStageInputs(workflow, workflowContext, stepLifecycles, dag, internalDataModel); err != nil {
+	if err := e.verifyWorkflowStageInputs(workflow, workflowContext, stepLifecycles, dag, internalDataModel); err != nil {
 		return nil, err
 	}
 	// Stage 6: The output data model
@@ -332,72 +332,101 @@ func (e *executor) connectStepDependencies(
 	return nil
 }
 
-// verifyStageInputs verifies the schemas of the step inputs
-func (e *executor) verifyStageInputs(
+// verifyWorkflowStageInputs verifies the schemas of the step inputs.
+func (e *executor) verifyWorkflowStageInputs(
 	workflow *Workflow,
 	workflowContext map[string][]byte,
 	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
 	dag dgraph.DirectedGraph[*DAGItem],
 	internalDataModel *schema.ScopeSchema,
 ) error {
-	for stepID, _ /*stepData*/ := range workflow.Steps {
+	// Loop through all the steps in the engine
+	for stepID /*stepData is the unused key*/ := range workflow.Steps {
+		// Then loop through the stages of that step
 		lifecycle := stepLifecycles[stepID]
 		for _, stage := range lifecycle.Stages {
-			currentStageNode, err := dag.GetNodeByID(GetStageNodeID(stepID, stage.ID))
+			err := e.verifyStageInputs(dag, stepID, stage, workflowContext, internalDataModel)
 			if err != nil {
-				return fmt.Errorf("bug: node for current stage not found (%w)", err)
-			}
-			// stageData provides the info needed for this node, without the expressions resolved.
-			stageData := currentStageNode.Item().Data
-
-			// Use reflection to convert the stage's input data to a readable map.
-			parsedInputs := make(map[string]any)
-			if stageData != nil {
-				v := reflect.ValueOf(stageData)
-				if v.Kind() != reflect.Map {
-					return fmt.Errorf("could not validate input. Stage data is not a map. It is %s", v.Kind())
-				}
-
-				for _, reflectedKey := range v.MapKeys() {
-					if reflectedKey.Kind() != reflect.Interface {
-						return fmt.Errorf("expected input key to be interface of a string. Got %s", reflectedKey.Kind())
-					}
-					// Now convert interface to string
-					key, ok := reflectedKey.Interface().(string)
-					if !ok {
-						return fmt.Errorf("error converting input key to string")
-					}
-					value := v.MapIndex(reflectedKey).Interface()
-					parsedInputs[key] = value
-				}
-			}
-			// Next, loop through the input schema fields.
-			for name, stageInputSchema := range stage.InputSchema {
-				providedInputForField := parsedInputs[name]
-				// Check if the field is present in the stage data.
-				// If it is NOT present and is NOT required, continue to next field.
-				// If it is NOT present and IS required, fail
-				// If it IS present, verify whether schema is compatible with the schema of the provided data,
-				// then notify the provider that the data is present.
-				// This is running pre-workflow run, so you can check the schemas, but most fields won't be able to be
-				// resolved to an actual value.
-				if providedInputForField == nil {
-					// not present
-					if stageInputSchema.RequiredValue {
-						return fmt.Errorf("required input %s of type %s not found for step %s",
-							name, stageInputSchema.TypeID(), stepID)
-					}
-				} else {
-					// It is present, so make sure it is compatible.
-					err := e.preValidateCompatibility(internalDataModel, providedInputForField, stageInputSchema, workflowContext)
-					if err != nil {
-						return fmt.Errorf("input validation failed for workflow step %s stage %s (%w)", stepID, stage.ID, err)
-					}
-				}
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+func (e *executor) verifyStageInputs(
+	dag dgraph.DirectedGraph[*DAGItem],
+	stepID string,
+	stage step.LifecycleStageWithSchema,
+	workflowContext map[string][]byte,
+	internalDataModel *schema.ScopeSchema,
+) error {
+	// First, get the parsed inputs of the stage
+	parsedInputs, err := e.getStageInputs(dag, stepID, stage)
+	if err != nil {
+		return err
+	}
+	// Next, loop through the input schema fields.
+	for name, stageInputSchema := range stage.InputSchema {
+		providedInputForField := parsedInputs[name]
+		// Check if the field is present in the stage data.
+		// If it is NOT present and is NOT required, continue to next field.
+		// If it is NOT present and IS required, fail
+		// If it IS present, verify whether schema is compatible with the schema of the provided data,
+		// then notify the provider that the data is present.
+		// This is running pre-workflow run, so you can check the schemas, but most fields won't be able to be
+		// resolved to an actual value.
+		if providedInputForField == nil {
+			// not present
+			if stageInputSchema.RequiredValue {
+				return fmt.Errorf("required input %s of type %s not found for step %s",
+					name, stageInputSchema.TypeID(), stepID)
+			}
+		} else {
+			// It is present, so make sure it is compatible.
+			err := e.preValidateCompatibility(internalDataModel, providedInputForField, stageInputSchema, workflowContext)
+			if err != nil {
+				return fmt.Errorf("input validation failed for workflow step %s stage %s (%w)", stepID, stage.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (e *executor) getStageInputs(
+	dag dgraph.DirectedGraph[*DAGItem],
+	stepID string,
+	stage step.LifecycleStageWithSchema,
+) (map[string]any, error) {
+	currentStageNode, err := dag.GetNodeByID(GetStageNodeID(stepID, stage.ID))
+	if err != nil {
+		return nil, fmt.Errorf("bug: node for current stage not found (%w)", err)
+	}
+	// stageData provides the info needed for this node, without the expressions resolved.
+	stageData := currentStageNode.Item().Data
+
+	// Use reflection to convert the stage's input data to a readable map.
+	parsedInputs := make(map[string]any)
+	if stageData != nil {
+		v := reflect.ValueOf(stageData)
+		if v.Kind() != reflect.Map {
+			return nil, fmt.Errorf("could not validate input. Stage data is not a map. It is %s", v.Kind())
+		}
+
+		for _, reflectedKey := range v.MapKeys() {
+			if reflectedKey.Kind() != reflect.Interface {
+				return nil, fmt.Errorf("expected input key to be interface of a string. Got %s", reflectedKey.Kind())
+			}
+			// Now convert interface to string
+			key, ok := reflectedKey.Interface().(string)
+			if !ok {
+				return nil, fmt.Errorf("error converting input key to string")
+			}
+			value := v.MapIndex(reflectedKey).Interface()
+			parsedInputs[key] = value
+		}
+	}
+	return parsedInputs, nil
 }
 
 func (e *executor) preValidateCompatibility(rootSchema schema.Scope, inputField any, propertySchema *schema.PropertySchema,

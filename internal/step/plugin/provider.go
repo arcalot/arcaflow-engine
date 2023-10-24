@@ -169,7 +169,7 @@ var crashedLifecycleStage = step.LifecycleStage{
 	FinishedName: "crashed",
 }
 
-// Lifecycle returns a lifecycle that contains all plugin lifecycle stages
+// Lifecycle returns a lifecycle that contains all plugin lifecycle stages.
 func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	return step.Lifecycle[step.LifecycleStage]{
 		InitialStage: string(StageIDDeploy),
@@ -539,117 +539,126 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 	// affect the counting of step states in the workflow's Execute function
 	// and notifySteps function.
 	r.lock.Lock()
+	defer r.lock.Unlock()
 	r.logger.Debugf("ProvideStageInput START")
 	defer r.logger.Debugf("ProvideStageInput END")
 
-	// Checks which stage it is getting input for
+	// Checks which stage it is getting input for, and handles it.
 	switch stage {
 	case string(StageIDDeploy):
-		// input provided on this call overwrites the deployer configuration
-		// set at this plugin provider's instantiation
-		if r.deployInputAvailable {
-			r.lock.Unlock()
-			return fmt.Errorf("deployment information provided more than once")
-		}
-		var unserializedDeployerConfig any
-		var err error
-		if input["deploy"] != nil {
-			unserializedDeployerConfig, err = r.deployerRegistry.Schema().Unserialize(input["deploy"])
-			if err != nil {
-				r.lock.Unlock()
-				return fmt.Errorf("invalid deployment information (%w)", err)
-			}
-		} else {
-			r.useLocalDeployer = true
-		}
-		// Make sure we transition the state before unlocking so there are no race conditions.
-
-		r.deployInputAvailable = true
-		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
-			r.state = step.RunningStepStateRunning
-		}
-
-		// Feed the deploy step its input.
-		select {
-		case r.deployInput <- unserializedDeployerConfig:
-		default:
-			r.lock.Unlock()
-			return fmt.Errorf("unable to provide input to deploy stage for step %s/%s", r.runID, r.pluginStepID)
-		}
-		r.lock.Unlock()
-		return nil
+		return r.provideDeployInput(input)
 	case string(StageIDStarting):
-		if r.runInputAvailable {
-			r.lock.Unlock()
-			return fmt.Errorf("input provided more than once")
-		}
-		// Ensure input is given
-		if input["input"] == nil {
-			r.lock.Unlock()
-			return fmt.Errorf("bug: invalid input for 'running' stage, expected 'input' field")
-		}
-		// Validate the input by unserializing it
-		if _, err := r.stepSchema.Input().Unserialize(input["input"]); err != nil {
-			r.lock.Unlock()
-			return err
-		}
-		// Make sure we transition the state before unlocking so there are no race conditions.
-		r.runInputAvailable = true
-
-		// Unlock before passing the data over the channel to prevent a deadlock.
-		// The other end of the channel needs to be unlocked to read the data.
-
-		// Feed the run step its input over the channel.
-		select {
-		case r.runInput <- input["input"]:
-		default:
-			r.lock.Unlock()
-			return fmt.Errorf("unable to provide input to run stage for step %s/%s", r.runID, r.pluginStepID)
-		}
-		r.lock.Unlock()
-		return nil
+		return r.provideStartingInput(input)
 	case string(StageIDRunning):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDCancelled):
-		if input["stop_if"] != false && input["stop_if"] != nil {
-			r.logger.Infof("Cancelling step %s/%s", r.runID, r.pluginStepID)
-
-			// Verify that the step has a cancel signal
-			cancelSignal := r.stepSchema.SignalHandlers()[plugin.CancellationSignalSchema.ID()]
-			if cancelSignal == nil {
-				r.logger.Errorf("could not cancel step %s/%s. Does not contain cancel signal receiver.", r.runID, r.pluginStepID)
-			} else if err := plugin.CancellationSignalSchema.DataSchema().ValidateCompatibility(cancelSignal.DataSchema()); err != nil {
-				r.logger.Errorf("validation failed for cancel signal for step %s/%s: %s", r.runID, r.pluginStepID, err)
-			} else {
-				// Canceling the context should be enough when the stage isn't running.
-				if r.currentStage == StageIDRunning {
-					// Validated. Now call the signal.
-					r.signalToStep <- schema.Input{RunID: r.runID, ID: cancelSignal.ID(), InputData: map[any]any{}}
-				}
-			}
-			// Now cancel the context to stop
-			r.cancel()
-		}
-		r.lock.Unlock()
-		return nil
+		return r.provideCancelledInput(input)
 	case string(StageIDDeployFailed):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDCrashed):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDOutput):
-		r.lock.Unlock()
 		return nil
 	default:
-		r.lock.Unlock()
 		return fmt.Errorf("bug: invalid stage: %s", stage)
 	}
 }
 
-// ForceClose closes the step without waiting for a graceful shutdown of the ATP client
-// Warning: This means that
+func (r *runningStep) provideDeployInput(input map[string]any) error {
+	// Note: The calling function must have the step mutex locked
+	// input provided on this call overwrites the deployer configuration
+	// set at this plugin provider's instantiation
+	if r.deployInputAvailable {
+		return fmt.Errorf("deployment information provided more than once")
+	}
+	var unserializedDeployerConfig any
+	var err error
+	if input["deploy"] != nil {
+		unserializedDeployerConfig, err = r.deployerRegistry.Schema().Unserialize(input["deploy"])
+		if err != nil {
+			return fmt.Errorf("invalid deployment information (%w)", err)
+		}
+	} else {
+		r.useLocalDeployer = true
+	}
+	// Make sure we transition the state before unlocking so there are no race conditions.
+
+	r.deployInputAvailable = true
+	if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
+		r.state = step.RunningStepStateRunning
+	}
+
+	// Feed the deploy step its input.
+	select {
+	case r.deployInput <- unserializedDeployerConfig:
+	default:
+		return fmt.Errorf("unable to provide input to deploy stage for step %s/%s", r.runID, r.pluginStepID)
+	}
+	return nil
+}
+
+func (r *runningStep) provideStartingInput(input map[string]any) error {
+	// Note: The calling function must have the step mutex locked
+	if r.runInputAvailable {
+		return fmt.Errorf("input provided more than once")
+	}
+	// Ensure input is given
+	if input["input"] == nil {
+		return fmt.Errorf("bug: invalid input for 'running' stage, expected 'input' field")
+	}
+	// Validate the input by unserializing it
+	if _, err := r.stepSchema.Input().Unserialize(input["input"]); err != nil {
+		return err
+	}
+	// Make sure we transition the state before unlocking so there are no race conditions.
+	r.runInputAvailable = true
+
+	// Unlock before passing the data over the channel to prevent a deadlock.
+	// The other end of the channel needs to be unlocked to read the data.
+
+	// Feed the run step its input over the channel.
+	select {
+	case r.runInput <- input["input"]:
+	default:
+		return fmt.Errorf("unable to provide input to run stage for step %s/%s", r.runID, r.pluginStepID)
+	}
+	return nil
+}
+
+func (r *runningStep) provideCancelledInput(input map[string]any) error {
+	// Note: The calling function must have the step mutex locked
+	// Cancel if the step field is present and isn't false
+	if input["stop_if"] != false && input["stop_if"] != nil {
+		r.cancelStep()
+	}
+	return nil
+}
+
+// cancelStep gracefully requests cancellation for any stage.
+// If running, it sends a cancel signal if the plugin supports it.
+func (r *runningStep) cancelStep() {
+	r.logger.Infof("Cancelling step %s/%s", r.runID, r.pluginStepID)
+	// We only need to call the signal if the step is running.
+	// If it isn't, cancelling the context alone should be enough.
+	if r.currentStage == StageIDRunning {
+		// Verify that the step has a cancel signal
+		cancelSignal := r.stepSchema.SignalHandlers()[plugin.CancellationSignalSchema.ID()]
+		if cancelSignal == nil {
+			r.logger.Errorf("could not cancel step %s/%s. Does not contain cancel signal receiver.", r.runID, r.pluginStepID)
+		} else if err := plugin.CancellationSignalSchema.DataSchema().ValidateCompatibility(cancelSignal.DataSchema()); err != nil {
+			r.logger.Errorf("validation failed for cancel signal for step %s/%s: %s", r.runID, r.pluginStepID, err)
+		} else {
+			// Validated. Now call the signal.
+			r.signalToStep <- schema.Input{RunID: r.runID, ID: cancelSignal.ID(), InputData: map[any]any{}}
+		}
+	}
+	// Now cancel the context to stop the non-running parts of the step
+	r.cancel()
+}
+
+// ForceClose closes the step without waiting for a graceful shutdown of the ATP client.
+// Warning: This means that it won't wait for the ATP client to finish. This is okay if using a deployer that
+// will stop execution once the deployer closes it.
 func (r *runningStep) ForceClose() error {
 	err := r.closeComponents(false)
 	// Wait for the run to finish to ensure that it's not running after closing.
@@ -943,7 +952,9 @@ func (r *runningStep) runFailed(err error) {
 	r.completeStage(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
 }
 
-// TransitionStage transitions the stage to the specified stage, and the state to the specified state
+// TransitionStage transitions the stage to the specified stage, and the state to the specified state.
+//
+//nolint:unparam
 func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepState) {
 	// A current lack of observability into the atp client prevents
 	// non-fragile testing of this function.
@@ -965,6 +976,7 @@ func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepSt
 	)
 }
 
+//nolint:unparam
 func (r *runningStep) completeStage(currentStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
