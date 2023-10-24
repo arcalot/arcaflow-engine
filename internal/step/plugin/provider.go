@@ -692,8 +692,10 @@ func (r *runningStep) closeComponents(closeATP bool) error {
 	}
 	r.container = nil
 	r.lock.Unlock()
-	if containerErr != nil || atpErr != nil {
-		return fmt.Errorf("failed to stop atp client (%w) or container (%w)", atpErr, containerErr)
+	if containerErr != nil {
+		return fmt.Errorf("error while stopping container (%w)", containerErr)
+	} else if atpErr != nil {
+		return fmt.Errorf("error while stopping atp client (%w)", atpErr)
 		// Do not wait in this case. It may never get resolved.
 	}
 	return nil

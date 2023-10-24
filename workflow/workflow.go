@@ -408,8 +408,15 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 	}
 }
 
-func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
-	// Here we make sure we don't have a deadlock.
+type stateCounters struct {
+	starting              int
+	waitingWithInbound    int
+	waitingWithoutInbound int
+	running               int
+	finished              int
+}
+
+func (l *loopState) countStates() stateCounters {
 	counters := struct {
 		starting              int
 		waitingWithInbound    int
@@ -467,6 +474,12 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 			l.logger.Debugf("Step %s is currently finished.", stepID)
 		}
 	}
+	return counters
+}
+
+func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
+	// Here we make sure we don't have a deadlock.
+	counters := l.countStates()
 	l.logger.Infof(
 		"There are currently %d steps starting, %d waiting for input, %d ready for input, %d running, %d finished",
 		counters.starting,
