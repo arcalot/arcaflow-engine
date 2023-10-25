@@ -3,15 +3,15 @@ module go.flow.arcalot.io/engine
 go 1.18
 
 require (
-	go.arcalot.io/assert v1.3.0
+	go.arcalot.io/assert v1.6.0
 	go.arcalot.io/dgraph v1.1.0
 	go.arcalot.io/lang v1.0.0
 	go.arcalot.io/log/v2 v2.0.0
 	go.flow.arcalot.io/deployer v0.2.0
 	go.flow.arcalot.io/dockerdeployer v0.3.0
-	go.flow.arcalot.io/expressions v0.2.0
+	go.flow.arcalot.io/expressions v0.2.1
 	go.flow.arcalot.io/kubernetesdeployer v0.5.1
-	go.flow.arcalot.io/pluginsdk v0.3.0-beta.1
+	go.flow.arcalot.io/pluginsdk v0.4.1
 	go.flow.arcalot.io/podmandeployer v0.3.1
 	go.flow.arcalot.io/pythondeployer v0.1.3
 	go.flow.arcalot.io/testdeployer v0.2.0
@@ -27,7 +27,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.5.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
