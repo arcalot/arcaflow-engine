@@ -25,6 +25,6 @@ type Config struct {
 }
 
 type LocalDeployers struct {
-	image  string `json:"image" yaml:"image"`
-	python string `json:"python" yaml:"python"`
+	Image  any `json:"image" yaml:"image"`
+	Python any `json:"python" yaml:"python"`
 }

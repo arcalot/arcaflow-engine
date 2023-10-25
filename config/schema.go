@@ -54,7 +54,7 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 						),
 						nil,
 					),
-					true,
+					false,
 					nil,
 					nil,
 					nil,
@@ -157,13 +157,13 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 				),
 			},
 		),
-		schema.NewStructMappedObjectSchema[*LocalDeployers](
+		schema.NewStructMappedObjectSchema[LocalDeployers](
 			"LocalDeployers",
 			map[string]*schema.PropertySchema{
 				"image": schema.NewPropertySchema(
 					schema.NewAnySchema(),
 					schema.NewDisplayValue(
-						schema.PointerTo("Local image deployer"),
+						schema.PointerTo("Local Image deployer"),
 						schema.PointerTo(
 							"Local container environment configuration the workflow engine can use to test-deploy plugins before the workflow execution.",
 						),
@@ -174,16 +174,16 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 					nil,
-					//schema.PointerTo("{\"type\":\"docker\"}"),
-					nil,
+					schema.PointerTo("{\"type\":\"docker\"}"),
+					//nil,
 					nil,
 				),
 				"python": schema.NewPropertySchema(
 					schema.NewAnySchema(),
 					schema.NewDisplayValue(
-						schema.PointerTo("Local python deployer"),
+						schema.PointerTo("Local Python deployer"),
 						schema.PointerTo(
-							"Local python environment configuration the workflow engine can use to test-deploy plugins before the workflow execution.",
+							"Local Python environment configuration the workflow engine can use to test-deploy plugins before the workflow execution.",
 						),
 						nil,
 					),
@@ -192,8 +192,7 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 					nil,
-					//schema.PointerTo("{\"type\":\"python\"}"),
-					nil,
+					schema.PointerTo("{\"type\":\"python\"}"),
 					nil,
 				),
 			},
