@@ -193,6 +193,7 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 					schema.PointerTo("{\"type\":\"python\"}"),
+					//schema.PointerTo(`{"type": "python", "pythonPath": "/usr/bin/python"`),
 					nil,
 				),
 			},
