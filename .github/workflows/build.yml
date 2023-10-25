@@ -143,7 +143,7 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          [[  ${VERSION//[[:blank:]]/} =~ ^v[[:digit:]]+\.[[:digit:]]\.[[:digit:]]$ ]] && export OK="[INF] version format accepted" 
+          [[  ${VERSION//[[:blank:]]/} =~ ^v[[:digit:]]+\.[[:digit:]]\.[[:digit:]](-[[:alnum:]]+)?(\+[[:alnum:]]+)?$ ]] && export OK="[INF] version format accepted" 
           [[ -z $OK ]] && echo "[ERR] wrong version format: $VERSION" && exit 1
           echo $OK
       - name: Check out code
