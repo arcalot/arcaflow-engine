@@ -16,7 +16,9 @@ import (
 func TestEngineWorkflow_ParseVersion(t *testing.T) {
 	_, err := engine.SupportedVersion("v0.1.0")
 	assert.NoError(t, err)
-	_, err = engine.SupportedVersion("v0.11.0")
+
+	// test unsupported version
+	_, err = engine.SupportedVersion("v0.1000.0")
 	assert.Error(t, err)
 }
 

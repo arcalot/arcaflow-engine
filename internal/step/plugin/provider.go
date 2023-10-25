@@ -27,18 +27,23 @@ const errorStr = "error"
 //	deployment with the 'type' key.
 //	For more info, see `config/schema.go`
 func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerConfig any) (step.Provider, error) {
-	unserializedLocalDeployerConfig, err := deployerRegistry.Schema().Unserialize(localDeployerConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
+	localDeployers := make(map[string]deployer.Connector)
+	for key, value := range localDeployerConfig.(map[string]any) {
+		unserializedLocalDeployerConfig, err := deployerRegistry.Schema().Unserialize(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
+		}
+		localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
+		if err != nil {
+			return nil, fmt.Errorf("invalid local deployer configuration, please check your Arcaflow configuration file (%w)", err)
+		}
+		localDeployers[key] = localDeployer
 	}
-	localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid local deployer configuration, please check your Arcaflow configuration file (%w)", err)
-	}
+
 	return &pluginProvider{
 		logger:           logger.WithLabel("source", "plugin-provider"),
 		deployerRegistry: deployerRegistry,
-		localDeployer:    localDeployer,
+		localDeployers:   localDeployers,
 	}, nil
 }
 
@@ -46,9 +51,15 @@ func (p *pluginProvider) Kind() string {
 	return "plugin"
 }
 
+type LocalDeployers struct {
+	Image  deployer.Connector
+	Python deployer.Connector
+}
+
 type pluginProvider struct {
 	deployerRegistry registry.Registry
 	localDeployer    deployer.Connector
+	localDeployers   map[string]deployer.Connector
 	logger           log.Logger
 }
 
@@ -188,12 +199,16 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 // LoadSchema deploys the plugin, connects to the plugin's ATP server, loads its schema, then
 // returns a runnableStep struct. Not to be confused with the runningStep struct.
 func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) (step.RunnableStep, error) {
-	image := inputs["plugin"].(string)
+	image := inputs["plugin"].(map[string]string)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	plugin, err := p.localDeployer.Deploy(ctx, image)
+	//src, ok := image["image"]
+	//_, ok := p.localDeployers[]
+	p.localDeployer = p.localDeployers[image["type"]]
+
+	plugin, err := p.localDeployer.Deploy(ctx, image["src"])
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to deploy plugin from image %s (%w)", image, err)
@@ -218,7 +233,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	return &runnableStep{
 		schemas:          *s,
 		logger:           p.logger,
-		image:            image,
+		image:            image["src"],
 		deployerRegistry: p.deployerRegistry,
 		localDeployer:    p.localDeployer,
 	}, nil
