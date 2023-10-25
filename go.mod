@@ -9,12 +9,12 @@ require (
 	go.arcalot.io/log/v2 v2.0.0
 	go.flow.arcalot.io/deployer v0.2.0
 	go.flow.arcalot.io/dockerdeployer v0.3.0
-	go.flow.arcalot.io/expressions v0.2.0
+	go.flow.arcalot.io/expressions v0.2.1
 	go.flow.arcalot.io/kubernetesdeployer v0.5.1
-	go.flow.arcalot.io/pluginsdk v0.5.0-beta.2
-	go.flow.arcalot.io/podmandeployer v0.3.1
+	go.flow.arcalot.io/pluginsdk v0.5.0
+	go.flow.arcalot.io/podmandeployer v0.4.1
 	go.flow.arcalot.io/pythondeployer v0.2.0
-	go.flow.arcalot.io/testdeployer v0.3.0-beta.1
+	go.flow.arcalot.io/testdeployer v0.3.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -23,7 +23,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v24.0.5+incompatible // indirect
+	github.com/docker/docker v24.0.6+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.0 // indirect
@@ -47,6 +47,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.flow.arcalot.io/testplugin v0.2.1 // indirect
 	golang.org/x/mod v0.13.0 // indirect
