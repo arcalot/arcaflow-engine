@@ -2,6 +2,7 @@ package dummy_test
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"go.arcalot.io/assert"
@@ -13,7 +14,7 @@ type stageChangeHandler struct {
 	message chan string
 }
 
-func (s *stageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool) {
+func (s *stageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool, _ *sync.WaitGroup) {
 
 }
 
@@ -22,6 +23,7 @@ func (s *stageChangeHandler) OnStepComplete(
 	previousStage string,
 	previousStageOutputID *string,
 	previousStageOutput *any,
+	_ *sync.WaitGroup,
 ) {
 	if previousStage != "greet" {
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
@@ -49,7 +51,7 @@ func TestProvider(t *testing.T) {
 		message: make(chan string),
 	}
 
-	running, err := runnable.Start(map[string]any{}, handler)
+	running, err := runnable.Start(map[string]any{}, t.Name(), handler)
 	assert.NoError(t, err)
 	assert.NoError(t, running.ProvideStageInput("greet", map[string]any{
 		"name": "Arca Lot",

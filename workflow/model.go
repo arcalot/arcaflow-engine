@@ -229,7 +229,7 @@ type ErrNoMorePossibleSteps struct {
 
 // Error returns an explanation on why the error happened.
 func (e ErrNoMorePossibleSteps) Error() string {
-	var outputs []string //nolint:prealloc
+	var outputsUnmetDependencies []string //nolint:prealloc
 	for _, node := range e.dag.ListNodes() {
 		if node.Item().Kind != DAGItemKindOutput {
 			continue
@@ -242,7 +242,24 @@ func (e ErrNoMorePossibleSteps) Error() string {
 		for i := range inbound {
 			unmetDependencies = append(unmetDependencies, i)
 		}
-		outputs = append(outputs, fmt.Sprintf("%s: %s", node.Item().OutputID, strings.Join(unmetDependencies, ", ")))
+		outputsUnmetDependencies = append(
+			outputsUnmetDependencies,
+			fmt.Sprintf("%s: %s", node.Item().OutputID, strings.Join(unmetDependencies, ", ")),
+		)
 	}
-	return fmt.Sprintf("no steps running, no more executable steps, cannot construct any output (outputs have the following dependencies: %s)", strings.Join(outputs, "; "))
+	return fmt.Sprintf(
+		"no steps running, no more executable steps, cannot construct any output (outputs have the following dependencies: %s)",
+		strings.Join(outputsUnmetDependencies, "; "),
+	)
+}
+
+// ErrInvalidState indicates that the workflow failed due to an invalid state.
+type ErrInvalidState struct {
+	processingSteps int
+	msg             string
+}
+
+// Error returns an explanation on why the error happened.
+func (e ErrInvalidState) Error() string {
+	return fmt.Sprintf("Workflow failed due to invalid state (%s). Processing steps: %d", e.msg, e.processingSteps)
 }

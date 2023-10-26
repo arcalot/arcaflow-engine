@@ -176,7 +176,7 @@ func (r *runnableStep) Lifecycle(_ map[string]any) (result step.Lifecycle[step.L
 	}, nil
 }
 
-func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
+func (r *runnableStep) Start(_ map[string]any, runID string, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -189,6 +189,7 @@ func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChan
 		// the ProvideInputStage is not blocked.
 		name:  make(chan string, 1),
 		state: step.RunningStepStateStarting,
+		runID: runID,
 	}
 
 	go s.run()
@@ -200,10 +201,12 @@ type runningStep struct {
 	stageChangeHandler step.StageChangeHandler
 	ctx                context.Context
 	cancel             context.CancelFunc
+	wg                 sync.WaitGroup
 	lock               *sync.Mutex
 	name               chan string
 	state              step.RunningStepState
 	inputAvailable     bool
+	runID              string
 }
 
 func (r *runningStep) State() step.RunningStepState {
@@ -249,8 +252,16 @@ func (r *runningStep) Close() error {
 	return nil
 }
 
+func (r *runningStep) ForceClose() error {
+	return r.Close()
+}
+
 func (r *runningStep) run() {
-	defer close(r.name)
+	r.wg.Add(1)
+	defer func() {
+		close(r.name)
+		r.wg.Done()
+	}()
 	waitingForInput := false
 	r.lock.Lock()
 	if !r.inputAvailable {
@@ -267,6 +278,7 @@ func (r *runningStep) run() {
 		nil,
 		string(StageIDGreet),
 		waitingForInput,
+		&r.wg,
 	)
 	select {
 	case name, ok := <-r.name:
@@ -283,7 +295,7 @@ func (r *runningStep) run() {
 		r.lock.Lock()
 		r.state = step.RunningStepStateFinished
 		r.lock.Unlock()
-		r.stageChangeHandler.OnStepComplete(r, string(StageIDGreet), outputID, outputData)
+		r.stageChangeHandler.OnStepComplete(r, string(StageIDGreet), outputID, outputData, &r.wg)
 	case <-r.ctx.Done():
 		return
 	}

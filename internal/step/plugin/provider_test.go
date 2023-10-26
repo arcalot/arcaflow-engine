@@ -9,6 +9,7 @@ import (
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testdeployer "go.flow.arcalot.io/testdeployer"
+	"sync"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ type deployFailStageChangeHandler struct {
 	message chan string
 }
 
-func (s *deployFailStageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool) {
+func (s *deployFailStageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool, _ *sync.WaitGroup) {
 
 }
 
@@ -25,6 +26,7 @@ func (s *deployFailStageChangeHandler) OnStepComplete(
 	previousStage string,
 	previousStageOutputID *string,
 	previousStageOutput *any,
+	_ *sync.WaitGroup,
 ) {
 	if previousStage != string(plugin.StageIDDeployFailed) {
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
@@ -47,7 +49,7 @@ type startFailStageChangeHandler struct {
 	message chan string
 }
 
-func (s *startFailStageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool) {
+func (s *startFailStageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool, _ *sync.WaitGroup) {
 
 }
 
@@ -56,6 +58,7 @@ func (s *startFailStageChangeHandler) OnStepComplete(
 	previousStage string,
 	previousStageOutputID *string,
 	previousStageOutput *any,
+	_ *sync.WaitGroup,
 ) {
 	if previousStage != string(plugin.StageIDCrashed) {
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
@@ -79,7 +82,7 @@ type stageChangeHandler struct {
 	message chan string
 }
 
-func (s *stageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool) {
+func (s *stageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool, _ *sync.WaitGroup) {
 
 }
 
@@ -88,6 +91,7 @@ func (s *stageChangeHandler) OnStepComplete(
 	previousStage string,
 	previousStageOutputID *string,
 	previousStageOutput *any,
+	_ *sync.WaitGroup,
 ) {
 	if previousStage != string(plugin.StageIDOutput) {
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
@@ -141,8 +145,12 @@ func TestProvider_Utility(t *testing.T) {
 	_, err = runnable.Lifecycle(map[string]any{"step": "wait"})
 	assert.NoError(t, err)
 
-	_, err = runnable.Lifecycle(map[string]any{"step": nil})
+	_, err = runnable.Lifecycle(map[string]any{"step": "hello"})
 	assert.NoError(t, err)
+
+	// There is more than one step, so no specified one will cause an error.
+	_, err = runnable.Lifecycle(map[string]any{"step": nil})
+	assert.Error(t, err)
 }
 
 func TestProvider_HappyError(t *testing.T) {
@@ -182,11 +190,11 @@ func TestProvider_HappyError(t *testing.T) {
 	}
 
 	// start with a step id that is not in the schema
-	_, err = runnable.Start(map[string]any{"step": "wrong_stepid"}, handler)
+	_, err = runnable.Start(map[string]any{"step": "wrong_stepid"}, t.Name(), handler)
 	assert.Error(t, err)
 
-	// default step id
-	running, err := runnable.Start(map[string]any{"step": nil}, handler)
+	// wait step
+	running, err := runnable.Start(map[string]any{"step": "wait"}, t.Name(), handler)
 	assert.NoError(t, err)
 
 	// non-existent stage
@@ -255,6 +263,59 @@ func TestProvider_HappyError(t *testing.T) {
 	})
 }
 
+func TestProvider_VerifyCancelSignal(t *testing.T) {
+	logger := log.New(
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
+	)
+	workflowDeployerCfg := map[string]any{
+		"type": "test-impl",
+	}
+
+	deployerRegistry := deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory()))
+
+	plp, err := plugin.New(
+		logger,
+		deployerRegistry,
+		workflowDeployerCfg,
+	)
+	assert.NoError(t, err)
+
+	runnable, err := plp.LoadSchema(
+		map[string]any{"plugin": "simulation"}, map[string][]byte{})
+	assert.NoError(t, err)
+	assert.NotNil(t, runnable)
+
+	waitLifecycle, err := runnable.Lifecycle(map[string]any{"step": "wait"})
+	assert.NoError(t, err)
+	// Verify that the expected lifecycle stage is there, then verify that cancel is disabled.
+	waitCancelledStageIDIndex := assert.SliceContainsExtractor(t,
+		func(schema step.LifecycleStageWithSchema) string {
+			return schema.ID
+		}, string(plugin.StageIDCancelled), waitLifecycle.Stages)
+	waitStageIDCancelled := waitLifecycle.Stages[waitCancelledStageIDIndex]
+	waitStopIfSchema := assert.MapContainsKey(t, "stop_if", waitStageIDCancelled.InputSchema)
+	if waitStopIfSchema.Disabled {
+		t.Fatalf("step wait's wait_for schema is disabled when the cancel signal is present.")
+	}
+
+	helloLifecycle, err := runnable.Lifecycle(map[string]any{"step": "hello"})
+	assert.NoError(t, err)
+	// Verify that the expected lifecycle stage is there, then verify that cancel is disabled.
+	helloCancelledStageIDIndex := assert.SliceContainsExtractor(t,
+		func(schema step.LifecycleStageWithSchema) string {
+			return schema.ID
+		}, string(plugin.StageIDCancelled), helloLifecycle.Stages)
+	helloStageIDCancelled := helloLifecycle.Stages[helloCancelledStageIDIndex]
+	helloStopIfSchema := assert.MapContainsKey(t, "stop_if", helloStageIDCancelled.InputSchema)
+	if !helloStopIfSchema.Disabled {
+		t.Fatalf("step hello's stop_if schema is not disabled when the cancel signal is not present.")
+	}
+}
+
 func TestProvider_DeployFail(t *testing.T) {
 	logConfig := log.Config{
 		Level:       log.LevelError,
@@ -289,8 +350,8 @@ func TestProvider_DeployFail(t *testing.T) {
 		message: make(chan string),
 	}
 
-	// default step id
-	running, err := runnable.Start(map[string]any{"step": nil}, handler)
+	// wait step
+	running, err := runnable.Start(map[string]any{"step": "wait"}, t.Name(), handler)
 	assert.NoError(t, err)
 
 	assert.NoError(t, running.ProvideStageInput(
@@ -353,7 +414,7 @@ func TestProvider_StartFail(t *testing.T) {
 		message: make(chan string),
 	}
 
-	running, err := runnable.Start(map[string]any{"step": "wait"}, handler)
+	running, err := runnable.Start(map[string]any{"step": "wait"}, t.Name(), handler)
 	assert.NoError(t, err)
 
 	// tell deployer that this run should not succeed

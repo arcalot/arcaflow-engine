@@ -33,6 +33,15 @@ func (a *anySchemaWithExpressions) Validate(data any) error {
 	return err
 }
 
+func (a *anySchemaWithExpressions) ValidateCompatibility(dataOrType any) error {
+	// If expression, resolve it before calling ValidateCompatibility
+	if _, ok := dataOrType.(expressions.Expression); ok {
+		// Assume okay
+		return nil
+	}
+	return a.anySchema.ValidateCompatibility(dataOrType)
+}
+
 func (a *anySchemaWithExpressions) Serialize(data any) (any, error) {
 	return a.checkAndConvert(data)
 }

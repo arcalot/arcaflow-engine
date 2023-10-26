@@ -19,7 +19,7 @@ func New(
 	executorFactory func(logger log.Logger) (workflow.Executor, error),
 ) (step.Provider, error) {
 	return &forEachProvider{
-		logger:            logger,
+		logger:            logger.WithLabel("source", "foreach-provider"),
 		yamlParserFactory: yamlParserFactory,
 		executorFactory:   executorFactory,
 	}, nil
@@ -319,9 +319,10 @@ func (r *runnableStep) RunSchema() map[string]*schema.PropertySchema {
 	return map[string]*schema.PropertySchema{}
 }
 
-func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
+func (r *runnableStep) Start(_ map[string]any, runID string, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	rs := &runningStep{
+		runID:              runID,
 		ctx:                ctx,
 		cancel:             cancel,
 		lock:               &sync.Mutex{},
@@ -338,6 +339,7 @@ func (r *runnableStep) Start(_ map[string]any, stageChangeHandler step.StageChan
 }
 
 type runningStep struct {
+	runID              string
 	workflow           workflow.ExecutableWorkflow
 	currentStage       StageID
 	lock               *sync.Mutex
@@ -345,6 +347,7 @@ type runningStep struct {
 	inputAvailable     bool
 	inputData          chan []any
 	ctx                context.Context
+	wg                 sync.WaitGroup
 	cancel             context.CancelFunc
 	stageChangeHandler step.StageChangeHandler
 	parallelism        int64
@@ -363,13 +366,13 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			_, err := r.workflow.Input().Unserialize(item)
 			if err != nil {
 				r.lock.Unlock()
-				return fmt.Errorf("invalid input item %d for subworkflow (%w)", i, err)
+				return fmt.Errorf("invalid input item %d for subworkflow (%w) for run/step %s", i, err, r.runID)
 			}
 			input[i] = item
 		}
 		if r.inputAvailable {
 			r.lock.Unlock()
-			return fmt.Errorf("input for execute workflow provided twice")
+			return fmt.Errorf("input for execute workflow provided twice for run/step %s", r.runID)
 		}
 		if r.currentState == step.RunningStepStateWaitingForInput && r.currentStage == StageIDExecute {
 			r.currentState = step.RunningStepStateRunning
@@ -404,11 +407,21 @@ func (r *runningStep) State() step.RunningStepState {
 
 func (r *runningStep) Close() error {
 	r.cancel()
+	r.wg.Wait()
 	return nil
 }
 
+func (r *runningStep) ForceClose() error {
+	// For now, unless it becomes a problem, we'll just call the normal close function.
+	return r.Close()
+}
+
 func (r *runningStep) run() {
-	defer close(r.inputData)
+	r.wg.Add(1)
+	defer func() {
+		close(r.inputData)
+		r.wg.Done()
+	}()
 	waitingForInput := false
 	r.lock.Lock()
 	if !r.inputAvailable {
@@ -425,6 +438,7 @@ func (r *runningStep) run() {
 		nil,
 		string(StageIDExecute),
 		waitingForInput,
+		&r.wg,
 	)
 	select {
 	case loopData, ok := <-r.inputData:
@@ -435,7 +449,7 @@ func (r *runningStep) run() {
 		itemOutputs := make([]any, len(loopData))
 		itemErrors := make(map[int]string, len(loopData))
 
-		r.logger.Debugf("Executing subworkflow...")
+		r.logger.Debugf("Executing subworkflow for step %s...", r.runID)
 		wg := &sync.WaitGroup{}
 		wg.Add(len(loopData))
 		errors := false
@@ -471,7 +485,7 @@ func (r *runningStep) run() {
 			}()
 		}
 		wg.Wait()
-		r.logger.Debugf("Subworkflow complete.")
+		r.logger.Debugf("Subworkflow %s complete.", r.runID)
 		r.lock.Lock()
 		previousStage := string(r.currentStage)
 		r.currentState = step.RunningStepStateRunning
@@ -506,12 +520,13 @@ func (r *runningStep) run() {
 			nil,
 			string(currentStage),
 			false,
+			&r.wg,
 		)
 		r.lock.Lock()
 		r.currentState = step.RunningStepStateFinished
 		previousStage = string(r.currentStage)
 		r.lock.Unlock()
-		r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData)
+		r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData, &r.wg)
 	case <-r.ctx.Done():
 		return
 	}

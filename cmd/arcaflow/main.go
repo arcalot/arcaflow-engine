@@ -133,7 +133,7 @@ Options:
 	}
 	cfg.Log.Stdout = os.Stderr
 
-	logger := log.New(cfg.Log)
+	logger := log.New(cfg.Log).WithLabel("source", "main")
 
 	dirContext, err := loadContext(dir)
 	if err != nil {

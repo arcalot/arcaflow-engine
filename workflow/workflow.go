@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"go.flow.arcalot.io/engine/config"
 
@@ -59,7 +60,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 	defer cancel()
 
 	l := &loopState{
-		logger: e.logger,
+		logger: e.logger.WithLabel("source", "workflow"),
 		config: e.config,
 		lock:   &sync.Mutex{},
 		data: map[string]any{
@@ -73,7 +74,10 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		outputDone:        false,
 		cancel:            cancel,
 		workflowContext:   e.workflowContext,
+		recentErrors:      make(chan error, 20), // Big buffer in case there are lots of subsequent errors.
 	}
+
+	l.lock.Lock()
 
 	// Iterate over all steps to set them up with proper handlers, then launch them.
 	// Even though they're launched, the workflow won't execute until the input is provided.
@@ -92,36 +96,52 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		l.data["steps"].(map[string]any)[stepID] = stepDataModel
 
 		var stageHandler step.StageChangeHandler = &stageChangeHandler{
-			onStageChange: func(step step.RunningStep, previousStage *string, previousStageOutputID *string, previousStageOutput *any, stage string, waitingForInput bool) {
+			onStageChange: func(
+				step step.RunningStep,
+				previousStage *string,
+				previousStageOutputID *string,
+				previousStageOutput *any,
+				stage string,
+				inputAvailable bool,
+				wg *sync.WaitGroup,
+			) {
 				waitingForInputText := ""
-				if waitingForInput {
+				if !inputAvailable {
 					waitingForInputText = " and is waiting for input"
 				}
-				e.logger.Debugf("Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
-				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput)
+				e.logger.Debugf("START Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
+				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput, wg)
+				e.logger.Debugf("DONE Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
 			},
-			onStepComplete: func(step step.RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any) {
+			onStepComplete: func(
+				step step.RunningStep,
+				previousStage string,
+				previousStageOutputID *string,
+				previousStageOutput *any,
+				wg *sync.WaitGroup,
+			) {
 				if previousStageOutputID != nil {
 					e.logger.Debugf("Step %s completed with stage '%s', output '%s'...", stepID, previousStage, *previousStageOutputID)
 				} else {
 					e.logger.Debugf("Step %s completed with stage '%s'...", stepID, previousStage)
 				}
-				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput)
+				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput, wg)
 			},
 		}
 		e.logger.Debugf("Launching step %s...", stepID)
-		runningStep, err := runnableStep.Start(e.stepRunData[stepID], stageHandler)
+		runningStep, err := runnableStep.Start(e.stepRunData[stepID], stepID, stageHandler)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to launch step %s (%w)", stepID, err)
 		}
 		l.runningSteps[stepID] = runningStep
 	}
+	l.lock.Unlock()
 	// Let's make sure we are closing all steps once this function terminates so we don't leave stuff running.
 	defer func() {
 		e.logger.Debugf("Terminating all steps...")
 		for stepID, runningStep := range l.runningSteps {
 			e.logger.Debugf("Terminating step %s...", stepID)
-			if err := runningStep.Close(); err != nil {
+			if err := runningStep.ForceClose(); err != nil {
 				panic(fmt.Errorf("failed to close step %s (%w)", stepID, err))
 			}
 		}
@@ -171,9 +191,10 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		}
 		return outputDataEntry.outputID, outputData, nil
 	case <-ctx.Done():
-		e.logger.Debugf("Workflow execution aborted. %s", l.lastError)
-		if l.lastError != nil {
-			return "", nil, l.lastError
+		lastErr := l.getLastError()
+		e.logger.Debugf("Workflow execution aborted. %s", lastErr)
+		if lastErr != nil {
+			return "", nil, lastErr
 		}
 		return "", nil, fmt.Errorf("workflow execution aborted (%w)", ctx.Err())
 	}
@@ -197,14 +218,42 @@ type loopState struct {
 	runningSteps      map[string]step.RunningStep
 	outputDataChannel chan outputDataType
 	outputDone        bool
-	lastError         error
+	recentErrors      chan error
 	cancel            context.CancelFunc
 	workflowContext   map[string][]byte
 }
 
-func (l *loopState) onStageComplete(stepID string, previousStage *string, previousStageOutputID *string, previousStageOutput *any) {
+// getLastError gathers the last errors. If there are several, it creates a new one that consolidates them.
+// This will read from the channel. Calling again will only gather new errors since the last call.
+func (l *loopState) getLastError() error {
+	var errors []error
+errGatherLoop:
+	for {
+		select {
+		case err := <-l.recentErrors:
+			errors = append(errors, err)
+		default:
+			break errGatherLoop // No more errors
+		}
+	}
+	switch len(errors) {
+	case 0:
+		return nil
+	case 1:
+		return errors[0]
+	default:
+		return fmt.Errorf("multiple errors: %v", errors)
+	}
+}
+
+func (l *loopState) onStageComplete(stepID string, previousStage *string, previousStageOutputID *string, previousStageOutput *any, wg *sync.WaitGroup) {
 	l.lock.Lock()
-	defer l.lock.Unlock()
+	defer func() {
+		if previousStage != nil {
+			l.checkForDeadlocks(3, wg)
+		}
+		l.lock.Unlock()
+	}()
 
 	if previousStage == nil {
 		return
@@ -212,13 +261,14 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 	stageNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, *previousStage))
 	if err != nil {
 		l.logger.Errorf("Failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
-		l.lastError = fmt.Errorf("failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+		l.recentErrors <- fmt.Errorf("failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
 		l.cancel()
 		return
 	}
+	l.logger.Debugf("Removed node '%s' from the DAG", stageNode.ID())
 	if err := stageNode.Remove(); err != nil {
 		l.logger.Errorf("Failed to remove stage node ID %s (%w)", stageNode.ID(), err)
-		l.lastError = fmt.Errorf("failed to remove stage node ID %s (%w)", stageNode.ID(), err)
+		l.recentErrors <- fmt.Errorf("failed to remove stage node ID %s (%w)", stageNode.ID(), err)
 		l.cancel()
 		return
 	}
@@ -226,13 +276,15 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		outputNode, err := l.dag.GetNodeByID(GetOutputNodeID(stepID, *previousStage, *previousStageOutputID))
 		if err != nil {
 			l.logger.Errorf("Failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
-			l.lastError = fmt.Errorf("failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+			l.recentErrors <- fmt.Errorf("failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
 			l.cancel()
 			return
 		}
+		// Removes the node from the DAG. This results in the nodes not having inbound connections, allowing them to be processed.
+		l.logger.Debugf("Removed node '%s' from the DAG", outputNode.ID())
 		if err := outputNode.Remove(); err != nil {
 			l.logger.Errorf("Failed to remove output node ID %s (%w)", outputNode.ID(), err)
-			l.lastError = fmt.Errorf("failed to remove output node ID %s (%w)", outputNode.ID(), err)
+			l.recentErrors <- fmt.Errorf("failed to remove output node ID %s (%w)", outputNode.ID(), err)
 			l.cancel()
 			return
 		}
@@ -257,7 +309,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 
 // notifySteps is a function we can call to go through all DAG nodes that have no inbound connections and
 // provide step inputs based on expressions.
-// The lock should be acquired when this is called.
+// The lock should be acquired by the caller before this is called.
 func (l *loopState) notifySteps() { //nolint:gocognit
 	// This function goes through the DAG and feeds the input to all steps that have no further inbound
 	// dependencies.
@@ -302,32 +354,32 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			// Tries to match the schema
 			if _, err := node.Item().DataSchema.Unserialize(untypedInputData); err != nil {
 				l.logger.Errorf("Bug: schema evaluation resulted in invalid data for %s (%v)", node.ID(), err)
-				l.lastError = fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
+				l.recentErrors <- fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
 				l.cancel()
 				return
 			}
 
 			// This check is here just to make sure it has the required fields set
-			if node.Item().StepID != "" && node.Item().StageID != "" {
-				stageInputData := untypedInputData.(map[any]any)
-				typedInputData := make(map[string]any, len(stageInputData))
-				for k, v := range stageInputData {
-					typedInputData[k.(string)] = v
-				}
-				// Sends it to the plugin
-				l.logger.Debugf("Providing stage input for %s...", nodeID)
-				if err := l.runningSteps[node.Item().StepID].ProvideStageInput(
-					node.Item().StageID,
-					typedInputData,
-				); err != nil {
-					l.logger.Errorf("Bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
-					l.lastError = fmt.Errorf("bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
-					l.cancel()
-					return
-				}
-			} else {
+			if node.Item().StepID == "" || node.Item().StageID == "" {
 				// This shouldn't happen
 				panic("Step or stage ID missing")
+			}
+
+			stageInputData := untypedInputData.(map[any]any)
+			typedInputData := make(map[string]any, len(stageInputData))
+			for k, v := range stageInputData {
+				typedInputData[k.(string)] = v
+			}
+			// Sends it to the plugin
+			l.logger.Debugf("Providing stage input for %s...", nodeID)
+			if err := l.runningSteps[node.Item().StepID].ProvideStageInput(
+				node.Item().StageID,
+				typedInputData,
+			); err != nil {
+				l.logger.Errorf("Bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
+				l.recentErrors <- fmt.Errorf("bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
+				l.cancel()
+				return
 			}
 		case DAGItemKindOutput:
 			// We have received enough data to construct the workflow output.
@@ -354,13 +406,25 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			}
 		}
 	}
-	// Here we make sure we don't have a deadlock.
+}
+
+type stateCounters struct {
+	starting              int
+	waitingWithInbound    int
+	waitingWithoutInbound int
+	running               int
+	finished              int
+}
+
+func (l *loopState) countStates() stateCounters {
 	counters := struct {
-		starting int
-		waiting  int
-		running  int
-		finished int
+		starting              int
+		waitingWithInbound    int
+		waitingWithoutInbound int
+		running               int
+		finished              int
 	}{
+		0,
 		0,
 		0,
 		0,
@@ -372,19 +436,24 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			counters.starting++
 			l.logger.Debugf("Step %s is currently starting.", stepID)
 		case step.RunningStepStateWaitingForInput:
-			counters.waiting++
-
 			connectionsMsg := ""
 			dagNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, runningStep.CurrentStage()))
 			switch {
 			case err != nil:
 				l.logger.Warningf("Failed to get DAG node for the debug message (%w)", err)
+				counters.waitingWithInbound++
 			case dagNode == nil:
 				l.logger.Warningf("Failed to get DAG node for the debug message. Returned nil", err)
+				counters.waitingWithInbound++
 			default:
 				inboundConnections, err := dagNode.ListInboundConnections()
 				if err != nil {
 					l.logger.Warningf("Error while listing inbound connections. (%w)", err)
+				}
+				if len(inboundConnections) > 0 {
+					counters.waitingWithInbound++
+				} else {
+					counters.waitingWithoutInbound++
 				}
 
 				i := 0
@@ -405,20 +474,38 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			l.logger.Debugf("Step %s is currently finished.", stepID)
 		}
 	}
+	return counters
+}
+
+func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
+	// Here we make sure we don't have a deadlock.
+	counters := l.countStates()
 	l.logger.Infof(
-		"There are currently %d steps starting, %d waiting for input, %d running, %d finished",
+		"There are currently %d steps starting, %d waiting for input, %d ready for input, %d running, %d finished",
 		counters.starting,
-		counters.waiting,
+		counters.waitingWithInbound,
+		counters.waitingWithoutInbound,
 		counters.running,
 		counters.finished,
 	)
-	if counters.starting == 0 && counters.running == 0 && !l.outputDone {
-		l.lastError = &ErrNoMorePossibleSteps{
-			l.dag,
+	if counters.starting == 0 && counters.running == 0 && counters.waitingWithoutInbound == 0 && !l.outputDone {
+		if retries <= 0 {
+			l.recentErrors <- &ErrNoMorePossibleSteps{
+				l.dag,
+			}
+			l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
+			l.cancel()
+		} else {
+			// Retry. There are times when all the steps are in a transition state.
+			// Retrying will delay the check until after they are done with the transition.
+			l.logger.Warningf("No running steps. Rechecking...")
+			wg.Add(1)
+			go func() {
+				time.Sleep(5 * time.Millisecond)
+				l.checkForDeadlocks(retries-1, wg)
+				wg.Done()
+			}()
 		}
-		l.logger.Errorf("%v", l.lastError)
-		l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
-		l.cancel()
 	}
 }
 
@@ -459,15 +546,44 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 	}
 }
 
+// stageChangeHandler is implementing step.StageChangeHandler.
 type stageChangeHandler struct {
-	onStageChange  func(step step.RunningStep, previousStage *string, previousStageOutputID *string, previousStageOutput *any, stage string, waitingForInput bool)
-	onStepComplete func(step step.RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any)
+	onStageChange func(
+		step step.RunningStep,
+		previousStage *string,
+		previousStageOutputID *string,
+		previousStageOutput *any,
+		stage string,
+		waitingForInput bool,
+		wg *sync.WaitGroup,
+	)
+	onStepComplete func(
+		step step.RunningStep,
+		previousStage string,
+		previousStageOutputID *string,
+		previousStageOutput *any,
+		wg *sync.WaitGroup,
+	)
 }
 
-func (s stageChangeHandler) OnStageChange(step step.RunningStep, previousStage *string, previousStageOutputID *string, previousStageOutput *any, stage string, waitingForInput bool) {
-	s.onStageChange(step, previousStage, previousStageOutputID, previousStageOutput, stage, waitingForInput)
+func (s stageChangeHandler) OnStageChange(
+	step step.RunningStep,
+	previousStage *string,
+	previousStageOutputID *string,
+	previousStageOutput *any,
+	stage string,
+	waitingForInput bool,
+	wg *sync.WaitGroup,
+) {
+	s.onStageChange(step, previousStage, previousStageOutputID, previousStageOutput, stage, waitingForInput, wg)
 }
 
-func (s stageChangeHandler) OnStepComplete(step step.RunningStep, previousStage string, previousStageOutputID *string, previousStageOutput *any) {
-	s.onStepComplete(step, previousStage, previousStageOutputID, previousStageOutput)
+func (s stageChangeHandler) OnStepComplete(
+	step step.RunningStep,
+	previousStage string,
+	previousStageOutputID *string,
+	previousStageOutput *any,
+	wg *sync.WaitGroup,
+) {
+	s.onStepComplete(step, previousStage, previousStageOutputID, previousStageOutput, wg)
 }

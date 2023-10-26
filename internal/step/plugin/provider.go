@@ -3,8 +3,11 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/pluginsdk/plugin"
+	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	log "go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/deployer"
@@ -28,12 +31,12 @@ func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
 	}
-	localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger)
+	localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid local deployer configuration, please check your Arcaflow configuration file (%w)", err)
 	}
 	return &pluginProvider{
-		logger:           logger,
+		logger:           logger.WithLabel("source", "plugin-provider"),
 		deployerRegistry: deployerRegistry,
 		localDeployer:    localDeployer,
 	}, nil
@@ -166,6 +169,7 @@ var crashedLifecycleStage = step.LifecycleStage{
 	FinishedName: "crashed",
 }
 
+// Lifecycle returns a lifecycle that contains all plugin lifecycle stages.
 func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	return step.Lifecycle[step.LifecycleStage]{
 		InitialStage: string(StageIDDeploy),
@@ -181,11 +185,14 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 	}
 }
 
+// LoadSchema deploys the plugin, connects to the plugin's ATP server, loads its schema, then
+// returns a runnableStep struct. Not to be confused with the runningStep struct.
 func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) (step.RunnableStep, error) {
 	image := inputs["plugin"].(string)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	plugin, err := p.localDeployer.Deploy(ctx, image)
 	if err != nil {
 		cancel()
@@ -199,13 +206,17 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 		cancel()
 		return nil, fmt.Errorf("failed to read plugin schema from %s (%w)", image, err)
 	}
+	// Tell the server that the client is done
+	if err := transport.Close(); err != nil {
+		return nil, fmt.Errorf("failed to instruct client to shut down image %s (%w)", image, err)
+	}
 	// Shut down the plugin.
 	if err := plugin.Close(); err != nil {
 		return nil, fmt.Errorf("failed to shut down local plugin from %s (%w)", image, err)
 	}
 
 	return &runnableStep{
-		schemas:          s,
+		schemas:          *s,
 		logger:           p.logger,
 		image:            image,
 		deployerRegistry: p.deployerRegistry,
@@ -217,7 +228,7 @@ type runnableStep struct {
 	image            string
 	deployerRegistry registry.Registry
 	logger           log.Logger
-	schemas          schema.Schema[schema.Step]
+	schemas          schema.SchemaSchema
 	localDeployer    deployer.Connector
 }
 
@@ -261,6 +272,32 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 	if !ok {
 		return result, fmt.Errorf("the step '%s' does not exist in the '%s' plugin", stepID, r.image)
 	}
+
+	stopIfProperty := schema.NewPropertySchema(
+		schema.NewAnySchema(),
+		schema.NewDisplayValue(
+			schema.PointerTo("Stop condition"),
+			schema.PointerTo("If this field is filled with a non-false value, the step is cancelled (even if currently executing)."),
+			nil,
+		),
+		false,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	// Now validate that the step's internal dependencies can be resolved (like stop_if's dependency on the cancel signal)
+	cancelSignal := stepSchema.SignalHandlers()[plugin.CancellationSignalSchema.ID()]
+	if cancelSignal == nil {
+		// Not present
+		stopIfProperty.Disable(fmt.Sprintf("Cancel signal with ID '%s' is not present in plugin image '%s', step '%s'. Signal handler IDs present: %v",
+			plugin.CancellationSignalSchema.ID(), r.image, stepID, reflect.ValueOf(stepSchema.SignalHandlers()).MapKeys()))
+	} else if err := plugin.CancellationSignalSchema.DataSchemaValue.ValidateCompatibility(cancelSignal.DataSchemaValue); err != nil {
+		// Present but incompatible
+		stopIfProperty.Disable(fmt.Sprintf("Cancel signal invalid schema in plugin image '%s', step '%s' (%s)", r.image, stepID, err))
+	}
+
 	return step.Lifecycle[step.LifecycleStageWithSchema]{
 		InitialStage: "deploying",
 		Stages: []step.LifecycleStageWithSchema{
@@ -350,20 +387,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 			{
 				LifecycleStage: cancelledLifecycleStage,
 				InputSchema: map[string]*schema.PropertySchema{
-					"stop_if": schema.NewPropertySchema(
-						schema.NewAnySchema(),
-						schema.NewDisplayValue(
-							schema.PointerTo("Stop condition"),
-							schema.PointerTo("If this field is filled with a non-false value, the step is cancelled (even if currently executing)."),
-							nil,
-						),
-						false,
-						nil,
-						nil,
-						nil,
-						nil,
-						nil,
-					),
+					"stop_if": stopIfProperty,
 				},
 				Outputs: nil,
 			},
@@ -403,7 +427,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 	}, nil
 }
 
-func (r *runnableStep) Start(input map[string]any, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
+func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHandler step.StageChangeHandler) (step.RunningStep, error) {
 	rawStep, ok := input["step"]
 	stepID := ""
 	if ok && rawStep != nil {
@@ -448,15 +472,17 @@ func (r *runnableStep) Start(input map[string]any, stageChangeHandler step.Stage
 		lock:               &sync.Mutex{},
 		ctx:                ctx,
 		cancel:             cancel,
-		done:               make(chan struct{}),
 		deployInput:        make(chan any, 1),
 		runInput:           make(chan any, 1),
 		logger:             r.logger,
 		image:              r.image,
-		step:               stepID,
+		pluginStepID:       stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
-		executionChannel:   make(chan executionResult),
+		executionChannel:   make(chan atp.ExecutionResult),
+		signalToStep:       make(chan schema.Input),
+		signalFromStep:     make(chan schema.Input),
+		runID:              runID,
 	}
 
 	go s.run()
@@ -469,34 +495,43 @@ type runningStep struct {
 	stepSchema           schema.Step
 	stageChangeHandler   step.StageChangeHandler
 	lock                 *sync.Mutex
+	wg                   sync.WaitGroup
 	ctx                  context.Context
 	cancel               context.CancelFunc
-	done                 chan struct{}
+	atpClient            atp.Client
 	deployInput          chan any
 	deployInputAvailable bool
 	runInput             chan any
 	runInputAvailable    bool
 	logger               log.Logger
 	currentStage         StageID
+	runID                string // The ID associated with this execution (the workflow step ID)
 	image                string
-	step                 string
+	pluginStepID         string // The ID of the step in the plugin
 	state                step.RunningStepState
 	useLocalDeployer     bool
 	localDeployer        deployer.Connector
 	container            deployer.Plugin
-	executionChannel     chan executionResult
+	executionChannel     chan atp.ExecutionResult
+	signalToStep         chan schema.Input // Communicates with the ATP client, not other steps.
+	signalFromStep       chan schema.Input // Communicates with the ATP client, not other steps.
+	closed               bool
+	// Store channels for sending pre-calculated signal outputs to other steps?
+	// Store channels for receiving pre-calculated signal inputs from other steps?
 }
 
 func (r *runningStep) CurrentStage() string {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	return string(r.currentStage)
+	tempStage := string(r.currentStage)
+	return tempStage
 }
 
 func (r *runningStep) State() step.RunningStepState {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	return r.state
+	tempState := r.state
+	return tempState
 }
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {
@@ -504,104 +539,173 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 	// affect the counting of step states in the workflow's Execute function
 	// and notifySteps function.
 	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.logger.Debugf("ProvideStageInput START")
+	defer r.logger.Debugf("ProvideStageInput END")
 
-	// Checks which stage it is getting input for
+	// Checks which stage it is getting input for, and handles it.
 	switch stage {
 	case string(StageIDDeploy):
-		// input provided on this call overwrites the deployer configuration
-		// set at this plugin provider's instantiation
-		if r.deployInputAvailable {
-			r.lock.Unlock()
-			return fmt.Errorf("deployment information provided more than once")
-		}
-		var unserializedDeployerConfig any
-		var err error
-		if input["deploy"] != nil {
-			unserializedDeployerConfig, err = r.deployerRegistry.Schema().Unserialize(input["deploy"])
-			if err != nil {
-				r.lock.Unlock()
-				return fmt.Errorf("invalid deployment information (%w)", err)
-			}
-		} else {
-			r.useLocalDeployer = true
-		}
-		// Make sure we transition the state before unlocking so there are no race conditions.
-
-		r.deployInputAvailable = true
-		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
-			r.state = step.RunningStepStateRunning
-		}
-		r.lock.Unlock()
-		// Feed the deploy step its input.
-		r.deployInput <- unserializedDeployerConfig
-		return nil
+		return r.provideDeployInput(input)
 	case string(StageIDStarting):
-		if r.runInputAvailable {
-			r.lock.Unlock()
-			return fmt.Errorf("input provided more than once")
-		}
-		if input["input"] == nil {
-			r.lock.Unlock()
-			return fmt.Errorf("bug: invalid input for 'running' stage, expected 'input' field")
-		}
-		if _, err := r.stepSchema.Input().Unserialize(input["input"]); err != nil {
-			r.lock.Unlock()
-			return err
-		}
-		// Make sure we transition the state before unlocking so there are no race conditions.
-		r.runInputAvailable = true
-		if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDStarting {
-			r.state = step.RunningStepStateRunning
-		}
-		// Unlock before passing the data over the channel to prevent a deadlock.
-		// The other end of the channel needs to be unlocked to read the data.
-		r.lock.Unlock()
-		// Feed the run step its input over the channel.
-		r.runInput <- input["input"]
-		return nil
+		return r.provideStartingInput(input)
 	case string(StageIDRunning):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDCancelled):
-		if input["stop_if"] != false && input["stop_if"] != nil {
-			r.logger.Infof("Cancelling step %s", r.step)
-			r.cancel() // This should cancel the plugin deployment or execution.
-		}
-		r.lock.Unlock()
-		return nil
+		return r.provideCancelledInput(input)
 	case string(StageIDDeployFailed):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDCrashed):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDOutput):
-		r.lock.Unlock()
 		return nil
 	default:
-		r.lock.Unlock()
 		return fmt.Errorf("bug: invalid stage: %s", stage)
 	}
 }
 
+func (r *runningStep) provideDeployInput(input map[string]any) error {
+	// Note: The calling function must have the step mutex locked
+	// input provided on this call overwrites the deployer configuration
+	// set at this plugin provider's instantiation
+	if r.deployInputAvailable {
+		return fmt.Errorf("deployment information provided more than once")
+	}
+	var unserializedDeployerConfig any
+	var err error
+	if input["deploy"] != nil {
+		unserializedDeployerConfig, err = r.deployerRegistry.Schema().Unserialize(input["deploy"])
+		if err != nil {
+			return fmt.Errorf("invalid deployment information (%w)", err)
+		}
+	} else {
+		r.useLocalDeployer = true
+	}
+	// Make sure we transition the state before unlocking so there are no race conditions.
+
+	r.deployInputAvailable = true
+	if r.state == step.RunningStepStateWaitingForInput && r.currentStage == StageIDDeploy {
+		r.state = step.RunningStepStateRunning
+	}
+
+	// Feed the deploy step its input.
+	select {
+	case r.deployInput <- unserializedDeployerConfig:
+	default:
+		return fmt.Errorf("unable to provide input to deploy stage for step %s/%s", r.runID, r.pluginStepID)
+	}
+	return nil
+}
+
+func (r *runningStep) provideStartingInput(input map[string]any) error {
+	// Note: The calling function must have the step mutex locked
+	if r.runInputAvailable {
+		return fmt.Errorf("input provided more than once")
+	}
+	// Ensure input is given
+	if input["input"] == nil {
+		return fmt.Errorf("bug: invalid input for 'running' stage, expected 'input' field")
+	}
+	// Validate the input by unserializing it
+	if _, err := r.stepSchema.Input().Unserialize(input["input"]); err != nil {
+		return err
+	}
+	// Make sure we transition the state before unlocking so there are no race conditions.
+	r.runInputAvailable = true
+
+	// Unlock before passing the data over the channel to prevent a deadlock.
+	// The other end of the channel needs to be unlocked to read the data.
+
+	// Feed the run step its input over the channel.
+	select {
+	case r.runInput <- input["input"]:
+	default:
+		return fmt.Errorf("unable to provide input to run stage for step %s/%s", r.runID, r.pluginStepID)
+	}
+	return nil
+}
+
+func (r *runningStep) provideCancelledInput(input map[string]any) error {
+	// Note: The calling function must have the step mutex locked
+	// Cancel if the step field is present and isn't false
+	if input["stop_if"] != false && input["stop_if"] != nil {
+		r.cancelStep()
+	}
+	return nil
+}
+
+// cancelStep gracefully requests cancellation for any stage.
+// If running, it sends a cancel signal if the plugin supports it.
+func (r *runningStep) cancelStep() {
+	r.logger.Infof("Cancelling step %s/%s", r.runID, r.pluginStepID)
+	// We only need to call the signal if the step is running.
+	// If it isn't, cancelling the context alone should be enough.
+	if r.currentStage == StageIDRunning {
+		// Verify that the step has a cancel signal
+		cancelSignal := r.stepSchema.SignalHandlers()[plugin.CancellationSignalSchema.ID()]
+		if cancelSignal == nil {
+			r.logger.Errorf("could not cancel step %s/%s. Does not contain cancel signal receiver.", r.runID, r.pluginStepID)
+		} else if err := plugin.CancellationSignalSchema.DataSchema().ValidateCompatibility(cancelSignal.DataSchema()); err != nil {
+			r.logger.Errorf("validation failed for cancel signal for step %s/%s: %s", r.runID, r.pluginStepID, err)
+		} else {
+			// Validated. Now call the signal.
+			r.signalToStep <- schema.Input{RunID: r.runID, ID: cancelSignal.ID(), InputData: map[any]any{}}
+		}
+	}
+	// Now cancel the context to stop the non-running parts of the step
+	r.cancel()
+}
+
+// ForceClose closes the step without waiting for a graceful shutdown of the ATP client.
+// Warning: This means that it won't wait for the ATP client to finish. This is okay if using a deployer that
+// will stop execution once the deployer closes it.
+func (r *runningStep) ForceClose() error {
+	err := r.closeComponents(false)
+	// Wait for the run to finish to ensure that it's not running after closing.
+	r.wg.Wait()
+	r.closed = true
+	r.logger.Warningf("Step %s/%s force closed.", r.runID, r.pluginStepID)
+	return err
+}
+
 func (r *runningStep) Close() error {
+	err := r.closeComponents(true)
+	// Wait for the run to finish to ensure that it's not running after closing.
+	r.wg.Wait()
+	r.closed = true
+	return err
+}
+
+func (r *runningStep) closeComponents(closeATP bool) error {
 	r.cancel()
 	r.lock.Lock()
+	if r.closed {
+		return nil // Already closed
+	}
+	var atpErr error
+	var containerErr error
+	if r.atpClient != nil && closeATP {
+		atpErr = r.atpClient.Close()
+	}
 	if r.container != nil {
-		if err := r.container.Close(); err != nil {
-			return fmt.Errorf("failed to stop container (%w)", err)
-		}
+		containerErr = r.container.Close()
 	}
 	r.container = nil
 	r.lock.Unlock()
-	<-r.done
+	if containerErr != nil {
+		return fmt.Errorf("error while stopping container (%w)", containerErr)
+	} else if atpErr != nil {
+		return fmt.Errorf("error while stopping atp client (%w)", atpErr)
+		// Do not wait in this case. It may never get resolved.
+	}
 	return nil
 }
 
 func (r *runningStep) run() {
+	r.wg.Add(1) // Wait for the run to finish before closing.
 	defer func() {
-		r.cancel()
-		close(r.done)
+		r.cancel()  // Close before WaitGroup done
+		r.wg.Done() // Done. Close may now exit.
 	}()
 	container, err := r.deployStage()
 	if err != nil {
@@ -612,7 +716,7 @@ func (r *runningStep) run() {
 	select {
 	case <-r.ctx.Done():
 		if err := container.Close(); err != nil {
-			r.logger.Warningf("failed to remove deployed container for step %s", r.step)
+			r.logger.Warningf("failed to remove deployed container for step %s/%s", r.runID, r.pluginStepID)
 		}
 		r.lock.Unlock()
 		return
@@ -620,6 +724,7 @@ func (r *runningStep) run() {
 		r.container = container
 	}
 	r.lock.Unlock()
+	r.logger.Debugf("Successfully deployed container with ID '%s' for step %s/%s", container.ID(), r.runID, r.pluginStepID)
 	if err := r.startStage(container); err != nil {
 		r.startFailed(err)
 		return
@@ -630,12 +735,9 @@ func (r *runningStep) run() {
 }
 
 func (r *runningStep) deployStage() (deployer.Plugin, error) {
+	r.logger.Debugf("Deploying stage for step %s/%s", r.runID, r.pluginStepID)
 	r.lock.Lock()
-	if !r.deployInputAvailable {
-		r.state = step.RunningStepStateWaitingForInput
-	} else {
-		r.state = step.RunningStepStateRunning
-	}
+	r.state = step.RunningStepStateRunning
 	deployInputAvailable := r.deployInputAvailable
 	r.lock.Unlock()
 
@@ -646,24 +748,39 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 		nil,
 		string(StageIDDeploy),
 		deployInputAvailable,
+		&r.wg,
 	)
 
 	var deployerConfig any
 	var useLocalDeployer bool
+	// First, non-blocking retrieval
 	select {
 	case deployerConfig = <-r.deployInput:
 		r.lock.Lock()
 		r.state = step.RunningStepStateRunning
-		useLocalDeployer = r.useLocalDeployer
 		r.lock.Unlock()
-	case <-r.ctx.Done():
-		return nil, fmt.Errorf("step closed before deployment config could be obtained")
+	default: // Default, so it doesn't block on this receive
+		// It's waiting now.
+		r.lock.Lock()
+		r.state = step.RunningStepStateWaitingForInput
+		r.lock.Unlock()
+		select {
+		case deployerConfig = <-r.deployInput:
+			r.lock.Lock()
+			r.state = step.RunningStepStateRunning
+			r.lock.Unlock()
+		case <-r.ctx.Done():
+			return nil, fmt.Errorf("step closed before deployment config could be obtained")
+		}
 	}
+	r.lock.Lock()
+	useLocalDeployer = r.useLocalDeployer
+	r.lock.Unlock()
 
 	var stepDeployer = r.localDeployer
 	if !useLocalDeployer {
 		var err error
-		stepDeployer, err = r.deployerRegistry.Create(deployerConfig, r.logger)
+		stepDeployer, err = r.deployerRegistry.Create(deployerConfig, r.logger.WithLabel("source", "deployer"))
 		if err != nil {
 			return nil, err
 		}
@@ -675,22 +792,23 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	return container, nil
 }
 
-type executionResult struct {
-	outputID   string
-	outputData any
-	err        error
-}
-
 func (r *runningStep) startStage(container deployer.Plugin) error {
+	r.logger.Debugf("Starting stage for step %s/%s", r.runID, r.pluginStepID)
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDStarting
+	inputRecievedEarly := false
 
-	if !r.runInputAvailable {
-		r.state = step.RunningStepStateWaitingForInput
-	} else {
+	var runInput any
+	select {
+	case runInput = <-r.runInput:
+		// Good. It received it immediately.
 		r.state = step.RunningStepStateRunning
+		inputRecievedEarly = true
+	default: // The default makes it not wait.
+		r.state = step.RunningStepStateWaitingForInput
 	}
+
 	runInputAvailable := r.runInputAvailable
 	r.lock.Unlock()
 
@@ -701,215 +819,178 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 		nil,
 		string(StageIDStarting),
 		runInputAvailable,
+		&r.wg,
 	)
 
 	r.lock.Lock()
 	r.currentStage = StageIDStarting
-	r.state = step.RunningStepStateWaitingForInput
+	r.logger.Debugf("Waiting for input state while starting 2.")
 	r.lock.Unlock()
 
-	var runInput any
-	select {
-	case runInput = <-r.runInput:
+	// First, try to non-blocking retrieve the runInput.
+	// If not yet available, set to state waiting for input and do a blocking receive.
+	// If it is available, continue.
+	if !inputRecievedEarly {
+		// Input is not yet available. Now waiting.
 		r.lock.Lock()
-		r.state = step.RunningStepStateRunning
+		if r.state != step.RunningStepStateWaitingForInput {
+			r.logger.Warningf("State not waiting for input when receiving from channel.")
+		}
 		r.lock.Unlock()
-	case <-r.ctx.Done():
-		return fmt.Errorf("step closed while waiting for run configuration")
-	}
-	atpClient := atp.NewClientWithLogger(container, r.logger)
 
-	inputSchema, err := atpClient.ReadSchema()
+		// Do a blocking wait for input now.
+		select {
+		case runInput = <-r.runInput:
+			r.lock.Lock()
+			r.state = step.RunningStepStateRunning
+			r.lock.Unlock()
+		case <-r.ctx.Done():
+			return fmt.Errorf("step closed while waiting for run configuration")
+		}
+	}
+	r.atpClient = atp.NewClientWithLogger(container, r.logger)
+
+	inputSchema, err := r.atpClient.ReadSchema()
 	if err != nil {
 		return err
 	}
 	steps := inputSchema.Steps()
-	stepSchema, ok := steps[r.step]
+	stepSchema, ok := steps[r.pluginStepID]
 	if !ok {
-		return fmt.Errorf("schema mismatch between local and remote deployed plugin, no stepSchema named %s found in remote", r.step)
+		return fmt.Errorf("error in run step %s: schema mismatch between local and remote deployed plugin, no stepSchema named %s found in remote", r.runID, r.pluginStepID)
 	}
+	// Re-verify input. This should have also been done earlier.
 	if _, err := stepSchema.Input().Unserialize(runInput); err != nil {
-		return fmt.Errorf("schema mismatch between local and remote deployed plugin, unserializing input failed (%w)", err)
+		return fmt.Errorf("schema mismatch between local and remote deployed plugin in step %s/%s, unserializing input failed (%w)", r.runID, r.pluginStepID, err)
 	}
 
-	// Runs the ATP client in a goroutine in order to wait for it or context done.
-	// On context done, the deployer tries to end execution. That will shut down
-	// (with sigterm) the container. Then wait for output, or error out.
+	// Runs the ATP client in a goroutine in order to wait for it.
+	// On context done, the deployer has 30 seconds before it will error out.
 	go func() {
-		outputID, outputData, err := atpClient.Execute(r.step, runInput)
-		r.executionChannel <- executionResult{outputID, outputData, err}
+		result := r.atpClient.Execute(
+			schema.Input{RunID: r.runID, ID: r.pluginStepID, InputData: runInput},
+			r.signalToStep,
+			r.signalFromStep,
+		)
+		r.executionChannel <- result
+		if err = r.atpClient.Close(); err != nil {
+			r.logger.Warningf("Error while closing ATP client: %s", err)
+		}
 	}()
 	return nil
 }
 
 func (r *runningStep) runStage() error {
-	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDRunning
-	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
+	r.logger.Debugf("Running stage for step %s/%s", r.runID, r.pluginStepID)
+	r.transitionStage(StageIDRunning, step.RunningStepStateRunning)
 
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(StageIDRunning),
-		false,
-	)
-
-	var result executionResult
+	var result atp.ExecutionResult
 	select {
 	case result = <-r.executionChannel:
-		if result.err != nil {
-			return result.err
+		if result.Error != nil {
+			return result.Error
 		}
 	case <-r.ctx.Done():
-		// In this case, it is being instructed to stop.
+		// In this case, it is being instructed to stop. A signal should have been sent.
 		// Shutdown (with sigterm) the container, then wait for the output (valid or error).
-		r.logger.Debugf("Running step context done before step run complete. Cancelling and waiting for result.")
-		r.cancel()
-		// If necessary, you can add a timeout here for shutdowns that take too long.
-		result = <-r.executionChannel
+		r.logger.Debugf("Got step context done before step run complete. Waiting up to 30 seconds for result.")
+		select {
+		case result = <-r.executionChannel:
+			// Successfully stopped before end of timeout.
+		case <-time.After(time.Duration(30) * time.Second):
+			r.logger.Warningf("Step %s/%s did not complete within the 30 second time limit. Force closing container.",
+				r.runID, r.pluginStepID)
+			if err := r.ForceClose(); err != nil {
+				r.logger.Warningf("Error in step %s/%s while closing plugin container (%w)", r.runID, r.pluginStepID, err)
+			}
+		}
+
 	}
 
-	// Execution complete, move to finished stage.
-	r.lock.Lock()
-	// Be careful that everything here is set correctly.
-	// Else it will cause undesired behavior.
-	previousStage = string(r.currentStage)
-	r.currentStage = StageIDOutput
-	// First running, then state change, then finished.
-	// This is so it properly steps through all the stages it needs to.
-	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(r.currentStage),
-		false)
-
-	r.lock.Lock()
-	r.state = step.RunningStepStateFinished
-	r.lock.Unlock()
-	r.stageChangeHandler.OnStepComplete(
-		r,
-		string(r.currentStage),
-		&result.outputID,
-		&result.outputData,
-	)
+	// Execution complete, move to state running stage outputs, then to state finished stage.
+	r.transitionStage(StageIDOutput, step.RunningStepStateRunning)
+	r.completeStage(r.currentStage, step.RunningStepStateFinished, &result.OutputID, &result.OutputData)
 
 	return nil
 }
 
 func (r *runningStep) deployFailed(err error) {
-	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDDeployFailed
-	// Don't forget to update this, or else it will behave very oddly.
-	// First running, then finished. You can't skip states.
-	r.state = step.RunningStepStateRunning
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(StageIDDeployFailed),
-		false,
-	)
-	r.logger.Warningf("Plugin %s deploy failed. %v", r.step, err)
+	r.logger.Debugf("Deploy failed stage for step %s/%s", r.runID, r.pluginStepID)
+	r.transitionStage(StageIDDeployFailed, step.RunningStepStateRunning)
+	r.logger.Warningf("Plugin step %s/%s deploy failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
-	r.lock.Lock()
-	r.currentStage = StageIDDeployFailed
-	r.state = step.RunningStepStateFinished
-	r.lock.Unlock()
-
 	outputID := errorStr
 	output := any(DeployFailed{
 		Error: err.Error(),
 	})
-	r.stageChangeHandler.OnStepComplete(
-		r,
-		string(r.currentStage),
-		&outputID,
-		&output,
-	)
+	r.completeStage(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
 }
 
 func (r *runningStep) startFailed(err error) {
-	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDCrashed
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(r.currentStage),
-		false)
-	r.logger.Warningf("Plugin step %s start failed. %v", r.step, err)
+	r.logger.Debugf("Start failed stage for step %s/%s", r.runID, r.pluginStepID)
+	r.transitionStage(StageIDCrashed, step.RunningStepStateRunning)
+	r.logger.Warningf("Plugin step %s/%s start failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
-	r.lock.Lock()
-	r.currentStage = StageIDCrashed
-	r.state = step.RunningStepStateFinished
-	r.lock.Unlock()
-
 	outputID := errorStr
 	output := any(Crashed{
 		Output: err.Error(),
 	})
-	r.stageChangeHandler.OnStepComplete(
-		r,
-		string(r.currentStage),
-		&outputID,
-		&output,
-	)
+
+	r.completeStage(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
 }
 
 func (r *runningStep) runFailed(err error) {
+	r.logger.Debugf("Run failed stage for step %s/%s", r.runID, r.pluginStepID)
+	r.transitionStage(StageIDCrashed, step.RunningStepStateRunning)
+	r.logger.Warningf("Plugin step %s/%s run failed. %v", r.runID, r.pluginStepID, err)
+
+	// Now it's done.
+	outputID := errorStr
+	output := any(Crashed{
+		Output: err.Error(),
+	})
+	r.completeStage(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
+}
+
+// TransitionStage transitions the stage to the specified stage, and the state to the specified state.
+//
+//nolint:unparam
+func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepState) {
 	// A current lack of observability into the atp client prevents
 	// non-fragile testing of this function.
-
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
-	r.currentStage = StageIDCrashed
+	r.currentStage = newStage
 	// Don't forget to update this, or else it will behave very oddly.
-	// First running, then finished. You can't skip states.	r.state = step.RunningStepStateRunning
+	// First running, then finished. You can't skip states.
+	r.state = state
 	r.lock.Unlock()
-
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
 		nil,
 		nil,
-		string(r.currentStage),
-		false)
+		string(newStage),
+		false,
+		&r.wg,
+	)
+}
 
-	r.logger.Warningf("Plugin step %s run failed. %v", r.step, err)
-
-	// Now it's done.
+//nolint:unparam
+func (r *runningStep) completeStage(currentStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	r.lock.Lock()
-	r.currentStage = StageIDCrashed
-	r.state = step.RunningStepStateFinished
+	previousStage := string(r.currentStage)
+	r.currentStage = currentStage
+	r.state = state
 	r.lock.Unlock()
 
-	outputID := errorStr
-	output := any(Crashed{
-		Output: err.Error(),
-	})
 	r.stageChangeHandler.OnStepComplete(
 		r,
-		string(r.currentStage),
-		&outputID,
-		&output,
+		previousStage,
+		outputID,
+		previousStageOutput,
+		&r.wg,
 	)
 }

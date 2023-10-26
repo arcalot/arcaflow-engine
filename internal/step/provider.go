@@ -2,6 +2,7 @@ package step
 
 import (
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"sync"
 )
 
 // Provider is the description of an item that fits in a workflow. Its implementation provide the
@@ -42,7 +43,8 @@ type StageChangeHandler interface {
 		previousStageOutputID *string,
 		previousStageOutput *any,
 		newStage string,
-		waitingForInput bool,
+		inputAvailable bool,
+		wg *sync.WaitGroup,
 	)
 
 	// OnStepComplete is called when the step has completed a final stage in its lifecycle and communicates the output.
@@ -52,6 +54,7 @@ type StageChangeHandler interface {
 		previousStage string,
 		previousStageOutputID *string,
 		previousStageOutput *any,
+		wg *sync.WaitGroup,
 	)
 }
 
@@ -67,6 +70,7 @@ type RunnableStep interface {
 	// match the RunSchema.
 	Start(
 		input map[string]any,
+		runID string,
 		stageChangeHandler StageChangeHandler,
 	) (RunningStep, error)
 }
@@ -81,7 +85,7 @@ const (
 	RunningStepStateWaitingForInput RunningStepState = "waiting_for_input"
 	// RunningStepStateRunning indicates that the step is working.
 	RunningStepStateRunning RunningStepState = "running"
-	// RunningStepStateFinished indicates that the step has finished.
+	// RunningStepStateFinished indicates that the step has finished, including failure cases.
 	RunningStepStateFinished RunningStepState = "finished"
 )
 
@@ -97,4 +101,6 @@ type RunningStep interface {
 	State() RunningStepState
 	// Close shuts down the step and cleans up the resources associated with the step.
 	Close() error
+	// ForceClose shuts down the step forcefully.
+	ForceClose() error
 }
