@@ -66,13 +66,83 @@ type pluginProvider struct {
 func (p *pluginProvider) Register(_ step.Registry) {
 }
 
+var DeploymentTypes = map[string]struct{}{
+	"image":  struct{}{},
+	"python": struct{}{},
+}
+
+func KeysString(m map[string]struct{}) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return "[" + strings.Join(keys, ", ") + "]"
+}
+
+type Plugin struct {
+	Src  string
+	Type string
+}
+
+//func (p *pluginProvider) ProviderSchema() *schema.TypedScopeSchema[*Plugin] {
+//	return schema.NewTypedScopeSchema[*Plugin](
+//		schema.NewStructMappedObjectSchema[*Plugin](
+//			"Plugin",
+//			map[string]*schema.PropertySchema{
+//				"src": schema.NewPropertySchema(
+//					schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
+//					schema.NewDisplayValue(
+//						schema.PointerTo("Source"),
+//						schema.PointerTo("Source file to be executed."), nil),
+//					true,
+//					nil,
+//					nil,
+//					nil,
+//					nil,
+//					[]string{"\"quay.io/arcaflow/example-plugin:latest\""},
+//				),
+//				"type": schema.NewPropertySchema(
+//					schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
+//					schema.NewDisplayValue(
+//						schema.PointerTo("Type"),
+//						schema.PointerTo(
+//							fmt.Sprintf("Deployment type %s",
+//								fmt.Sprintf(KeysString(DeploymentTypes)))),
+//						nil,
+//					),
+//					true,
+//					nil,
+//					nil,
+//					nil,
+//					nil,
+//					[]string{"docker"},
+//				),
+//			},
+//		),
+//	)
+//}
+
 func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 	return map[string]*schema.PropertySchema{
-		"plugin": schema.NewPropertySchema(
+		"src": schema.NewPropertySchema(
 			schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
 			schema.NewDisplayValue(
-				schema.PointerTo("Plugin"),
-				schema.PointerTo("Plugin container image to run. This image must be an Arcaflow-compatible container."),
+				schema.PointerTo("Source"),
+				schema.PointerTo("Source file to be executed."), nil),
+			true,
+			nil,
+			nil,
+			nil,
+			nil,
+			[]string{"\"quay.io/arcaflow/example-plugin:latest\""},
+		),
+		"type": schema.NewPropertySchema(
+			schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
+			schema.NewDisplayValue(
+				schema.PointerTo("Type"),
+				schema.PointerTo(
+					fmt.Sprintf("Deployment type %s",
+						fmt.Sprintf(KeysString(DeploymentTypes)))),
 				nil,
 			),
 			true,
@@ -80,7 +150,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 			nil,
 			nil,
 			nil,
-			[]string{"\"quay.io/arcaflow/example-plugin:latest\""},
+			[]string{"docker"},
 		),
 	}
 }

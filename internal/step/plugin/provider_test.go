@@ -135,7 +135,8 @@ func TestProvider_Utility(t *testing.T) {
 	stepSchema := map[string]any{
 		"plugin": map[string]string{
 			"src":  "simulation",
-			"type": "image"},
+			"type": "image",
+		},
 	}
 	byteSchema := map[string][]byte{}
 
