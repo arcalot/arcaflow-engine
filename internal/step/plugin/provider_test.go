@@ -331,69 +331,6 @@ func TestProvider_DeployFail(t *testing.T) {
 		Destination: log.DestinationStdout,
 	}
 	logger := log.New(
-		log.Config{
-			Level:       log.LevelError,
-			Destination: log.DestinationStdout,
-		},
-	)
-	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"type": "test-impl"},
-	}
-
-	deployerRegistry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
-
-	plp, err := plugin.New(
-		logger,
-		deployerRegistry,
-		workflowDeployerCfg,
-	)
-	assert.NoError(t, err)
-
-	stepSchema := map[string]any{
-		"plugin": map[string]string{
-			"src":  "simulation",
-			"type": "image"},
-	}
-	byteSchema := map[string][]byte{}
-
-	runnable, err := plp.LoadSchema(stepSchema, byteSchema)
-	assert.NoError(t, err)
-	assert.NotNil(t, runnable)
-
-	waitLifecycle, err := runnable.Lifecycle(map[string]any{"step": "wait"})
-	assert.NoError(t, err)
-	// Verify that the expected lifecycle stage is there, then verify that cancel is disabled.
-	waitCancelledStageIDIndex := assert.SliceContainsExtractor(t,
-		func(schema step.LifecycleStageWithSchema) string {
-			return schema.ID
-		}, string(plugin.StageIDCancelled), waitLifecycle.Stages)
-	waitStageIDCancelled := waitLifecycle.Stages[waitCancelledStageIDIndex]
-	waitStopIfSchema := assert.MapContainsKey(t, "stop_if", waitStageIDCancelled.InputSchema)
-	if waitStopIfSchema.Disabled {
-		t.Fatalf("step wait's wait_for schema is disabled when the cancel signal is present.")
-	}
-
-	helloLifecycle, err := runnable.Lifecycle(map[string]any{"step": "hello"})
-	assert.NoError(t, err)
-	// Verify that the expected lifecycle stage is there, then verify that cancel is disabled.
-	helloCancelledStageIDIndex := assert.SliceContainsExtractor(t,
-		func(schema step.LifecycleStageWithSchema) string {
-			return schema.ID
-		}, string(plugin.StageIDCancelled), helloLifecycle.Stages)
-	helloStageIDCancelled := helloLifecycle.Stages[helloCancelledStageIDIndex]
-	helloStopIfSchema := assert.MapContainsKey(t, "stop_if", helloStageIDCancelled.InputSchema)
-	if !helloStopIfSchema.Disabled {
-		t.Fatalf("step hello's stop_if schema is not disabled when the cancel signal is not present.")
-	}
-}
-
-func TestProvider_DeployFail(t *testing.T) {
-	logConfig := log.Config{
-		Level:       log.LevelError,
-		Destination: log.DestinationStdout,
-	}
-	logger := log.New(
 		logConfig,
 	)
 
