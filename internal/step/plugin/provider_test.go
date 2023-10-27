@@ -110,6 +110,60 @@ func (s *stageChangeHandler) OnStepComplete(
 	s.message <- message
 }
 
+func TestProvider_MultipleDeployers(t *testing.T) {
+	logger := log.New(
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
+	)
+	deployerRegistry := deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory()))
+	deployTimeMs := 20
+	workflowDeployerCfg := map[string]any{
+		"image": map[string]any{
+			"type":           "test-impl",
+			"deploy_time":    deployTimeMs,
+			"deploy_succeed": true,
+		},
+		"python": map[string]any{"type": "test-impl"},
+	}
+
+	plp, err := plugin.New(
+		logger,
+		deployerRegistry,
+		workflowDeployerCfg,
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, plp.Kind(), "plugin")
+	assert.NotNil(t, plp.ProviderSchema())
+	assert.NotNil(t, plp.RunProperties())
+	assert.NotNil(t, plp.Lifecycle())
+
+	stepSchema := map[string]any{
+		"plugin": map[string]string{
+			"src":  "simulation",
+			"type": "image",
+		},
+	}
+	byteSchema := map[string][]byte{}
+
+	runnable, err := plp.LoadSchema(stepSchema, byteSchema)
+	assert.NoError(t, err)
+
+	assert.NotNil(t, runnable.RunSchema())
+
+	_, err = runnable.Lifecycle(map[string]any{"step": "wait"})
+	assert.NoError(t, err)
+
+	_, err = runnable.Lifecycle(map[string]any{"step": "hello"})
+	assert.NoError(t, err)
+
+	// There is more than one step, so no specified one will cause an error.
+	_, err = runnable.Lifecycle(map[string]any{"step": nil})
+	assert.Error(t, err)
+}
+
 func TestProvider_Utility(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
 		"image": map[string]any{"type": "test-impl"},
@@ -326,29 +380,20 @@ func TestProvider_VerifyCancelSignal(t *testing.T) {
 }
 
 func TestProvider_DeployFail(t *testing.T) {
-	logConfig := log.Config{
-		Level:       log.LevelError,
-		Destination: log.DestinationStdout,
-	}
 	logger := log.New(
-		logConfig,
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
 	)
-
-	deployTimeMs := 20
-	//workflowDeployerCfg := map[string]any{
-	//	"type":           "test-impl",
-	//	"deploy_time":    deployTimeMs,
-	//	"deploy_succeed": true,
-	//}
-
-	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"type": "test-impl"},
-		//"deploy_time":    deployTimeMs,
-		//"deploy_succeed": true,
-	}
-
 	deployerRegistry := deployer_registry.New(
 		deployer.Any(testdeployer.NewFactory()))
+	deployTimeMs := 20
+	workflowDeployerCfg := map[string]any{
+		"image":          map[string]any{"type": "test-impl"},
+		"deploy_time":    deployTimeMs,
+		"deploy_succeed": true,
+	}
 
 	plp, err := plugin.New(
 		logger,
@@ -377,10 +422,13 @@ func TestProvider_DeployFail(t *testing.T) {
 
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
-		map[string]any{"deploy": map[string]any{
-			"type":           "test-impl",
-			"deploy_succeed": false,
-			"deploy_time":    deployTimeMs}},
+		map[string]any{
+			"deploy": map[string]any{
+				"type": "test-impl",
+				//"deploy_succeed": false,
+				//"deploy_time":    deployTimeMs,
+			},
+		},
 	))
 
 	waitTimeMs := 50
