@@ -64,7 +64,7 @@ func NewTestImplStepRegistry(
 
 	pluginProvider := assert.NoErrorR[step.Provider](t)(
 		plugin.New(logger, deployerRegistry, map[string]interface{}{
-			"type":        "test-impl",
+			"deployer_id": "test-impl",
 			"deploy_time": "0",
 		}),
 	)

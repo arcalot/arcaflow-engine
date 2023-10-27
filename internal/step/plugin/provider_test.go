@@ -122,12 +122,12 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
 		"image": map[string]any{
-			"type":           "test-impl",
+			"deployer_id":    "test-impl",
 			"deploy_time":    deployTimeMs,
 			"deploy_succeed": true,
 		},
 		"python": map[string]any{
-			"type": "test-impl",
+			"deployer_id": "test-impl",
 		},
 	}
 
@@ -144,8 +144,8 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 
 	stepSchema := map[string]any{
 		"plugin": map[string]string{
-			"src":  "simulation",
-			"type": "image",
+			"src":         "simulation",
+			"deployer_id": "image",
 		},
 	}
 	byteSchema := map[string][]byte{}
@@ -168,7 +168,7 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 
 func TestProvider_Utility(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"type": "test-impl"},
+		"image": map[string]any{"deployer_id": "test-impl"},
 	}
 
 	plp, err := plugin.New(
@@ -220,7 +220,7 @@ func TestProvider_HappyError(t *testing.T) {
 		},
 	)
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"type": "test-impl"},
+		"image": map[string]any{"deployer_id": "test-impl"},
 	}
 
 	deployerRegistry := deployer_registry.New(
@@ -270,14 +270,14 @@ func TestProvider_HappyError(t *testing.T) {
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"type":        "test-impl",
+			"deployer_id": "test-impl",
 			"deploy_time": "abc"}},
 	))
 
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"type":        "test-impl",
+			"deployer_id": "test-impl",
 			"deploy_time": 1}},
 	))
 
@@ -285,7 +285,7 @@ func TestProvider_HappyError(t *testing.T) {
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"type":        "test-impl",
+			"deployer_id": "test-impl",
 			"deploy_time": nil}},
 	))
 
@@ -336,7 +336,7 @@ func TestProvider_VerifyCancelSignal(t *testing.T) {
 		},
 	)
 	workflowDeployerCfg := map[string]any{
-		"type": "test-impl",
+		"deployer_id": "test-impl",
 	}
 
 	deployerRegistry := deployer_registry.New(
@@ -392,13 +392,13 @@ func TestProvider_DeployFail(t *testing.T) {
 		deployer.Any(testdeployer.NewFactory()))
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
-		"image":          map[string]any{"type": "test-impl"},
+		"image":          map[string]any{"deployer_id": "test-impl"},
 		"deploy_time":    deployTimeMs,
 		"deploy_succeed": true,
 	}
 
 	_ := map[string]any{
-		"type":           "test-impl",
+		"deployer_id":    "test-impl",
 		"deploy_time":    deployTimeMs,
 		"deploy_succeed": true,
 	}
@@ -474,7 +474,7 @@ func TestProvider_StartFail(t *testing.T) {
 	//	"deploy_succeed": true,
 	//}
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"type": "test-impl"},
+		"image": map[string]any{"deployer_id": "test-impl"},
 		//"deploy_time":    deployTimeMs,
 		//"deploy_succeed": true,
 	}
@@ -508,7 +508,7 @@ func TestProvider_StartFail(t *testing.T) {
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"type":                  "test-impl",
+			"deployer_id":           "test-impl",
 			"deploy_succeed":        true,
 			"deploy_time":           deployTimeMs,
 			"disable_plugin_writes": true}},

@@ -98,7 +98,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 			nil,
 			[]string{"\"quay.io/arcaflow/example-plugin:latest\""},
 		),
-		"type": schema.NewPropertySchema(
+		"deployer_id": schema.NewPropertySchema(
 			schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
 			schema.NewDisplayValue(
 				schema.PointerTo("Type"),
