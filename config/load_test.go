@@ -49,7 +49,7 @@ log:
 		input: `
 deployers:
   image: 
-    type: kubernetes
+    deployer_id: kubernetes
 `,
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,

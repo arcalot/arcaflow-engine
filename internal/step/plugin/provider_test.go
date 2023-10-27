@@ -397,12 +397,6 @@ func TestProvider_DeployFail(t *testing.T) {
 		"deploy_succeed": true,
 	}
 
-	_ := map[string]any{
-		"deployer_id":    "test-impl",
-		"deploy_time":    deployTimeMs,
-		"deploy_succeed": true,
-	}
-
 	plp, err := plugin.New(
 		logger,
 		deployerRegistry,
