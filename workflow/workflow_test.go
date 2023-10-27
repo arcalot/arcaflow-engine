@@ -55,13 +55,17 @@ input:
       properties: {}
 steps:
   long_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 2000
     stop_if: !expr $.steps.short_wait.outputs
   short_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       # It needs to be long enough for it to ensure that long_wait is in a running state.
@@ -101,18 +105,24 @@ steps:
   # This one needs to run longer than the total time expected of all the other steps, with
   # a large enough difference to prevent timing errors breaking the test.
   end_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 80
   # Delay needs to be delayed long enough to ensure that last_step isn't running when it's cancelled by short_wait
   delay:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 50
   last_step:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -121,7 +131,9 @@ steps:
     # You can verify that this test works by commenting out this line. It should fail.
     stop_if: !expr $.steps.short_wait.outputs
   short_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       # End the test quickly.
@@ -167,12 +179,16 @@ steps:
   # This one needs to run longer than the total time expected of all the other steps, with
   # a large enough difference to prevent timing errors breaking the test.
   end_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 100
   step_to_cancel:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -183,7 +199,9 @@ steps:
       type: "test-impl"
       deploy_time: 50 # 50 ms
   short_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       # End the test quickly.
@@ -227,7 +245,9 @@ input:
       properties: {}
 steps:
   wait_1:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -256,13 +276,17 @@ input:
       properties: {}
 steps:
   first_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       # Note: 5ms left only a 2.5ms margin for error. 10ms left almost 6ms. So 10ms min is recommended.
       wait_time_ms: 10
   second_wait:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 10
@@ -332,7 +356,9 @@ input:
       properties: {}
 steps:
   wait_1:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -341,7 +367,9 @@ steps:
       #deploy_time: 20000 # 10 ms
       deploy_succeed: false
   wait_2:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     wait_for: !expr $.steps.wait_1.outputs.success
     input:
@@ -371,12 +399,17 @@ input:
       properties: {}
 steps:
   wait_1:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
   wait_2:
-    plugin: "n/a"
+    
+    plugin:
+      src: "n/a"
+      type: "builtin"
     step: wait
     # No stop_if, so this shouldn't happen.
     wait_for: !expr $.steps.wait_1.outputs.cancelled_early

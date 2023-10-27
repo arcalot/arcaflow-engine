@@ -20,9 +20,8 @@ func New(
 		return nil, err
 	}
 	return &workflowEngine{
-		logger:           logger,
-		config:           config,
-		stepRegistry:     stepRegistry,
-		deployerRegistry: DefaultDeployerRegistry,
+		logger:       logger,
+		config:       config,
+		stepRegistry: stepRegistry,
 	}, nil
 }

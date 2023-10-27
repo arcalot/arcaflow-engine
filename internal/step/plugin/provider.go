@@ -26,18 +26,32 @@ const errorStr = "error"
 //	deployers. Most importantly it specifies which deployer is used for this
 //	deployment with the 'type' key.
 //	For more info, see `config/schema.go`
-func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerConfig any) (step.Provider, error) {
-	localDeployers := make(map[string]deployer.Connector)
-	for key, value := range localDeployerConfig.(map[string]any) {
-		unserializedLocalDeployerConfig, err := deployerRegistry.Schema().Unserialize(value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
+func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerConfigs map[string]any) (step.Provider, error) {
+	localDeployers := make(map[deployer.DeploymentType]deployer.Connector)
+	for _, deploymentType := range deployerRegistry.DeploymentTypes() {
+		_, configHasType := localDeployerConfigs[string(deploymentType)]
+		if !configHasType {
+			logger.Infof("Config does not have config for deployment type '%s'. This type will not be usable.", deploymentType)
+			continue
 		}
-		localDeployer, err := deployerRegistry.Create(unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
+		localDeployerConfig, configPresent := localDeployerConfigs[string(deploymentType)]
+		var unserializedLocalDeployerConfig any
+		var err error
+		if configPresent {
+			unserializedLocalDeployerConfig, err = deployerRegistry.DeployConfigSchema(deploymentType).Unserialize(localDeployerConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
+			}
+		} else {
+			logger.Warningf("No deployer configuration for type '%s' (%w). The workflow will fail if this type is needed",
+				deploymentType, err)
+		}
+
+		localDeployer, err := deployerRegistry.Create(deploymentType, unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
 		if err != nil {
 			return nil, fmt.Errorf("invalid local deployer configuration, please check your Arcaflow configuration file (%w)", err)
 		}
-		localDeployers[key] = localDeployer
+		localDeployers[deploymentType] = localDeployer
 	}
 
 	return &pluginProvider{
@@ -51,15 +65,9 @@ func (p *pluginProvider) Kind() string {
 	return "plugin"
 }
 
-type LocalDeployers struct {
-	Image  deployer.Connector
-	Python deployer.Connector
-}
-
 type pluginProvider struct {
 	deployerRegistry registry.Registry
-	localDeployer    deployer.Connector
-	localDeployers   map[string]deployer.Connector
+	localDeployers   map[deployer.DeploymentType]deployer.Connector
 	logger           log.Logger
 }
 
@@ -98,7 +106,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 			nil,
 			[]string{"\"quay.io/arcaflow/example-plugin:latest\""},
 		),
-		"deployer_id": schema.NewPropertySchema(
+		"deployment_type": schema.NewPropertySchema(
 			schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
 			schema.NewDisplayValue(
 				schema.PointerTo("Type"),
@@ -231,19 +239,20 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 // LoadSchema deploys the plugin, connects to the plugin's ATP server, loads its schema, then
 // returns a runnableStep struct. Not to be confused with the runningStep struct.
 func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) (step.RunnableStep, error) {
-	image := inputs["plugin"].(map[string]string)
+	pluginSrcInput := inputs["plugin"].(map[string]string)
+	requestedDeploymentType := deployer.DeploymentType(pluginSrcInput["deployment_type"])
+	pluginSource := pluginSrcInput["src"]
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//src, ok := image["image"]
-	//_, ok := p.localDeployers[]
-	p.localDeployer = p.localDeployers[image["type"]]
+	applicableLocalDeployer := p.localDeployers[requestedDeploymentType]
 
-	plugin, err := p.localDeployer.Deploy(ctx, image["src"])
+	plugin, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to deploy plugin from image %s (%w)", image, err)
+		return nil, fmt.Errorf("failed to deploy plugin of deployment type '%s' with source '%s' (%w)",
+			requestedDeploymentType, pluginSource, err)
 	}
 	// Set up the ATP connection
 	transport := atp.NewClientWithLogger(plugin, p.logger)
@@ -251,28 +260,30 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	s, err := transport.ReadSchema()
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to read plugin schema from %s (%w)", image, err)
+		return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w)", pluginSource, err)
 	}
 	// Tell the server that the client is done
 	if err := transport.Close(); err != nil {
-		return nil, fmt.Errorf("failed to instruct client to shut down image %s (%w)", image, err)
+		return nil, fmt.Errorf("failed to instruct client to shut down plugin from source '%s' (%w)", pluginSource, err)
 	}
 	// Shut down the plugin.
 	if err := plugin.Close(); err != nil {
-		return nil, fmt.Errorf("failed to shut down local plugin from %s (%w)", image, err)
+		return nil, fmt.Errorf("failed to shut down local plugin from '%s' (%w)", pluginSource, err)
 	}
 
 	return &runnableStep{
 		schemas:          *s,
 		logger:           p.logger,
-		image:            image["src"],
+		deploymentType:   requestedDeploymentType,
+		source:           pluginSource,
 		deployerRegistry: p.deployerRegistry,
-		localDeployer:    p.localDeployer,
+		localDeployer:    applicableLocalDeployer,
 	}, nil
 }
 
 type runnableStep struct {
-	image            string
+	deploymentType   deployer.DeploymentType
+	source           string
 	deployerRegistry registry.Registry
 	logger           log.Logger
 	schemas          schema.SchemaSchema
@@ -309,7 +320,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 	steps := r.schemas.Steps()
 	if stepID == "" {
 		if len(steps) != 1 {
-			return result, fmt.Errorf("the 'step' parameter is required for the '%s' plugin", r.image)
+			return result, fmt.Errorf("the 'step' parameter is required for the '%s' plugin", r.source)
 		}
 		for possibleStepID := range steps {
 			stepID = possibleStepID
@@ -317,7 +328,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 	}
 	stepSchema, ok := r.schemas.Steps()[stepID]
 	if !ok {
-		return result, fmt.Errorf("the step '%s' does not exist in the '%s' plugin", stepID, r.image)
+		return result, fmt.Errorf("the step '%s' does not exist in the '%s' plugin", stepID, r.source)
 	}
 
 	stopIfProperty := schema.NewPropertySchema(
@@ -338,11 +349,11 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 	cancelSignal := stepSchema.SignalHandlers()[plugin.CancellationSignalSchema.ID()]
 	if cancelSignal == nil {
 		// Not present
-		stopIfProperty.Disable(fmt.Sprintf("Cancel signal with ID '%s' is not present in plugin image '%s', step '%s'. Signal handler IDs present: %v",
-			plugin.CancellationSignalSchema.ID(), r.image, stepID, reflect.ValueOf(stepSchema.SignalHandlers()).MapKeys()))
+		stopIfProperty.Disable(fmt.Sprintf("Cancel signal with ID '%s' is not present in plugin '%s', step '%s'. Signal handler IDs present: %v",
+			plugin.CancellationSignalSchema.ID(), r.source, stepID, reflect.ValueOf(stepSchema.SignalHandlers()).MapKeys()))
 	} else if err := plugin.CancellationSignalSchema.DataSchemaValue.ValidateCompatibility(cancelSignal.DataSchemaValue); err != nil {
 		// Present but incompatible
-		stopIfProperty.Disable(fmt.Sprintf("Cancel signal invalid schema in plugin image '%s', step '%s' (%s)", r.image, stepID, err))
+		stopIfProperty.Disable(fmt.Sprintf("Cancel signal invalid schema in plugin '%s', step '%s' (%s)", r.source, stepID, err))
 	}
 
 	return step.Lifecycle[step.LifecycleStageWithSchema]{
@@ -352,7 +363,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 				LifecycleStage: deployingLifecycleStage,
 				InputSchema: map[string]*schema.PropertySchema{
 					"deploy": schema.NewPropertySchema(
-						r.deployerRegistry.Schema(),
+						r.deployerRegistry.DeployConfigSchema(r.deploymentType),
 						schema.NewDisplayValue(
 							schema.PointerTo("Deployment configuration"),
 							schema.PointerTo(
@@ -491,8 +502,8 @@ func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHand
 				i++
 			}
 			return nil, fmt.Errorf(
-				"the %s plugin declares more than one possible step, please provide the step name (one of: %s)",
-				r.image,
+				"the '%s' plugin declares more than one possible step, please provide the step name (one of: %s)",
+				r.source,
 				strings.Join(stepNames, ", "),
 			)
 		}
@@ -503,8 +514,8 @@ func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHand
 	stepSchema, ok := steps[stepID]
 	if !ok {
 		return nil, fmt.Errorf(
-			"plugin %s does not have a step named %s",
-			r.image,
+			"plugin '%s' does not have a step named %s",
+			r.source,
 			stepID,
 		)
 	}
@@ -522,7 +533,8 @@ func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHand
 		deployInput:        make(chan any, 1),
 		runInput:           make(chan any, 1),
 		logger:             r.logger,
-		image:              r.image,
+		deploymentType:     r.deploymentType,
+		source:             r.source,
 		pluginStepID:       stepID,
 		state:              step.RunningStepStateStarting,
 		localDeployer:      r.localDeployer,
@@ -553,7 +565,8 @@ type runningStep struct {
 	logger               log.Logger
 	currentStage         StageID
 	runID                string // The ID associated with this execution (the workflow step ID)
-	image                string
+	deploymentType       deployer.DeploymentType
+	source               string
 	pluginStepID         string // The ID of the step in the plugin
 	state                step.RunningStepState
 	useLocalDeployer     bool
@@ -621,7 +634,7 @@ func (r *runningStep) provideDeployInput(input map[string]any) error {
 	var unserializedDeployerConfig any
 	var err error
 	if input["deploy"] != nil {
-		unserializedDeployerConfig, err = r.deployerRegistry.Schema().Unserialize(input["deploy"])
+		unserializedDeployerConfig, err = r.deployerRegistry.DeployConfigSchema(r.deploymentType).Unserialize(input["deploy"])
 		if err != nil {
 			return fmt.Errorf("invalid deployment information (%w)", err)
 		}
@@ -827,12 +840,13 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 	var stepDeployer = r.localDeployer
 	if !useLocalDeployer {
 		var err error
-		stepDeployer, err = r.deployerRegistry.Create(deployerConfig, r.logger.WithLabel("source", "deployer"))
+		stepDeployer, err = r.deployerRegistry.Create(r.deploymentType, deployerConfig,
+			r.logger.WithLabel("source", "deployer"))
 		if err != nil {
 			return nil, err
 		}
 	}
-	container, err := stepDeployer.Deploy(r.ctx, r.image)
+	container, err := stepDeployer.Deploy(r.ctx, r.source)
 	if err != nil {
 		return nil, err
 	}
