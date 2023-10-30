@@ -55,43 +55,38 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 	if config == nil {
 		return nil, fmt.Errorf("the deployer configuration cannot be nil")
 	}
+	
+	//factories := make([]deployer.AnyConnectorFactory, 0)
 
-	//for _,v := range DefaultDeployerRegistry {
-	//fmt.Printf("%v\n" v)
-	//}
-
-	factories := make([]deployer.AnyConnectorFactory, 0)
 	workshops := make([]deployer.AnyConnectorFactory, 0)
-	for deploymentType, value := range config {
-		v2 := make(map[string]any)
-		for k, v := range value.(map[any]any) {
-			v2[k.(string)] = v
-		}
-		schemas := DefaultDeployerRegistry.DeployConfigSchema(deployer.DeploymentType(deploymentType))
-		//ss = append(ss, schemas)
-		var f deployer.AnyConnectorFactory
-		switch v2[schemas.DiscriminatorFieldName()] {
-		case "docker":
-			f = deployer.Any(docker.NewFactory())
-		case "podman":
-			f = deployer.Any(podman.NewFactory())
-		case "kubernetes":
-			f = deployer.Any(kubernetes.NewFactory())
-		case "python":
-			f = deployer.Any(python.NewFactory())
-		}
 
-		factories = append(factories, f)
+	for deploymentType, value := range config {
+		schemas := DefaultDeployerRegistry.DeployConfigSchema(deployer.DeploymentType(deploymentType))
+		//v2 := make(map[string]any)
+		//for k, v := range value.(map[any]any) {
+		//	v2[k.(string)] = v
+		//}
+
+		//var f deployer.AnyConnectorFactory
+		//switch v2[schemas.DiscriminatorFieldName()] {
+		//case "docker":
+		//	f = deployer.Any(docker.NewFactory())
+		//case "podman":
+		//	f = deployer.Any(podman.NewFactory())
+		//case "kubernetes":
+		//	f = deployer.Any(kubernetes.NewFactory())
+		//case "python":
+		//	f = deployer.Any(python.NewFactory())
+		//}
+		//
+		//factories = append(factories, f)
+
 		unserializedConfig, err := schemas.Unserialize(value)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("%T\n", unserializedConfig)
-		//c2 := deployer.AnyDeploymentConfig(unserializedConfig)
-		//fmt.Printf("%v\n", c2)
-		//f2 := deployer.DeploymentConfig[unserializedConfig.(type)](unserializedConfig).NewFactory()
+
 		var f2 deployer.AnyConnectorFactory
-		//
 		switch unserializedConfig.(type) {
 		case docker.Config:
 			f2 = deployer.Any(docker.NewFactory())
@@ -104,34 +99,6 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 		}
 
 		workshops = append(workshops, f2)
-		//anydc := deployer.AnyDConfig(unserializedConfig).NewFactory()
-
-		//reflectedConfig := reflect.ValueOf(unserializedConfig)
-		//fmt.Printf("%v\n", reflectedConfig)
-
-		//reglist := DefaultDeployerRegistry.List()
-		//for _, factory := range reglist {
-		//	if factory.ReflectedType() == reflectedConfig.Type() {
-		//dc := deployer.DeploymentConfig(unserializedConfig)
-		//unserializedConfig.(deployer.DeploymentConfig).NewFactory()
-		//t := reflect.TypeOf(unserializedConfig)
-		//v := reflect.ValueOf(unserializedConfig)
-		//fmt.Printf("%v\n", t)
-		//fmt.Printf("%v\n", v)
-		//d0 := reflect.ValueOf(unserializedConfig).Type()
-		//dc := deployer.DeploymentConfig[any]{}
-		////dc := deployer.DeploymentConfig[reflect.TypeFor(unserializedConfig)]{}
-		//dc := deployer.DeploymentConfig[cfg](unserializedConfig)
-		//factories = append(factories, unserializedConfig)
-		//fmt.Printf("%v\n", unserializedConfig)
-		//factories = append(factories,
-		//	deployer.Any(
-		//		dc.NewFactory(),
-		//	),
-		//)
-		//}
-		//}
-		//}
 	}
 
 	return registry.New(workshops...), nil
