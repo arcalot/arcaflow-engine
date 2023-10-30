@@ -51,8 +51,6 @@ func New(
 //	deployer.Any(python.NewFactory()),
 //)
 
-type cfg struct{}
-
 func BuildRegistry(config map[string]any) (registry.Registry, error) {
 	if config == nil {
 		return nil, fmt.Errorf("the deployer configuration cannot be nil")
@@ -63,6 +61,7 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 	//}
 
 	factories := make([]deployer.AnyConnectorFactory, 0)
+	workshops := make([]deployer.AnyConnectorFactory, 0)
 	for deploymentType, value := range config {
 		v2 := make(map[string]any)
 		for k, v := range value.(map[any]any) {
@@ -83,11 +82,30 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 		}
 
 		factories = append(factories, f)
-		//unserializedConfig, err := schemas.Unserialize(value)
+		unserializedConfig, err := schemas.Unserialize(value)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("%T\n", unserializedConfig)
+		//c2 := deployer.AnyDeploymentConfig(unserializedConfig)
+		//fmt.Printf("%v\n", c2)
+		//f2 := deployer.DeploymentConfig[unserializedConfig.(type)](unserializedConfig).NewFactory()
+		var f2 deployer.AnyConnectorFactory
+		//
+		switch unserializedConfig.(type) {
+		case docker.Config:
+			f2 = deployer.Any(docker.NewFactory())
+		case podman.Config:
+			f2 = deployer.Any(podman.NewFactory())
+		case kubernetes.Config:
+			f2 = deployer.Any(kubernetes.NewFactory())
+		case python.Config:
+			f2 = deployer.Any(python.NewFactory())
+		}
 
-		//if err != nil {
-		//	return nil, err
-		//}
+		workshops = append(workshops, f2)
+		//anydc := deployer.AnyDConfig(unserializedConfig).NewFactory()
+
 		//reflectedConfig := reflect.ValueOf(unserializedConfig)
 		//fmt.Printf("%v\n", reflectedConfig)
 
@@ -116,5 +134,5 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 		//}
 	}
 
-	return registry.New(factories...), nil
+	return registry.New(workshops...), nil
 }
