@@ -45,13 +45,6 @@ func New(
 	}, nil
 }
 
-//var DefaultDeployerRegistry = registry.New(
-//	deployer.Any(docker.NewFactory()),
-//	deployer.Any(kubernetes.NewFactory()),
-//	deployer.Any(podman.NewFactory()),
-//	deployer.Any(python.NewFactory()),
-//)
-
 func BuildRegistry(config map[string]any) (registry.Registry, error) {
 	if config == nil {
 		return nil, fmt.Errorf("the deployer configuration cannot be nil")

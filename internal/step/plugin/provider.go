@@ -94,22 +94,42 @@ type Plugin struct {
 
 func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 	return map[string]*schema.PropertySchema{
-		"src": schema.NewPropertySchema(
-			schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
+		"plugin": schema.NewPropertySchema(
+			schema.NewObjectSchema(
+				"plugin_fields",
+				map[string]*schema.PropertySchema{
+					"src": schema.NewPropertySchema(
+						schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
+						schema.NewDisplayValue(
+							schema.PointerTo("Source"),
+							schema.PointerTo("Source file to be executed."), nil),
+						true,
+						nil,
+						nil,
+						nil,
+						nil,
+						[]string{"\"quay.io/arcaflow/example-plugin:latest\""},
+					),
+					"deployment_type": schema.NewPropertySchema(
+						schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
+						schema.NewDisplayValue(
+							schema.PointerTo("Type"),
+							schema.PointerTo(
+								fmt.Sprintf("Deployment type %s",
+									fmt.Sprintf(KeysString(DeploymentTypes)))),
+							nil,
+						),
+						true,
+						nil,
+						nil,
+						nil,
+						nil,
+						[]string{"docker"},
+					),
+				},
+			),
 			schema.NewDisplayValue(
-				schema.PointerTo("Source"),
-				schema.PointerTo("Source file to be executed."), nil),
-			true,
-			nil,
-			nil,
-			nil,
-			nil,
-			[]string{"\"quay.io/arcaflow/example-plugin:latest\""},
-		),
-		"deployment_type": schema.NewPropertySchema(
-			schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
-			schema.NewDisplayValue(
-				schema.PointerTo("Type"),
+				schema.PointerTo("Plugin Info"),
 				schema.PointerTo(
 					fmt.Sprintf("Deployment type %s",
 						fmt.Sprintf(KeysString(DeploymentTypes)))),
@@ -120,7 +140,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 			nil,
 			nil,
 			nil,
-			[]string{"docker"},
+			nil,
 		),
 	}
 }
@@ -239,36 +259,36 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 // LoadSchema deploys the plugin, connects to the plugin's ATP server, loads its schema, then
 // returns a runnableStep struct. Not to be confused with the runningStep struct.
 func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) (step.RunnableStep, error) {
-	pluginSrcInput := inputs["plugin"].(map[string]string)
-	requestedDeploymentType := deployer.DeploymentType(pluginSrcInput["deployment_type"])
-	pluginSource := pluginSrcInput["src"]
+	pluginSrcInput := inputs["plugin"].(map[string]any)
+	requestedDeploymentType := deployer.DeploymentType(pluginSrcInput["deployment_type"].(string))
+	pluginSource := pluginSrcInput["src"].(string)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	applicableLocalDeployer := p.localDeployers[requestedDeploymentType]
 
-	plugin, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
+	plugin_connector, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to deploy plugin of deployment type '%s' with source '%s' (%w)",
+		return nil, fmt.Errorf("failed to deploy plugin_connector of deployment type '%s' with source '%s' (%w)",
 			requestedDeploymentType, pluginSource, err)
 	}
 	// Set up the ATP connection
-	transport := atp.NewClientWithLogger(plugin, p.logger)
+	transport := atp.NewClientWithLogger(plugin_connector, p.logger)
 	// Read the schema information
 	s, err := transport.ReadSchema()
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w)", pluginSource, err)
+		return nil, fmt.Errorf("failed to read plugin_connector schema from '%s' (%w)", pluginSource, err)
 	}
 	// Tell the server that the client is done
 	if err := transport.Close(); err != nil {
-		return nil, fmt.Errorf("failed to instruct client to shut down plugin from source '%s' (%w)", pluginSource, err)
+		return nil, fmt.Errorf("failed to instruct client to shut down plugin_connector from source '%s' (%w)", pluginSource, err)
 	}
-	// Shut down the plugin.
-	if err := plugin.Close(); err != nil {
-		return nil, fmt.Errorf("failed to shut down local plugin from '%s' (%w)", pluginSource, err)
+	// Shut down the plugin_connector.
+	if err := plugin_connector.Close(); err != nil {
+		return nil, fmt.Errorf("failed to shut down local plugin_connector from '%s' (%w)", pluginSource, err)
 	}
 
 	return &runnableStep{

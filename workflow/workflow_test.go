@@ -107,7 +107,7 @@ steps:
   end_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 80
@@ -115,14 +115,14 @@ steps:
   delay:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 50
   last_step:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -133,7 +133,7 @@ steps:
   short_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       # End the test quickly.
