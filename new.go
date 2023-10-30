@@ -55,10 +55,10 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 	if config == nil {
 		return nil, fmt.Errorf("the deployer configuration cannot be nil")
 	}
-	
-	//factories := make([]deployer.AnyConnectorFactory, 0)
 
-	workshops := make([]deployer.AnyConnectorFactory, 0)
+	factories := make([]deployer.AnyConnectorFactory, 0)
+
+	//workshops := make([]deployer.AnyConnectorFactory, 0)
 
 	for deploymentType, value := range config {
 		schemas := DefaultDeployerRegistry.DeployConfigSchema(deployer.DeploymentType(deploymentType))
@@ -86,20 +86,26 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 			return nil, err
 		}
 
-		var f2 deployer.AnyConnectorFactory
+		//fmt.Printf("%v\n", unserializedConfig.(*docker.Config))
+		//var f2 deployer.AnyConnectorFactory
 		switch unserializedConfig.(type) {
-		case docker.Config:
-			f2 = deployer.Any(docker.NewFactory())
-		case podman.Config:
-			f2 = deployer.Any(podman.NewFactory())
-		case kubernetes.Config:
-			f2 = deployer.Any(kubernetes.NewFactory())
-		case python.Config:
-			f2 = deployer.Any(python.NewFactory())
+		case *docker.Config:
+			//f2 = deployer.Any(docker.NewFactory())
+			factories = append(factories, deployer.Any(docker.NewFactory()))
+		case *podman.Config:
+			//f2 = deployer.Any(podman.NewFactory())
+			factories = append(factories, deployer.Any(podman.NewFactory()))
+		case *kubernetes.Config:
+			//f2 = deployer.Any(kubernetes.NewFactory())
+			factories = append(factories, deployer.Any(kubernetes.NewFactory()))
+		case *python.Config:
+			//f2 = deployer.Any(python.NewFactory())
+			factories = append(factories, deployer.Any(python.NewFactory()))
 		}
 
-		workshops = append(workshops, f2)
+		//workshops = append(workshops, f2)
+		//factories = append(factories, f2)
 	}
 
-	return registry.New(workshops...), nil
+	return registry.New(factories...), nil
 }

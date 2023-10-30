@@ -19,8 +19,7 @@ var configLoadData = map[string]struct {
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
 			LocalDeployers: map[string]any{
-				"image":  map[string]string{"deployer_id": "docker"},
-				"python": map[string]string{"deployer_id": "python"},
+				"image": map[string]string{"deployer_id": "docker"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,
@@ -36,8 +35,7 @@ log:
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
 			LocalDeployers: map[string]any{
-				"image":  map[string]string{"deployer_id": "docker"},
-				"python": map[string]string{"deployer_id": "python"},
+				"image": map[string]string{"deployer_id": "docker"},
 			},
 			Log: log.Config{
 				Level:       log.LevelDebug,
@@ -54,8 +52,7 @@ deployers:
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
 			LocalDeployers: map[string]any{
-				"image":  map[string]string{"deployer_id": "kubernetes"},
-				"python": map[string]string{"deployer_id": "python"},
+				"image": map[string]string{"deployer_id": "kubernetes"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,
@@ -73,8 +70,7 @@ plugins:
 				"quay.io/arcalot/example-plugin:latest",
 			},
 			LocalDeployers: map[string]any{
-				"image":  map[string]string{"deployer_id": "docker"},
-				"python": map[string]string{"deployer_id": "python"},
+				"image": map[string]string{"deployer_id": "docker"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,
