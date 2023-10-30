@@ -145,7 +145,9 @@ input:
             type_id: string
 steps:
   example:
-    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+    plugin: 
+      src: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+      deployment_type: image
     input:
       name: !expr $.input.name
 output:
@@ -176,7 +178,9 @@ input:
             type_id: string
 steps:
   example:
-    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+    plugin: 
+      src: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+      deployment_type: image
     input:
       name: !expr $.input.name
 outputs:

@@ -57,7 +57,7 @@ steps:
   long_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 2000
@@ -65,7 +65,7 @@ steps:
   short_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       # It needs to be long enough for it to ensure that long_wait is in a running state.
@@ -181,14 +181,14 @@ steps:
   end_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 100
   step_to_cancel:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -196,12 +196,12 @@ steps:
     stop_if: !expr $.steps.short_wait.outputs
     # Delay needs to be delayed long enough to ensure that it's in a deploy state when it's cancelled by short_wait
     deploy:
-      type: "test-impl"
-      deploy_time: 50 # 50 ms
+      deployer_id: "test-impl"
+      deploy_time: 50 # 50 ms 
   short_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       # End the test quickly.
@@ -247,7 +247,7 @@ steps:
   wait_1:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -278,7 +278,7 @@ steps:
   first_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       # Note: 5ms left only a 2.5ms margin for error. 10ms left almost 6ms. So 10ms min is recommended.
@@ -286,7 +286,7 @@ steps:
   second_wait:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 10
@@ -358,18 +358,18 @@ steps:
   wait_1:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
     deploy:
-      type: "test-impl"
+      deployer_id: "test-impl"
       #deploy_time: 20000 # 10 ms
       deploy_succeed: false
   wait_2:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     wait_for: !expr $.steps.wait_1.outputs.success
     input:
@@ -401,7 +401,7 @@ steps:
   wait_1:
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     input:
       wait_time_ms: 0
@@ -409,7 +409,7 @@ steps:
     
     plugin:
       src: "n/a"
-      type: "builtin"
+      deployment_type: "builtin"
     step: wait
     # No stop_if, so this shouldn't happen.
     wait_for: !expr $.steps.wait_1.outputs.cancelled_early

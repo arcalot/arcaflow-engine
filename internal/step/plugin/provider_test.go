@@ -121,7 +121,7 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 		deployer.Any(testdeployer.NewFactory()))
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{
+		"builtin": map[string]any{
 			"deployer_id":    "test-impl",
 			"deploy_time":    deployTimeMs,
 			"deploy_succeed": true,
@@ -143,9 +143,9 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 	assert.NotNil(t, plp.Lifecycle())
 
 	stepSchema := map[string]any{
-		"plugin": map[string]string{
-			"src":         "simulation",
-			"deployer_id": "image",
+		"plugin": map[string]any{
+			"src":             "simulation",
+			"deployment_type": "builtin",
 		},
 	}
 	byteSchema := map[string][]byte{}
@@ -168,7 +168,7 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 
 func TestProvider_Utility(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"deployer_id": "test-impl"},
+		"builtin": map[string]any{"deployer_id": "test-impl"},
 	}
 
 	plp, err := plugin.New(
@@ -189,9 +189,9 @@ func TestProvider_Utility(t *testing.T) {
 	assert.NotNil(t, plp.Lifecycle())
 
 	stepSchema := map[string]any{
-		"plugin": map[string]string{
-			"src":  "simulation",
-			"type": "image",
+		"plugin": map[string]any{
+			"src":             "simulation",
+			"deployment_type": "builtin",
 		},
 	}
 	byteSchema := map[string][]byte{}
@@ -220,7 +220,7 @@ func TestProvider_HappyError(t *testing.T) {
 		},
 	)
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"deployer_id": "test-impl"},
+		"builtin": map[string]any{"deployer_id": "test-impl"},
 	}
 
 	deployerRegistry := deployer_registry.New(
@@ -241,9 +241,9 @@ func TestProvider_HappyError(t *testing.T) {
 	assert.NoError(t, err)
 
 	stepSchema := map[string]any{
-		"plugin": map[string]string{
+		"plugin": map[string]any{
 			"src":  "simulation",
-			"type": "image"},
+			"type": "builtin"},
 	}
 	byteSchema := map[string][]byte{}
 
@@ -350,7 +350,12 @@ func TestProvider_VerifyCancelSignal(t *testing.T) {
 	assert.NoError(t, err)
 
 	runnable, err := plp.LoadSchema(
-		map[string]any{"plugin": "simulation"}, map[string][]byte{})
+		map[string]any{
+			"plugin": map[string]any{
+				"src":             "simulation",
+				"deployment_type": "builtin",
+			}},
+		map[string][]byte{})
 	assert.NoError(t, err)
 	assert.NotNil(t, runnable)
 
@@ -392,7 +397,7 @@ func TestProvider_DeployFail(t *testing.T) {
 		deployer.Any(testdeployer.NewFactory()))
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
-		"image":          map[string]any{"deployer_id": "test-impl"},
+		"builtin":        map[string]any{"deployer_id": "test-impl"},
 		"deploy_time":    deployTimeMs,
 		"deploy_succeed": true,
 	}
@@ -405,7 +410,7 @@ func TestProvider_DeployFail(t *testing.T) {
 	assert.NoError(t, err)
 
 	stepSchema := map[string]any{
-		"plugin": map[string]string{
+		"plugin": map[string]any{
 			"src":  "simulation",
 			"type": "image"},
 	}
@@ -468,7 +473,7 @@ func TestProvider_StartFail(t *testing.T) {
 	//	"deploy_succeed": true,
 	//}
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{"deployer_id": "test-impl"},
+		"builtin": map[string]any{"deployer_id": "test-impl"},
 		//"deploy_time":    deployTimeMs,
 		//"deploy_succeed": true,
 	}
