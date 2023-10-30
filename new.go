@@ -10,6 +10,7 @@ import (
 	kubernetes "go.flow.arcalot.io/kubernetesdeployer"
 	podman "go.flow.arcalot.io/podmandeployer"
 	python "go.flow.arcalot.io/pythondeployer"
+	testimpl "go.flow.arcalot.io/testdeployer"
 )
 
 // New creates a new workflow engine with the provided configuration. The passed deployerRegistry is responsible for
@@ -101,6 +102,8 @@ func BuildRegistry(config map[string]any) (registry.Registry, error) {
 		case *python.Config:
 			//f2 = deployer.Any(python.NewFactory())
 			factories = append(factories, deployer.Any(python.NewFactory()))
+		default: // deployer stub config
+			factories = append(factories, deployer.Any(testimpl.NewFactory()))
 		}
 
 		//workshops = append(workshops, f2)
