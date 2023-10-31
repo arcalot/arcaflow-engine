@@ -2,7 +2,6 @@ package engine
 
 import (
 	"fmt"
-
 	"go.arcalot.io/log/v2"
 	deployerRegistry "go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
@@ -14,11 +13,7 @@ import (
 )
 
 // NewDefaultStepRegistry creates a registry with the default step types applied.
-func NewDefaultStepRegistry(
-	logger log.Logger,
-	deployerRegistry deployerRegistry.Registry,
-	config *config.Config,
-) (step.Registry, error) {
+func NewDefaultStepRegistry(logger log.Logger, deployerRegistry deployerRegistry.Registry, config *config.Config) (step.Registry, error) {
 	pluginProvider, err := plugin.New(logger, deployerRegistry, config.LocalDeployers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin step provider (%w)", err)

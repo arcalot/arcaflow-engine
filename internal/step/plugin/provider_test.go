@@ -8,6 +8,7 @@ import (
 	deployer_registry "go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
+	python "go.flow.arcalot.io/pythondeployer"
 	testdeployer "go.flow.arcalot.io/testdeployer"
 	"sync"
 	"testing"
@@ -118,7 +119,8 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 		},
 	)
 	deployerRegistry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
+		deployer.Any(testdeployer.NewFactory()),
+		deployer.Any(python.NewFactory()))
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
@@ -127,15 +129,11 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 			"deploy_succeed": true,
 		},
 		"python": map[string]any{
-			"deployer_id": "test-impl",
+			"deployer_id": "python",
 		},
 	}
 
-	plp, err := plugin.New(
-		logger,
-		deployerRegistry,
-		workflowDeployerCfg,
-	)
+	plp, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
 	assert.NoError(t, err)
 	assert.Equals(t, plp.Kind(), "plugin")
 	assert.NotNil(t, plp.ProviderSchema())
@@ -171,17 +169,13 @@ func TestProvider_Utility(t *testing.T) {
 		"builtin": map[string]any{"deployer_id": "test-impl"},
 	}
 
-	plp, err := plugin.New(
-		log.New(
-			log.Config{
-				Level:       log.LevelError,
-				Destination: log.DestinationStdout,
-			},
-		),
-		deployer_registry.New(
-			deployer.Any(testdeployer.NewFactory())),
-		workflowDeployerCfg,
-	)
+	plp, err := plugin.New(log.New(
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
+	), deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory())), workflowDeployerCfg)
 	assert.NoError(t, err)
 	assert.Equals(t, plp.Kind(), "plugin")
 	assert.NotNil(t, plp.ProviderSchema())
@@ -227,31 +221,19 @@ func TestProvider_HappyError(t *testing.T) {
 	deployerRegistry := deployer_registry.New(
 		deployer.Any(testdeployer.NewFactory()))
 
-	_, err := plugin.New(
-		logger,
-		deployerRegistry,
-		map[string]any{
-			"wrong": map[string]any{
-				"deployer_id": "test-impl",
-			}},
-	)
+	_, err := plugin.New(logger, deployerRegistry, map[string]any{
+		"wrong": map[string]any{
+			"deployer_id": "test-impl",
+		}})
 	assert.Error(t, err)
 
-	_, err = plugin.New(
-		logger,
-		deployerRegistry,
-		map[string]any{
-			"builtin": map[string]any{
-				"deployer_id": "bad",
-			}},
-	)
+	_, err = plugin.New(logger, deployerRegistry, map[string]any{
+		"builtin": map[string]any{
+			"deployer_id": "bad",
+		}})
 	assert.Error(t, err)
 
-	plp, err := plugin.New(
-		logger,
-		deployerRegistry,
-		workflowDeployerCfg,
-	)
+	plp, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
 	assert.NoError(t, err)
 
 	stepSchema := map[string]any{
@@ -358,11 +340,7 @@ func TestProvider_VerifyCancelSignal(t *testing.T) {
 	deployerRegistry := deployer_registry.New(
 		deployer.Any(testdeployer.NewFactory()))
 
-	plp, err := plugin.New(
-		logger,
-		deployerRegistry,
-		workflowDeployerCfg,
-	)
+	plp, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
 	assert.NoError(t, err)
 
 	runnable, err := plp.LoadSchema(
@@ -413,16 +391,14 @@ func TestProvider_DeployFail(t *testing.T) {
 		deployer.Any(testdeployer.NewFactory()))
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
-		"builtin":        map[string]any{"deployer_id": "test-impl"},
-		"deploy_time":    deployTimeMs,
-		"deploy_succeed": true,
+		"builtin": map[string]any{
+			"deployer_id":    "test-impl",
+			"deploy_time":    deployTimeMs,
+			"deploy_succeed": true,
+		},
 	}
 
-	plp, err := plugin.New(
-		logger,
-		deployerRegistry,
-		workflowDeployerCfg,
-	)
+	plp, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
 	assert.NoError(t, err)
 
 	stepSchema := map[string]any{
@@ -484,17 +460,15 @@ func TestProvider_StartFail(t *testing.T) {
 	)
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
-		"builtin":        map[string]any{"deployer_id": "test-impl"},
-		"deploy_time":    deployTimeMs,
-		"deploy_succeed": true,
+		"builtin": map[string]any{
+			"deployer_id":    "test-impl",
+			"deploy_time":    deployTimeMs,
+			"deploy_succeed": true,
+		},
 	}
 
-	plp, err := plugin.New(
-		logger,
-		deployer_registry.New(
-			deployer.Any(testdeployer.NewFactory())),
-		workflowDeployerCfg,
-	)
+	plp, err := plugin.New(logger, deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory())), workflowDeployerCfg)
 	assert.NoError(t, err)
 
 	stepSchema := map[string]any{

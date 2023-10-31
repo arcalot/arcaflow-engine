@@ -28,30 +28,26 @@ const errorStr = "error"
 //	For more info, see `config/schema.go`
 func New(logger log.Logger, deployerRegistry registry.Registry, localDeployerConfigs map[string]any) (step.Provider, error) {
 	localDeployers := make(map[deployer.DeploymentType]deployer.Connector)
-	for _, deploymentType := range deployerRegistry.DeploymentTypes() {
-		_, configHasType := localDeployerConfigs[string(deploymentType)]
-		if !configHasType {
-			logger.Infof("Config does not have config for deployment type '%s'. This type will not be usable.", deploymentType)
-			continue
-		}
-		localDeployerConfig, configPresent := localDeployerConfigs[string(deploymentType)]
-		var unserializedLocalDeployerConfig any
-		var err error
-		if configPresent {
-			unserializedLocalDeployerConfig, err = deployerRegistry.DeployConfigSchema(deploymentType).Unserialize(localDeployerConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load local deployer configuration, please check your Arcaflow configuration file (%w)", err)
-			}
-		} else {
-			logger.Warningf("No deployer configuration for type '%s' (%w). The workflow will fail if this type is needed",
-				deploymentType, err)
+
+	// Build local deployers from requested deployers in engine workflow config.
+	for reqDeploymentType, deployerConfig := range localDeployerConfigs {
+		reqDeploymentTypeType := deployer.DeploymentType(reqDeploymentType)
+		// Unserialize config using deployer's schema in registry.
+		// This will return an error if the requested deployment type
+		// is not in the registry.
+		unserializedLocalDeployerConfig, err := deployerRegistry.DeployConfigSchema(
+			reqDeploymentTypeType).Unserialize(deployerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load requested deployer type %s from workflow config (%w)",
+				reqDeploymentType, err)
 		}
 
-		localDeployer, err := deployerRegistry.Create(deploymentType, unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
+		localDeployer, err := deployerRegistry.Create(reqDeploymentTypeType,
+			unserializedLocalDeployerConfig, logger.WithLabel("source", "deployer"))
 		if err != nil {
 			return nil, fmt.Errorf("invalid local deployer configuration, please check your Arcaflow configuration file (%w)", err)
 		}
-		localDeployers[deploymentType] = localDeployer
+		localDeployers[reqDeploymentTypeType] = localDeployer
 	}
 
 	return &pluginProvider{
@@ -79,10 +75,10 @@ var DeploymentTypes = map[string]struct{}{
 	"python": struct{}{},
 }
 
-func KeysString(m map[string]struct{}) string {
+func KeysString(m []deployer.DeploymentType) string {
 	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+	for _, k := range m {
+		keys = append(keys, string(k))
 	}
 	return "[" + strings.Join(keys, ", ") + "]"
 }
@@ -115,8 +111,8 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 						schema.NewDisplayValue(
 							schema.PointerTo("Type"),
 							schema.PointerTo(
-								fmt.Sprintf("Deployment type %s",
-									fmt.Sprintf(KeysString(DeploymentTypes)))),
+								fmt.Sprintf("Deployment type [%s]",
+									fmt.Sprintf(KeysString(p.deployerRegistry.DeploymentTypes()), ","))),
 							nil,
 						),
 						true,
@@ -266,8 +262,10 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	applicableLocalDeployer := p.localDeployers[requestedDeploymentType]
-
+	applicableLocalDeployer, ok := p.localDeployers[requestedDeploymentType]
+	if !ok {
+		return nil, fmt.Errorf("missing local deployer for requested type %s", requestedDeploymentType)
+	}
 	plugin_connector, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
 	if err != nil {
 		cancel()
