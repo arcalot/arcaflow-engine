@@ -70,12 +70,7 @@ type pluginProvider struct {
 func (p *pluginProvider) Register(_ step.Registry) {
 }
 
-var DeploymentTypes = map[string]struct{}{
-	"image":  struct{}{},
-	"python": struct{}{},
-}
-
-func KeysString(m []deployer.DeploymentType) string {
+func keysString(m []deployer.DeploymentType) string {
 	keys := make([]string, 0, len(m))
 	for _, k := range m {
 		keys = append(keys, string(k))
@@ -112,7 +107,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 							schema.PointerTo("Type"),
 							schema.PointerTo(
 								fmt.Sprintf("Deployment type [%s]",
-									fmt.Sprintf(KeysString(p.deployerRegistry.DeploymentTypes()), ","))),
+									keysString(p.deployerRegistry.DeploymentTypes()))),
 							nil,
 						),
 						true,
@@ -128,7 +123,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 				schema.PointerTo("Plugin Info"),
 				schema.PointerTo(
 					fmt.Sprintf("Deployment type %s",
-						fmt.Sprintf(KeysString(DeploymentTypes)))),
+						keysString(p.deployerRegistry.DeploymentTypes()))),
 				nil,
 			),
 			true,
@@ -266,20 +261,20 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	if !ok {
 		return nil, fmt.Errorf("missing local deployer for requested type %s", requestedDeploymentType)
 	}
-	plugin_connector, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
+	pluginConnector, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to deploy plugin of deployment type '%s' with source '%s' (%w)",
 			requestedDeploymentType, pluginSource, err)
 	}
 	// Set up the ATP connection
-	transport := atp.NewClientWithLogger(plugin_connector, p.logger)
+	transport := atp.NewClientWithLogger(pluginConnector, p.logger)
 	// Read the schema information
 	s, err := transport.ReadSchema()
 	if err != nil {
 		cancel()
 		// Close it. This allows it go get the error messages.
-		deployerErr := plugin_connector.Close()
+		deployerErr := pluginConnector.Close()
 		return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w). Deployer close error: %s", pluginSource, err, deployerErr)
 	}
 	// Tell the server that the client is done
@@ -287,7 +282,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 		return nil, fmt.Errorf("failed to instruct client to shut down plugin from source '%s' (%w)", pluginSource, err)
 	}
 	// Shut down the plugin.
-	if err := plugin_connector.Close(); err != nil {
+	if err := pluginConnector.Close(); err != nil {
 		return nil, fmt.Errorf("failed to shut down local plugin from '%s' (%w)", pluginSource, err)
 	}
 
