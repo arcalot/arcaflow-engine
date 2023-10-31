@@ -271,7 +271,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	plugin_connector, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to deploy plugin_connector of deployment type '%s' with source '%s' (%w)",
+		return nil, fmt.Errorf("failed to deploy plugin of deployment type '%s' with source '%s' (%w)",
 			requestedDeploymentType, pluginSource, err)
 	}
 	// Set up the ATP connection
@@ -280,15 +280,17 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	s, err := transport.ReadSchema()
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to read plugin_connector schema from '%s' (%w)", pluginSource, err)
+		// Close it. This allows it go get the error messages.
+		deployerErr := plugin_connector.Close()
+		return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w). Deployer close error: %s", pluginSource, err, deployerErr)
 	}
 	// Tell the server that the client is done
 	if err := transport.Close(); err != nil {
-		return nil, fmt.Errorf("failed to instruct client to shut down plugin_connector from source '%s' (%w)", pluginSource, err)
+		return nil, fmt.Errorf("failed to instruct client to shut down plugin from source '%s' (%w)", pluginSource, err)
 	}
-	// Shut down the plugin_connector.
+	// Shut down the plugin.
 	if err := plugin_connector.Close(); err != nil {
-		return nil, fmt.Errorf("failed to shut down local plugin_connector from '%s' (%w)", pluginSource, err)
+		return nil, fmt.Errorf("failed to shut down local plugin from '%s' (%w)", pluginSource, err)
 	}
 
 	return &runnableStep{
