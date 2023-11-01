@@ -164,6 +164,42 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestProvider_MissingDeployer(t *testing.T) {
+	logger := log.New(
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
+	)
+	deployerRegistry := deployer_registry.New() // Empty. So it will error out.
+	workflowDeployerCfg := map[string]any{
+		"builtin": map[string]any{
+			"deployer_name": "test-impl",
+		},
+	}
+
+	_, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
+	assert.Error(t, err)
+}
+func TestProvider_MismatchedDeploymentTypes(t *testing.T) {
+	logger := log.New(
+		log.Config{
+			Level:       log.LevelError,
+			Destination: log.DestinationStdout,
+		},
+	)
+	deployerRegistry := deployer_registry.New(deployer.Any(testdeployer.NewFactory()))
+	// Mismatched. test-impl is has the deployment type builtin, but we're trying to specify it for the image type.
+	workflowDeployerCfg := map[string]any{
+		"image": map[string]any{
+			"deployer_name": "test-impl",
+		},
+	}
+
+	_, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
+	assert.Error(t, err)
+}
+
 func TestProvider_Utility(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{"deployer_name": "test-impl"},
