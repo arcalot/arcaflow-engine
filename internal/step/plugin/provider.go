@@ -110,7 +110,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 						nil,
 						nil,
 						nil,
-						[]string{"docker"},
+						[]string{"image"},
 					),
 				},
 			),

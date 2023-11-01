@@ -404,7 +404,8 @@ func TestProvider_DeployFail(t *testing.T) {
 	stepSchema := map[string]any{
 		"plugin": map[string]any{
 			"src":             "simulation",
-			"deployment_type": "builtin"},
+			"deployment_type": "builtin",
+		},
 	}
 	byteSchema := map[string][]byte{}
 
