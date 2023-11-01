@@ -78,11 +78,6 @@ func keysString(m []deployer.DeploymentType) string {
 	return "[" + strings.Join(keys, ", ") + "]"
 }
 
-type Plugin struct {
-	Src  string
-	Type string
-}
-
 func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 	return map[string]*schema.PropertySchema{
 		"plugin": schema.NewPropertySchema(
@@ -275,7 +270,8 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 		cancel()
 		// Close it. This allows it go get the error messages.
 		deployerErr := pluginConnector.Close()
-		return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w). Deployer close error: %s", pluginSource, err, deployerErr)
+		return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w). Deployer close error: (%s)",
+			pluginSource, err, deployerErr.Error())
 	}
 	// Tell the server that the client is done
 	if err := transport.Close(); err != nil {
