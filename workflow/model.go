@@ -21,7 +21,7 @@ type Workflow struct {
 	// Steps contains the possible steps in this workflow. The data set must contain a valid step structure where the
 	// inputs to stages may consist only of primitive types and expressions.
 	Steps map[string]any `json:"steps"`
-	// Outputs lets you define one or more outputs. The outputs should be keyed by their output ID (e.g. "success") and
+	// Outputs lets you define one or more outputs. The outputs should be keyed by their output Name (e.g. "success") and
 	// the value should be the data you wish to output. The data may contain expressions to construct the output.
 	Outputs map[string]any `json:"outputs"`
 	// OutputSchema is an optional override for the automatically inferred output schema from the Outputs data and
@@ -182,7 +182,7 @@ type DAGItem struct {
 	StepID string
 	// StageID is the stage of the step provider this item refers to.
 	StageID string
-	// OutputID is the ID of the output of the step stage.
+	// OutputID is the Name of the output of the step stage.
 	OutputID string
 	// OutputSchema contains the output-specific schema for this item.
 	OutputSchema schema.StepOutput
@@ -212,12 +212,12 @@ func (d DAGItem) String() string {
 	}
 }
 
-// GetStageNodeID returns the DAG node ID for a stage.
+// GetStageNodeID returns the DAG node Name for a stage.
 func GetStageNodeID(stepID string, stageID string) string {
 	return fmt.Sprintf("steps.%s.%s", stepID, stageID)
 }
 
-// GetOutputNodeID returns the DAG node ID for a stage output.
+// GetOutputNodeID returns the DAG node Name for a stage output.
 func GetOutputNodeID(stepID string, stageID string, outputID string) string {
 	return fmt.Sprintf("steps.%s.%s.%s", stepID, stageID, outputID)
 }

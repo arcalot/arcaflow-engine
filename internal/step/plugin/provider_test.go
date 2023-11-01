@@ -33,13 +33,13 @@ func (s *deployFailStageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
 	}
 	if previousStageOutputID == nil {
-		panic(fmt.Errorf("no previous stage output ID"))
+		panic(fmt.Errorf("no previous stage output Name"))
 	}
 	if *previousStageOutputID != "error" {
-		panic(fmt.Errorf("invalid previous stage output ID: %s", *previousStageOutputID))
+		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
-		panic(fmt.Errorf("no previous stage output ID"))
+		panic(fmt.Errorf("no previous stage output Name"))
 	}
 	message := (*previousStageOutput).(plugin.DeployFailed).Error
 
@@ -65,13 +65,13 @@ func (s *startFailStageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
 	}
 	if previousStageOutputID == nil {
-		panic(fmt.Errorf("no previous stage output ID"))
+		panic(fmt.Errorf("no previous stage output Name"))
 	}
 	if *previousStageOutputID != "error" {
-		panic(fmt.Errorf("invalid previous stage output ID: %s", *previousStageOutputID))
+		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
-		panic(fmt.Errorf("no previous stage output ID"))
+		panic(fmt.Errorf("no previous stage output Name"))
 	}
 
 	message := (*previousStageOutput).(plugin.Crashed).Output
@@ -98,13 +98,13 @@ func (s *stageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
 	}
 	if previousStageOutputID == nil {
-		panic(fmt.Errorf("no previous stage output ID"))
+		panic(fmt.Errorf("no previous stage output Name"))
 	}
 	if *previousStageOutputID != "success" {
-		panic(fmt.Errorf("invalid previous stage output ID: %s", *previousStageOutputID))
+		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
-		panic(fmt.Errorf("no previous stage output ID"))
+		panic(fmt.Errorf("no previous stage output Name"))
 	}
 	message := (*previousStageOutput).(map[any]any)["message"].(string)
 
@@ -124,12 +124,12 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
-			"deployer_id":    "test-impl",
+			"deployer_name":  "test-impl",
 			"deploy_time":    deployTimeMs,
 			"deploy_succeed": true,
 		},
 		"python": map[string]any{
-			"deployer_id": "python",
+			"deployer_name": "python",
 		},
 	}
 
@@ -166,7 +166,7 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 
 func TestProvider_Utility(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
-		"builtin": map[string]any{"deployer_id": "test-impl"},
+		"builtin": map[string]any{"deployer_name": "test-impl"},
 	}
 
 	plp, err := plugin.New(log.New(
@@ -215,7 +215,7 @@ func TestProvider_HappyError(t *testing.T) {
 	)
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
-			"deployer_id": "test-impl"},
+			"deployer_name": "test-impl"},
 	}
 
 	deployerRegistry := deployer_registry.New(
@@ -223,13 +223,13 @@ func TestProvider_HappyError(t *testing.T) {
 
 	_, err := plugin.New(logger, deployerRegistry, map[string]any{
 		"wrong": map[string]any{
-			"deployer_id": "test-impl",
+			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
 
 	_, err = plugin.New(logger, deployerRegistry, map[string]any{
 		"builtin": map[string]any{
-			"deployer_id": "bad",
+			"deployer_name": "bad",
 		}})
 	assert.Error(t, err)
 
@@ -266,23 +266,23 @@ func TestProvider_HappyError(t *testing.T) {
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"deployer_id": "test-impl",
-			"deploy_time": "abc"}},
+			"deployer_name": "test-impl",
+			"deploy_time":   "abc"}},
 	))
 
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"deployer_id": "test-impl",
-			"deploy_time": 1}},
+			"deployer_name": "test-impl",
+			"deploy_time":   1}},
 	))
 
 	// provide deploy input a 2nd time
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"deployer_id": "test-impl",
-			"deploy_time": nil}},
+			"deployer_name": "test-impl",
+			"deploy_time":   nil}},
 	))
 
 	// unserialize nil input schema error
@@ -333,7 +333,7 @@ func TestProvider_VerifyCancelSignal(t *testing.T) {
 	)
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
-			"deployer_id": "test-impl",
+			"deployer_name": "test-impl",
 		},
 	}
 
@@ -392,7 +392,7 @@ func TestProvider_DeployFail(t *testing.T) {
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
-			"deployer_id":    "test-impl",
+			"deployer_name":  "test-impl",
 			"deploy_time":    deployTimeMs,
 			"deploy_succeed": true,
 		},
@@ -423,7 +423,7 @@ func TestProvider_DeployFail(t *testing.T) {
 		string(plugin.StageIDDeploy),
 		map[string]any{
 			"deploy": map[string]any{
-				"deployer_id":    "test-impl",
+				"deployer_name":  "test-impl",
 				"deploy_succeed": false,
 				"deploy_time":    deployTimeMs,
 			},
@@ -461,7 +461,7 @@ func TestProvider_StartFail(t *testing.T) {
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
-			"deployer_id":    "test-impl",
+			"deployer_name":  "test-impl",
 			"deploy_time":    deployTimeMs,
 			"deploy_succeed": true,
 		},
@@ -492,7 +492,7 @@ func TestProvider_StartFail(t *testing.T) {
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
-			"deployer_id":           "test-impl",
+			"deployer_name":         "test-impl",
 			"deploy_succeed":        true,
 			"deploy_time":           deployTimeMs,
 			"disable_plugin_writes": true}},

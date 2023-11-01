@@ -196,7 +196,7 @@ steps:
     stop_if: !expr $.steps.short_wait.outputs
     # Delay needs to be delayed long enough to ensure that it's in a deploy state when it's cancelled by short_wait
     deploy:
-      deployer_id: "test-impl"
+      deployer_name: "test-impl"
       deploy_time: 50 # 50 ms 
   short_wait:
     plugin:
@@ -363,7 +363,7 @@ steps:
     input:
       wait_time_ms: 0
     deploy:
-      deployer_id: "test-impl"
+      deployer_name: "test-impl"
       #deploy_time: 20000 # 10 ms
       deploy_succeed: false
   wait_2:

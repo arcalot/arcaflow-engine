@@ -260,31 +260,31 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 	}
 	stageNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, *previousStage))
 	if err != nil {
-		l.logger.Errorf("Failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
-		l.recentErrors <- fmt.Errorf("failed to get stage node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+		l.logger.Errorf("Failed to get stage node Name %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+		l.recentErrors <- fmt.Errorf("failed to get stage node Name %s (%w)", GetStageNodeID(stepID, *previousStage), err)
 		l.cancel()
 		return
 	}
 	l.logger.Debugf("Removed node '%s' from the DAG", stageNode.ID())
 	if err := stageNode.Remove(); err != nil {
-		l.logger.Errorf("Failed to remove stage node ID %s (%w)", stageNode.ID(), err)
-		l.recentErrors <- fmt.Errorf("failed to remove stage node ID %s (%w)", stageNode.ID(), err)
+		l.logger.Errorf("Failed to remove stage node Name %s (%w)", stageNode.ID(), err)
+		l.recentErrors <- fmt.Errorf("failed to remove stage node Name %s (%w)", stageNode.ID(), err)
 		l.cancel()
 		return
 	}
 	if previousStageOutputID != nil {
 		outputNode, err := l.dag.GetNodeByID(GetOutputNodeID(stepID, *previousStage, *previousStageOutputID))
 		if err != nil {
-			l.logger.Errorf("Failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
-			l.recentErrors <- fmt.Errorf("failed to get output node ID %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+			l.logger.Errorf("Failed to get output node Name %s (%w)", GetStageNodeID(stepID, *previousStage), err)
+			l.recentErrors <- fmt.Errorf("failed to get output node Name %s (%w)", GetStageNodeID(stepID, *previousStage), err)
 			l.cancel()
 			return
 		}
 		// Removes the node from the DAG. This results in the nodes not having inbound connections, allowing them to be processed.
 		l.logger.Debugf("Removed node '%s' from the DAG", outputNode.ID())
 		if err := outputNode.Remove(); err != nil {
-			l.logger.Errorf("Failed to remove output node ID %s (%w)", outputNode.ID(), err)
-			l.recentErrors <- fmt.Errorf("failed to remove output node ID %s (%w)", outputNode.ID(), err)
+			l.logger.Errorf("Failed to remove output node Name %s (%w)", outputNode.ID(), err)
+			l.recentErrors <- fmt.Errorf("failed to remove output node Name %s (%w)", outputNode.ID(), err)
 			l.cancel()
 			return
 		}
@@ -293,7 +293,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		if stepLogConfig != nil {
 			l.logger.Writef(
 				stepLogConfig.LogLevel,
-				"Output ID for step \"%s\" is \"%s\".\nOutput data: \"%s\"",
+				"Output Name for step \"%s\" is \"%s\".\nOutput data: \"%s\"",
 				stepID,
 				*previousStageOutputID,
 				*previousStageOutput,
@@ -362,7 +362,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			// This check is here just to make sure it has the required fields set
 			if node.Item().StepID == "" || node.Item().StageID == "" {
 				// This shouldn't happen
-				panic("Step or stage ID missing")
+				panic("Step or stage Name missing")
 			}
 
 			stageInputData := untypedInputData.(map[any]any)

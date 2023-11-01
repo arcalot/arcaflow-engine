@@ -58,7 +58,7 @@ type ExecutableWorkflow interface {
 
 	// Execute runs a workflow until it finishes or until the context expires with the specified input. The input
 	// must only contain primitives (float, int, bool, string, map, slice) and may not contain structs and other
-	// elements. The output will consist of the output ID, the returned output data corresponding to the output IDs
+	// elements. The output will consist of the output Name, the returned output data corresponding to the output IDs
 	// schema, or if an error happened, the error.
 	Execute(
 		ctx context.Context,

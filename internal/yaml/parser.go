@@ -107,7 +107,7 @@ func (n node) Raw() any {
 		}
 		return result
 	default:
-		panic(fmt.Errorf("bug: unexpected type ID: %s", n.typeID))
+		panic(fmt.Errorf("bug: unexpected type Name: %s", n.typeID))
 	}
 }
 

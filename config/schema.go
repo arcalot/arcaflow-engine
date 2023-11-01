@@ -63,7 +63,7 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 					nil,
-					schema.PointerTo(`{"image": {"deployer_id": "docker"}}`),
+					schema.PointerTo(`{"image": {"deployer_name": "docker"}}`),
 					nil,
 				),
 				"logged_outputs": schema.NewPropertySchema(

@@ -471,7 +471,7 @@ func (r *runningStep) run() {
 				}
 
 				r.logger.Debugf("Executing item %d...", i)
-				// Ignore the output ID here because it can only be "success"
+				// Ignore the output Name here because it can only be "success"
 				_, outputData, err := r.workflow.Execute(r.ctx, input)
 				r.lock.Lock()
 				if err != nil {
