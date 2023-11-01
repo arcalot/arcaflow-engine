@@ -72,7 +72,7 @@ You can load this config by passing the `-config` flag to Arcaflow.
 
 ### Supported Workflow Schema Versions
 
-- v0.1.0
+- v0.2.0
 
 ## Deployer options
 
