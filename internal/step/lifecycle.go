@@ -49,7 +49,7 @@ func (l Lifecycle[StageType]) DAG() (dgraph.DirectedGraph[StageType], error) {
 
 // lifecycleStage is a helper interface for being able to construct a DAG from a lifecycle.
 type lifecycleStage interface {
-	// Identifier returns the Name of the stage.
+	// Identifier returns the ID of the stage.
 	Identifier() string
 	// NextStageIDs returns the next stage identifiers.
 	NextStageIDs() []string

@@ -33,13 +33,13 @@ func (s *deployFailStageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
 	}
 	if previousStageOutputID == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	if *previousStageOutputID != "error" {
-		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
+		panic(fmt.Errorf("invalid previous stage output ID: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	message := (*previousStageOutput).(plugin.DeployFailed).Error
 
@@ -65,13 +65,13 @@ func (s *startFailStageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
 	}
 	if previousStageOutputID == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	if *previousStageOutputID != "error" {
 		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 
 	message := (*previousStageOutput).(plugin.Crashed).Output
@@ -98,13 +98,13 @@ func (s *stageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
 	}
 	if previousStageOutputID == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	if *previousStageOutputID != "success" {
-		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
+		panic(fmt.Errorf("invalid previous stage output ID: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	message := (*previousStageOutput).(map[any]any)["message"].(string)
 

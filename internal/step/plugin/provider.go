@@ -360,7 +360,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 	cancelSignal := stepSchema.SignalHandlers()[plugin.CancellationSignalSchema.ID()]
 	if cancelSignal == nil {
 		// Not present
-		stopIfProperty.Disable(fmt.Sprintf("Cancel signal with Name '%s' is not present in plugin '%s', step '%s'. Signal handler IDs present: %v",
+		stopIfProperty.Disable(fmt.Sprintf("Cancel signal with ID '%s' is not present in plugin '%s', step '%s'. Signal handler IDs present: %v",
 			plugin.CancellationSignalSchema.ID(), r.source, stepID, reflect.ValueOf(stepSchema.SignalHandlers()).MapKeys()))
 	} else if err := plugin.CancellationSignalSchema.DataSchemaValue.ValidateCompatibility(cancelSignal.DataSchemaValue); err != nil {
 		// Present but incompatible

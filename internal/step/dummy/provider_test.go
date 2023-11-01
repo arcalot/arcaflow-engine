@@ -29,13 +29,13 @@ func (s *stageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("invalid previous stage: %s", previousStage))
 	}
 	if previousStageOutputID == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	if *previousStageOutputID != "success" {
-		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
+		panic(fmt.Errorf("invalid previous stage output ID: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
-		panic(fmt.Errorf("no previous stage output Name"))
+		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	message := (*previousStageOutput).(map[string]any)["message"].(string)
 	s.message <- message
