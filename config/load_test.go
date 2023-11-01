@@ -18,8 +18,8 @@ var configLoadData = map[string]struct {
 		input: "",
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
-			LocalDeployer: map[string]any{
-				"type": "docker",
+			LocalDeployers: map[string]any{
+				"image": map[string]string{"deployer_name": "docker"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,
@@ -34,8 +34,8 @@ log:
 `,
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
-			LocalDeployer: map[string]any{
-				"type": "docker",
+			LocalDeployers: map[string]any{
+				"image": map[string]string{"deployer_name": "docker"},
 			},
 			Log: log.Config{
 				Level:       log.LevelDebug,
@@ -45,13 +45,14 @@ log:
 	},
 	"type-kubernetes": {
 		input: `
-deployer:
-  type: kubernetes
+deployers:
+  image: 
+    deployer_name: kubernetes
 `,
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
-			LocalDeployer: map[string]any{
-				"type": "kubernetes",
+			LocalDeployers: map[string]any{
+				"image": map[string]string{"deployer_name": "kubernetes"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,
@@ -68,8 +69,8 @@ plugins:
 			TypeHintPlugins: []string{
 				"quay.io/arcalot/example-plugin:latest",
 			},
-			LocalDeployer: map[string]any{
-				"type": "docker",
+			LocalDeployers: map[string]any{
+				"image": map[string]string{"deployer_name": "docker"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,

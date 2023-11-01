@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	log "go.arcalot.io/log/v2"
-	"go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/yaml"
@@ -14,7 +13,7 @@ import (
 )
 
 var supportedVersions = map[string]struct{}{
-	"v0.1.0": {},
+	"v0.2.0": {},
 }
 
 // WorkflowEngine is responsible for executing workflows and returning their result.
@@ -58,10 +57,9 @@ type Workflow interface {
 }
 
 type workflowEngine struct {
-	logger           log.Logger
-	deployerRegistry registry.Registry
-	stepRegistry     step.Registry
-	config           *config.Config
+	logger       log.Logger
+	stepRegistry step.Registry
+	config       *config.Config
 }
 
 func (w workflowEngine) RunWorkflow(ctx context.Context, input []byte, workflowContext map[string][]byte, workflowFileName string) (outputID string, outputData any, outputError bool, err error) {

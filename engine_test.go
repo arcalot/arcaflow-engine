@@ -14,9 +14,11 @@ import (
 )
 
 func TestEngineWorkflow_ParseVersion(t *testing.T) {
-	_, err := engine.SupportedVersion("v0.1.0")
+	_, err := engine.SupportedVersion("v0.2.0")
 	assert.NoError(t, err)
-	_, err = engine.SupportedVersion("v0.11.0")
+
+	// test unsupported version
+	_, err = engine.SupportedVersion("v0.1000.0")
 	assert.Error(t, err)
 }
 
@@ -102,7 +104,7 @@ func TestEmptySteps(t *testing.T) {
 		context.Background(),
 		nil,
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 output: []
 steps: []`),
 		},
@@ -117,7 +119,7 @@ func TestNoSteps(t *testing.T) {
 		context.Background(),
 		nil,
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 output: []`),
 		},
 		"",
@@ -131,7 +133,7 @@ func TestE2E(t *testing.T) {
 		context.Background(),
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -143,7 +145,9 @@ input:
             type_id: string
 steps:
   example:
-    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+    plugin: 
+      src: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+      deployment_type: image
     input:
       name: !expr $.input.name
 output:
@@ -162,7 +166,7 @@ func TestE2EMultipleOutputs(t *testing.T) {
 		context.Background(),
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -174,7 +178,9 @@ input:
             type_id: string
 steps:
   example:
-    plugin: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+    plugin: 
+      src: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+      deployment_type: image
     input:
       name: !expr $.input.name
 outputs:

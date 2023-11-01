@@ -21,7 +21,7 @@ This binary can then be used to run Arcaflow workflows.
 The simplest workflow is the example plugin workflow using the workflow schema version `v0.1.0`: (save it to workflow.yaml)
 
 ```yaml
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -72,7 +72,7 @@ You can load this config by passing the `-config` flag to Arcaflow.
 
 ### Supported Workflow Schema Versions
 
-- v0.1.0
+- v0.2.0
 
 ## Deployer options
 

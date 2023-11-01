@@ -16,7 +16,7 @@ import (
 
 // mainWorkflow is the workflow calling the foreach step.
 var mainWorkflow = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: names
   objects:
@@ -44,7 +44,7 @@ output:
 `
 
 var subworkflow = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: name
   objects:

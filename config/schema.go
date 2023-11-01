@@ -45,20 +45,25 @@ func getConfigSchema() *schema.TypedScopeSchema[*Config] {
 					nil,
 					nil,
 				),
-				"deployer": schema.NewPropertySchema(
-					schema.NewAnySchema(),
+				"deployers": schema.NewPropertySchema(
+					schema.NewMapSchema(
+						schema.NewStringSchema(nil, nil, nil),
+						schema.NewAnySchema(),
+						nil,
+						nil,
+					),
 					schema.NewDisplayValue(
-						schema.PointerTo("Local deployer"),
+						schema.PointerTo("Local deployers"),
 						schema.PointerTo(
-							"Local container environment configuration the workflow engine can use to test-deploy plugins before the workflow execution.",
+							"Default deployers for each plugin type.",
 						),
 						nil,
 					),
-					true,
+					false,
 					nil,
 					nil,
 					nil,
-					schema.PointerTo("{\"type\":\"docker\"}"),
+					schema.PointerTo(`{"image": {"deployer_name": "docker"}}`),
 					nil,
 				),
 				"logged_outputs": schema.NewPropertySchema(
