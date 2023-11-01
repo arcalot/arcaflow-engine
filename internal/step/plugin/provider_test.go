@@ -6,9 +6,9 @@ import (
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/deployer"
 	deployer_registry "go.flow.arcalot.io/deployer/registry"
+	docker "go.flow.arcalot.io/dockerdeployer"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
-	python "go.flow.arcalot.io/pythondeployer"
 	testdeployer "go.flow.arcalot.io/testdeployer"
 	"sync"
 	"testing"
@@ -120,7 +120,7 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 	)
 	deployerRegistry := deployer_registry.New(
 		deployer.Any(testdeployer.NewFactory()),
-		deployer.Any(python.NewFactory()))
+		deployer.Any(docker.NewFactory()))
 	deployTimeMs := 20
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
@@ -128,8 +128,8 @@ func TestProvider_MultipleDeployers(t *testing.T) {
 			"deploy_time":    deployTimeMs,
 			"deploy_succeed": true,
 		},
-		"python": map[string]any{
-			"deployer_name": "python",
+		"image": map[string]any{
+			"deployer_name": "docker",
 		},
 	}
 

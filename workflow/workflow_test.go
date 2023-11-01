@@ -14,7 +14,7 @@ import (
 )
 
 var badWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: name
   objects:
@@ -46,7 +46,7 @@ func TestOutputFailed(t *testing.T) {
 }
 
 var stepCancellationWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -94,7 +94,7 @@ func TestStepCancellation(t *testing.T) {
 }
 
 var earlyStepCancellationWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -168,7 +168,7 @@ func TestEarlyStepCancellation(t *testing.T) {
 }
 
 var deploymentStepCancellationWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -236,7 +236,7 @@ func TestDeploymentStepCancellation(t *testing.T) {
 }
 
 var simpleValidLiteralInputWaitWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -267,7 +267,7 @@ func TestSimpleValidWaitWorkflow(t *testing.T) {
 }
 
 var waitForSerialWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -347,7 +347,7 @@ func TestWaitForSerial(t *testing.T) {
 }
 
 var missingInputsFailedDeploymentWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -390,7 +390,7 @@ func TestMissingInputsFailedDeployment(t *testing.T) {
 }
 
 var missingInputsWrongOutputWorkflowDefinition = `
-version: v0.1.0
+version: v0.2.0
 input:
   root: RootObject
   objects:

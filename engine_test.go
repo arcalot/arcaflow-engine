@@ -14,7 +14,7 @@ import (
 )
 
 func TestEngineWorkflow_ParseVersion(t *testing.T) {
-	_, err := engine.SupportedVersion("v0.1.0")
+	_, err := engine.SupportedVersion("v0.2.0")
 	assert.NoError(t, err)
 
 	// test unsupported version
@@ -104,7 +104,7 @@ func TestEmptySteps(t *testing.T) {
 		context.Background(),
 		nil,
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 output: []
 steps: []`),
 		},
@@ -119,7 +119,7 @@ func TestNoSteps(t *testing.T) {
 		context.Background(),
 		nil,
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 output: []`),
 		},
 		"",
@@ -133,7 +133,7 @@ func TestE2E(t *testing.T) {
 		context.Background(),
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 input:
   root: RootObject
   objects:
@@ -166,7 +166,7 @@ func TestE2EMultipleOutputs(t *testing.T) {
 		context.Background(),
 		[]byte(`name: Arca Lot`),
 		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.1.0
+			"workflow.yaml": []byte(`version: v0.2.0
 input:
   root: RootObject
   objects:

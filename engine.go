@@ -13,7 +13,7 @@ import (
 )
 
 var supportedVersions = map[string]struct{}{
-	"v0.1.0": {},
+	"v0.2.0": {},
 }
 
 // WorkflowEngine is responsible for executing workflows and returning their result.
