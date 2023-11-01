@@ -68,7 +68,7 @@ func (s *startFailStageChangeHandler) OnStepComplete(
 		panic(fmt.Errorf("no previous stage output ID"))
 	}
 	if *previousStageOutputID != "error" {
-		panic(fmt.Errorf("invalid previous stage output Name: %s", *previousStageOutputID))
+		panic(fmt.Errorf("invalid previous stage output ID: %s", *previousStageOutputID))
 	}
 	if previousStageOutput == nil {
 		panic(fmt.Errorf("no previous stage output ID"))

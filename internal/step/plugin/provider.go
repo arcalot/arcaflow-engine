@@ -575,10 +575,10 @@ type runningStep struct {
 	runInputAvailable    bool
 	logger               log.Logger
 	currentStage         StageID
-	runID                string // The Name associated with this execution (the workflow step Name)
+	runID                string // The ID associated with this execution (the workflow step ID)
 	deploymentType       deployer.DeploymentType
 	source               string
-	pluginStepID         string // The Name of the step in the plugin
+	pluginStepID         string // The ID of the step in the plugin
 	state                step.RunningStepState
 	useLocalDeployer     bool
 	localDeployer        deployer.Connector
@@ -795,7 +795,7 @@ func (r *runningStep) run() {
 		r.container = container
 	}
 	r.lock.Unlock()
-	r.logger.Debugf("Successfully deployed container with Name '%s' for step %s/%s", container.ID(), r.runID, r.pluginStepID)
+	r.logger.Debugf("Successfully deployed container with ID '%s' for step %s/%s", container.ID(), r.runID, r.pluginStepID)
 	if err := r.startStage(container); err != nil {
 		r.startFailed(err)
 		return
