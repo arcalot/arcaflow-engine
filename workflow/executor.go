@@ -463,7 +463,7 @@ func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, 
 			value := v.Index(i).Interface()
 			newValue, err := e.createTypeStructure(rootSchema, value, workflowContext)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve expressions (%w)", err)
+				return nil, fmt.Errorf("failed to resolve slice expressions (%w)", err)
 			}
 			result[i] = newValue
 		}
@@ -479,7 +479,7 @@ func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, 
 			value := v.MapIndex(reflectedKey).Interface()
 			newValue, err := e.createTypeStructure(rootSchema, value, workflowContext)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve expressions (%w)", err)
+				return nil, fmt.Errorf("failed to resolve map expressions (%w)", err)
 			}
 			result[keyAsStr] = newValue
 		}
