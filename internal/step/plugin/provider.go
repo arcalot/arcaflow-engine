@@ -321,8 +321,6 @@ func (r *runnableStep) RunSchema() map[string]*schema.PropertySchema {
 	}
 }
 
-type StartedOutput struct{}
-
 func (r *runnableStep) StartedSchema() *schema.StepOutputSchema {
 	return schema.NewStepOutputSchema(
 		schema.NewScopeSchema(
@@ -1053,8 +1051,6 @@ func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepSt
 }
 
 // TransitionStage transitions the stage to the specified stage, and the state to the specified state.
-//
-//nolint:unparam
 func (r *runningStep) transitionStageWithOutput(newStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	// A current lack of observability into the atp client prevents
 	// non-fragile testing of this function.
