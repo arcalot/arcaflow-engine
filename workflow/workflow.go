@@ -17,6 +17,13 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
+const (
+	// WorkflowInputKey is the key in the workflow map for input.
+	WorkflowInputKey = "input"
+	// WorkflowStepsKey is the key in the workflow map for the steps.
+	WorkflowStepsKey = "steps"
+)
+
 // executableWorkflow is an implementation of the ExecutableWorkflow interface that provides a workflow you can actually
 // run.
 type executableWorkflow struct {
@@ -48,9 +55,10 @@ func (e *executableWorkflow) DAG() dgraph.DirectedGraph[*DAGItem] {
 
 // Execute runs the workflow with the specified input. You can use the context variable to abort the workflow execution
 // (e.g. when the user presses Ctrl+C).
-func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID string, outputData any, err error) { //nolint:gocognit
+func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (outputID string, outputData any, err error) { //nolint:gocognit
 	// First, we unserialize the input. This makes sure we didn't get garbage data.
-	unserializedInput, err := e.input.Unserialize(input)
+
+	_, err = e.input.Unserialize(serializedInput)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid workflow input (%w)", err)
 	}
@@ -64,8 +72,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		config: e.config,
 		lock:   &sync.Mutex{},
 		data: map[string]any{
-			"input": unserializedInput,
-			"steps": map[string]any{},
+			WorkflowInputKey: serializedInput,
+			WorkflowStepsKey: map[string]any{},
 		},
 		dag:               e.dag.Clone(),
 		inputsNotified:    make(map[string]struct{}, len(e.dag.ListNodes())),
@@ -86,14 +94,14 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		runnableStep := runnableStep
 		stepDataModel := map[string]any{}
 		for _, stage := range e.lifecycles[stepID].Stages {
-			steps := l.data["steps"].(map[string]any)
+			steps := l.data[WorkflowStepsKey].(map[string]any)
 			if _, ok := steps[stepID]; !ok {
 				steps[stepID] = map[string]any{}
 			}
 			stages := steps[stepID].(map[string]any)
 			stages[stage.ID] = map[string]any{}
 		}
-		l.data["steps"].(map[string]any)[stepID] = stepDataModel
+		l.data[WorkflowStepsKey].(map[string]any)[stepID] = stepDataModel
 
 		var stageHandler step.StageChangeHandler = &stageChangeHandler{
 			onStageChange: func(
@@ -150,7 +158,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 	// We remove the input node from the DAG and call the notifySteps function once to trigger the workflow
 	// start.
 	e.logger.Debugf("Starting workflow execution...\n%s", l.dag.Mermaid())
-	inputNode, err := l.dag.GetNodeByID("input")
+	inputNode, err := l.dag.GetNodeByID(WorkflowInputKey)
 	if err != nil {
 		return "", nil, fmt.Errorf("bug: cannot obtain input node (%w)", err)
 	}
@@ -301,8 +309,8 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		}
 
 		// Placing data from the output into the general data structure
-		l.data["steps"].(map[string]any)[stepID].(map[string]any)[*previousStage] = map[string]any{}
-		l.data["steps"].(map[string]any)[stepID].(map[string]any)[*previousStage].(map[string]any)[*previousStageOutputID] = *previousStageOutput
+		l.data[WorkflowStepsKey].(map[string]any)[stepID].(map[string]any)[*previousStage] = map[string]any{}
+		l.data[WorkflowStepsKey].(map[string]any)[stepID].(map[string]any)[*previousStage].(map[string]any)[*previousStageOutputID] = *previousStageOutput
 	}
 	l.notifySteps()
 }
