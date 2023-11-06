@@ -50,7 +50,8 @@ func (e *executableWorkflow) DAG() dgraph.DirectedGraph[*DAGItem] {
 // (e.g. when the user presses Ctrl+C).
 func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID string, outputData any, err error) { //nolint:gocognit
 	// First, we unserialize the input. This makes sure we didn't get garbage data.
-	unserializedInput, err := e.input.Unserialize(input)
+
+	_, err = e.input.Unserialize(input)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid workflow input (%w)", err)
 	}
@@ -64,7 +65,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, input any) (outputID s
 		config: e.config,
 		lock:   &sync.Mutex{},
 		data: map[string]any{
-			"input": unserializedInput,
+			"input": input,
 			"steps": map[string]any{},
 		},
 		dag:               e.dag.Clone(),
