@@ -346,6 +346,70 @@ func TestWaitForSerial(t *testing.T) {
 	}
 }
 
+var waitForStartedWorkflowDefinition = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  pre_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 2
+  first_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 2
+    wait_for: !expr $.steps.pre_wait.outputs
+  second_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 2
+    wait_for: !expr $.steps.first_wait.starting.started
+outputs:
+  success:
+    #first_step_output: !expr $.steps.first_wait.outputs
+    second_step_output: !expr $.steps.second_wait.outputs
+`
+
+func TestWaitForStarted(t *testing.T) {
+	// For this test, the second step is depending on a step's running state, which is not a finished output node.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForStartedWorkflowDefinition)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+}
+
 var missingInputsFailedDeploymentWorkflowDefinition = `
 version: v0.2.0
 input:

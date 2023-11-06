@@ -321,6 +321,19 @@ func (r *runnableStep) RunSchema() map[string]*schema.PropertySchema {
 	}
 }
 
+func (r *runnableStep) StartedSchema() *schema.StepOutputSchema {
+	return schema.NewStepOutputSchema(
+		schema.NewScopeSchema(
+			schema.NewObjectSchema(
+				"StartedOutput",
+				map[string]*schema.PropertySchema{},
+			),
+		),
+		nil,
+		false,
+	)
+}
+
 func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[step.LifecycleStageWithSchema], err error) {
 	rawStepID, ok := input["step"]
 	if !ok || rawStepID == nil {
@@ -446,6 +459,9 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 						nil,
 					),
+				},
+				Outputs: map[string]*schema.StepOutputSchema{
+					"started": r.StartedSchema(),
 				},
 			},
 			{
@@ -954,7 +970,8 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 
 func (r *runningStep) runStage() error {
 	r.logger.Debugf("Running stage for step %s/%s", r.runID, r.pluginStepID)
-	r.transitionStage(StageIDRunning, step.RunningStepStateRunning)
+	startedOutput := any(map[any]any{})
+	r.transitionStageWithOutput(StageIDRunning, step.RunningStepStateRunning, schema.PointerTo("started"), &startedOutput)
 
 	var result atp.ExecutionResult
 	select {
@@ -981,7 +998,7 @@ func (r *runningStep) runStage() error {
 
 	// Execution complete, move to state running stage outputs, then to state finished stage.
 	r.transitionStage(StageIDOutput, step.RunningStepStateRunning)
-	r.completeStage(r.currentStage, step.RunningStepStateFinished, &result.OutputID, &result.OutputData)
+	r.completeStep(r.currentStage, step.RunningStepStateFinished, &result.OutputID, &result.OutputData)
 
 	return nil
 }
@@ -996,7 +1013,7 @@ func (r *runningStep) deployFailed(err error) {
 	output := any(DeployFailed{
 		Error: err.Error(),
 	})
-	r.completeStage(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
+	r.completeStep(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
 }
 
 func (r *runningStep) startFailed(err error) {
@@ -1010,7 +1027,7 @@ func (r *runningStep) startFailed(err error) {
 		Output: err.Error(),
 	})
 
-	r.completeStage(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
+	r.completeStep(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
 }
 
 func (r *runningStep) runFailed(err error) {
@@ -1023,13 +1040,18 @@ func (r *runningStep) runFailed(err error) {
 	output := any(Crashed{
 		Output: err.Error(),
 	})
-	r.completeStage(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
+	r.completeStep(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
 }
 
 // TransitionStage transitions the stage to the specified stage, and the state to the specified state.
 //
 //nolint:unparam
 func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepState) {
+	r.transitionStageWithOutput(newStage, state, nil, nil)
+}
+
+// TransitionStage transitions the stage to the specified stage, and the state to the specified state.
+func (r *runningStep) transitionStageWithOutput(newStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	// A current lack of observability into the atp client prevents
 	// non-fragile testing of this function.
 	r.lock.Lock()
@@ -1042,8 +1064,8 @@ func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepSt
 	r.stageChangeHandler.OnStageChange(
 		r,
 		&previousStage,
-		nil,
-		nil,
+		outputID,
+		previousStageOutput,
 		string(newStage),
 		false,
 		&r.wg,
@@ -1051,7 +1073,7 @@ func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepSt
 }
 
 //nolint:unparam
-func (r *runningStep) completeStage(currentStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
+func (r *runningStep) completeStep(currentStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
 	r.currentStage = currentStage
