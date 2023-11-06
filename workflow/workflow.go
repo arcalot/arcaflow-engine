@@ -18,7 +18,9 @@ import (
 )
 
 const (
+	// WorkflowInputKey is the key in the workflow map for input.
 	WorkflowInputKey = "input"
+	// WorkflowStepsKey is the key in the workflow map for the steps.
 	WorkflowStepsKey = "steps"
 )
 
