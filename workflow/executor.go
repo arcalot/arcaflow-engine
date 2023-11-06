@@ -60,10 +60,7 @@ type ExecutableWorkflow interface {
 	// must only contain primitives (float, int, bool, string, map, slice) and may not contain structs and other
 	// elements. The output will consist of the output ID, the returned output data corresponding to the output IDs
 	// schema, or if an error happened, the error.
-	Execute(
-		ctx context.Context,
-		input any,
-	) (outputID string, outputData any, err error)
+	Execute(ctx context.Context, serializedInput any) (outputID string, outputData any, err error)
 
 	// OutputSchema returns the schema for the possible outputs of this workflow.
 	OutputSchema() map[string]*schema.StepOutputSchema
