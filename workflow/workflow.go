@@ -530,7 +530,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 			value := v.Index(i).Interface()
 			newValue, err := l.resolveExpressions(value, dataModel)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve expressions (%w)", err)
+				return nil, fmt.Errorf("failed to resolve workflow slice expressions (%w)", err)
 			}
 			result[i] = newValue
 		}
@@ -542,7 +542,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 			value := v.MapIndex(reflectedKey).Interface()
 			newValue, err := l.resolveExpressions(value, dataModel)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve expressions (%w)", err)
+				return nil, fmt.Errorf("failed to resolve workflow map expressions (%w)", err)
 			}
 			result[key] = newValue
 		}

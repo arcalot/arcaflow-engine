@@ -399,7 +399,7 @@ func TestProvider_VerifyCancelSignal(t *testing.T) {
 	waitStageIDCancelled := waitLifecycle.Stages[waitCancelledStageIDIndex]
 	waitStopIfSchema := assert.MapContainsKey(t, "stop_if", waitStageIDCancelled.InputSchema)
 	if waitStopIfSchema.Disabled {
-		t.Fatalf("step wait's wait_for schema is disabled when the cancel signal is present.")
+		t.Fatalf("step wait's stop_if schema is disabled when the cancel signal is present.")
 	}
 
 	helloLifecycle, err := runnable.Lifecycle(map[string]any{"step": "hello"})
