@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	WORKFLOW_INPUT_KEY = "input"
-	WORKFLOW_STEPS_KEY = "steps"
+	WorkflowInputKey = "input"
+	WorkflowStepsKey = "steps"
 )
 
 // executableWorkflow is an implementation of the ExecutableWorkflow interface that provides a workflow you can actually
@@ -70,8 +70,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		config: e.config,
 		lock:   &sync.Mutex{},
 		data: map[string]any{
-			WORKFLOW_INPUT_KEY: serializedInput,
-			WORKFLOW_STEPS_KEY: map[string]any{},
+			WorkflowInputKey: serializedInput,
+			WorkflowStepsKey: map[string]any{},
 		},
 		dag:               e.dag.Clone(),
 		inputsNotified:    make(map[string]struct{}, len(e.dag.ListNodes())),
@@ -92,14 +92,14 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		runnableStep := runnableStep
 		stepDataModel := map[string]any{}
 		for _, stage := range e.lifecycles[stepID].Stages {
-			steps := l.data[WORKFLOW_STEPS_KEY].(map[string]any)
+			steps := l.data[WorkflowStepsKey].(map[string]any)
 			if _, ok := steps[stepID]; !ok {
 				steps[stepID] = map[string]any{}
 			}
 			stages := steps[stepID].(map[string]any)
 			stages[stage.ID] = map[string]any{}
 		}
-		l.data[WORKFLOW_STEPS_KEY].(map[string]any)[stepID] = stepDataModel
+		l.data[WorkflowStepsKey].(map[string]any)[stepID] = stepDataModel
 
 		var stageHandler step.StageChangeHandler = &stageChangeHandler{
 			onStageChange: func(
@@ -156,7 +156,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 	// We remove the input node from the DAG and call the notifySteps function once to trigger the workflow
 	// start.
 	e.logger.Debugf("Starting workflow execution...\n%s", l.dag.Mermaid())
-	inputNode, err := l.dag.GetNodeByID(WORKFLOW_INPUT_KEY)
+	inputNode, err := l.dag.GetNodeByID(WorkflowInputKey)
 	if err != nil {
 		return "", nil, fmt.Errorf("bug: cannot obtain input node (%w)", err)
 	}
@@ -307,8 +307,8 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		}
 
 		// Placing data from the output into the general data structure
-		l.data[WORKFLOW_STEPS_KEY].(map[string]any)[stepID].(map[string]any)[*previousStage] = map[string]any{}
-		l.data[WORKFLOW_STEPS_KEY].(map[string]any)[stepID].(map[string]any)[*previousStage].(map[string]any)[*previousStageOutputID] = *previousStageOutput
+		l.data[WorkflowStepsKey].(map[string]any)[stepID].(map[string]any)[*previousStage] = map[string]any{}
+		l.data[WorkflowStepsKey].(map[string]any)[stepID].(map[string]any)[*previousStage].(map[string]any)[*previousStageOutputID] = *previousStageOutput
 	}
 	l.notifySteps()
 }
