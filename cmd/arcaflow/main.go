@@ -208,13 +208,14 @@ func handleOSInterrupt(ctrlC chan os.Signal, cancel context.CancelFunc, logger l
 		if !ok || sysSignal != os.Interrupt {
 			return
 		}
-		if i == 1 {
+		switch {
+		case i <= 1:
 			logger.Infof("Requesting graceful shutdown.")
 			// Request graceful shutdown
 			cancel()
-		} else if i == 2 {
+		case i == 2:
 			logger.Warningf("Hit CTRL-C again to forcefully exit workflow without cleanup. You may need to manually delete pods or containers.")
-		} else {
+		default:
 			logger.Warningf("Force exiting. You may need to manually delete pods or containers.")
 			// Second request. Exit now.
 			os.Exit(1)
