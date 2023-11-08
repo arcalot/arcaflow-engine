@@ -165,7 +165,7 @@ Options:
 
 func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) int {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctrlC := make(chan os.Signal, 1)
+	ctrlC := make(chan os.Signal, 4) // We expect up to three ctrl-C inputs. Plus one extra to buffer in case.
 	signal.Notify(ctrlC, os.Interrupt)
 
 	go handleOSInterrupt(ctrlC, cancel, logger)
