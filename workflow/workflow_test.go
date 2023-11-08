@@ -545,6 +545,7 @@ func TestEarlyContextCancellation(t *testing.T) {
 	// Cancel the context after 3 ms to simulate cancellation with ctrl-c.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*3)
 	startTime := time.Now() // Right before execute to not include pre-processing time.
+	//nolint:dogsled
 	_, _, _ = preparedWorkflow.Execute(ctx, map[string]any{})
 	cancel()
 
