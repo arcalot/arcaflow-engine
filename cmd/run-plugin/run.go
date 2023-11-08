@@ -91,7 +91,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ctrlC := make(chan os.Signal, 1)
+	ctrlC := make(chan os.Signal, 4) // We expect up to four ctrl-C inputs.
 	signal.Notify(ctrlC, os.Interrupt)
 
 	// Set up the signal channel to send cancel signal on ctrl-c

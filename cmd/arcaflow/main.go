@@ -203,24 +203,25 @@ func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workf
 }
 
 func handleOSInterrupt(ctrlC chan os.Signal, cancel context.CancelFunc, logger log.Logger) {
-	for i := 1; true; i++ {
-		sysSignal, ok := <-ctrlC
-		if !ok || sysSignal != os.Interrupt {
-			return
-		}
-		switch {
-		case i <= 1:
-			logger.Infof("Requesting graceful shutdown.")
-			// Request graceful shutdown
-			cancel()
-		case i == 2:
-			logger.Warningf("Hit CTRL-C again to forcefully exit workflow without cleanup. You may need to manually delete pods or containers.")
-		default:
-			logger.Warningf("Force exiting. You may need to manually delete pods or containers.")
-			// Second request. Exit now.
-			os.Exit(1)
-		}
+	_, ok := <-ctrlC
+	if !ok {
+		return
 	}
+	logger.Infof("Requesting graceful shutdown.")
+	cancel()
+
+	_, ok = <-ctrlC
+	if !ok {
+		return
+	}
+	logger.Warningf("Hit CTRL-C again to forcefully exit workflow without cleanup. You may need to manually delete pods or containers.")
+
+	_, ok = <-ctrlC
+	if !ok {
+		return
+	}
+	logger.Warningf("Force exiting. You may need to manually delete pods or containers.")
+	os.Exit(1)
 }
 
 func loadContext(dir string) (map[string][]byte, error) {
