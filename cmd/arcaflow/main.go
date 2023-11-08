@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
@@ -164,13 +165,21 @@ Options:
 
 func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) int {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctrlC := make(chan os.Signal, 4) // We expect up to three ctrl-C inputs. Plus one extra to buffer in case.
+	signal.Notify(ctrlC, os.Interrupt)
+
+	go handleOSInterrupt(ctrlC, cancel, logger)
+	defer func() {
+		close(ctrlC) // Ensure that the goroutine exits
+		cancel()
+	}()
 
 	workflow, err := flow.Parse(dirContext, workflowFile)
 	if err != nil {
 		logger.Errorf("Invalid workflow (%v)", err)
 		return ExitCodeInvalidData
 	}
+
 	outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 	if err != nil {
 		logger.Errorf("Workflow execution failed (%v)", err)
@@ -191,6 +200,28 @@ func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workf
 		return ExitCodeWorkflowErrorOutput
 	}
 	return ExitCodeOK
+}
+
+func handleOSInterrupt(ctrlC chan os.Signal, cancel context.CancelFunc, logger log.Logger) {
+	_, ok := <-ctrlC
+	if !ok {
+		return
+	}
+	logger.Infof("Requesting graceful shutdown.")
+	cancel()
+
+	_, ok = <-ctrlC
+	if !ok {
+		return
+	}
+	logger.Warningf("Hit CTRL-C again to forcefully exit workflow without cleanup. You may need to manually delete pods or containers.")
+
+	_, ok = <-ctrlC
+	if !ok {
+		return
+	}
+	logger.Warningf("Force exiting. You may need to manually delete pods or containers.")
+	os.Exit(1)
 }
 
 func loadContext(dir string) (map[string][]byte, error) {

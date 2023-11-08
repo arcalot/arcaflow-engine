@@ -493,3 +493,65 @@ func TestMissingInputsWrongOutput(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equals(t, outputID, "")
 }
+
+var fiveSecWaitWorkflowDefinition = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 5000
+outputs:
+  success:
+    first_step_output: !expr $.steps.long_wait.outputs
+`
+
+func TestEarlyContextCancellation(t *testing.T) {
+	// For this test, a workflow runs two steps, where each step runs a wait step for 5s
+	// The second wait step waits for the first to succeed after which it runs
+	// Due to the wait for condition, the steps will execute serially
+	// The total execution time for this test function should be greater than 10seconds
+	// as each step runs for 5s and are run serially
+	// The test double deployer will be used for this test, as we
+	// need a deployer to test the plugin step provider.
+	logConfig := log.Config{
+		Level:       log.LevelInfo,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(fiveSecWaitWorkflowDefinition)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
+	// Cancel the context after 3 ms to simulate cancellation with ctrl-c.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*3)
+	startTime := time.Now() // Right before execute to not include pre-processing time.
+	//nolint:dogsled
+	_, _, _ = preparedWorkflow.Execute(ctx, map[string]any{})
+	cancel()
+
+	duration := time.Since(startTime)
+	t.Logf("Test execution time: %s", duration)
+	if duration >= 1000*time.Millisecond {
+		t.Fatalf("Test execution time is greater than 1000 milliseconds; Is the workflow properly cancelling?")
+	}
+}

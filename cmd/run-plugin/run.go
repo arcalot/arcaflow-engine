@@ -91,7 +91,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ctrlC := make(chan os.Signal, 1)
+	ctrlC := make(chan os.Signal, 1) // Buffer of one to properly buffer if the signal is sent early.
 	signal.Notify(ctrlC, os.Interrupt)
 
 	// Set up the signal channel to send cancel signal on ctrl-c

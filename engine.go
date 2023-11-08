@@ -62,7 +62,12 @@ type workflowEngine struct {
 	config       *config.Config
 }
 
-func (w workflowEngine) RunWorkflow(ctx context.Context, input []byte, workflowContext map[string][]byte, workflowFileName string) (outputID string, outputData any, outputError bool, err error) {
+func (w workflowEngine) RunWorkflow(
+	ctx context.Context,
+	input []byte,
+	workflowContext map[string][]byte,
+	workflowFileName string,
+) (outputID string, outputData any, outputError bool, err error) {
 	wf, err := w.Parse(workflowContext, workflowFileName)
 	if err != nil {
 		return "", nil, true, err
@@ -126,7 +131,10 @@ type engineWorkflow struct {
 	workflow workflow.ExecutableWorkflow
 }
 
-func (e engineWorkflow) Run(ctx context.Context, input []byte) (outputID string, outputData any, outputIsError bool, err error) {
+func (e engineWorkflow) Run(
+	ctx context.Context,
+	input []byte,
+) (outputID string, outputData any, outputIsError bool, err error) {
 	decodedInput, err := yaml.New().Parse(input)
 	if err != nil {
 		return "", nil, true, fmt.Errorf("failed to YAML decode input (%w)", err)
