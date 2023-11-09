@@ -270,13 +270,12 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 		cancel()
 		// Close it. This allows it go get the error messages.
 		deployerErr := pluginConnector.Close()
-		if deployerErr == nil {
-			return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w)",
-				pluginSource, err)
-		} else {
+		if deployerErr != nil {
 			return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w). Deployer close error: (%s)",
 				pluginSource, err, deployerErr.Error())
 		}
+		return nil, fmt.Errorf("failed to read plugin schema from '%s' (%w)",
+			pluginSource, err)
 	}
 	// Tell the server that the client is done
 	if err := transport.Close(); err != nil {
