@@ -18,7 +18,7 @@ This binary can then be used to run Arcaflow workflows.
 
 ## Building a simple workflow
 
-The simplest workflow is the example plugin workflow using the workflow schema version `v0.1.0`: (save it to workflow.yaml)
+The simplest workflow is the example plugin workflow using the workflow schema version `v0.2.0`: (save it to workflow.yaml)
 
 ```yaml
 version: v0.2.0
@@ -61,8 +61,11 @@ If you have a local Docker / Moby setup installed, you can run it immediately:
 If you don't have a local Docker setup, you can also create a `config.yaml` with the following structure:
 
 ```yaml
-deployer:
-  type: docker|kubernetes
+deployers:
+  image: 
+    deployer_name: docker|podman|kubernetes
+  python:
+    deployer_name: python
   # More deployer options
 log:
   level: debug|info|warning|error
@@ -83,22 +86,23 @@ Currently, the two deployer types supported are Docker and Kubernetes.
 This deployer uses the Docker socket to launch containers. It has the following config structure:
 
 ```yaml
-type: docker
-connection:
-  host: # Docker connection string
-  cacert: # CA certificate for engine connection in PEM format
-  cert: # Client cert in PEM format
-  key: # Client key in PEM format
-deployment:
-  container: # Container options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-  host: # Host options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-  network: # Network options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-  platform: # Platform options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
+image:
+  deployer_name: docker
+  connection:
+    host: # Docker connection string
+    cacert: # CA certificate for engine connection in PEM format
+    cert: # Client cert in PEM format
+    key: # Client key in PEM format
+  deployment:
+    container: # Container options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
+    host: # Host options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
+    network: # Network options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
+    platform: # Platform options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
 
-  # Pull policy, similar to Kubernetes
-  imagePullPolicy: Always|IfNotPresent|Never
-timeouts:
-  http: 15s
+    # Pull policy, similar to Kubernetes
+    imagePullPolicy: Always|IfNotPresent|Never
+  timeouts:
+    http: 15s
 ```
 
 **Note:** not all container options are supported. STDIN/STDOUT-related options are disabled. Some other options may not be implemented yet, but you will always get an error message explaining missing options.
@@ -108,26 +112,27 @@ timeouts:
 The Kubernetes deployer deploys on a Kubernetes cluster. It has the following config structure:
 
 ```yaml
-type: kubernetes
-connection:
-  host: api.server.host
-  path: /api
-  username: foo
-  password: bar
-  serverName: tls.server.name
-  cert: PEM-encoded certificate
-  key: PEM-encoded key
-  cacert: PEM-encoded CA certificate
-  bearerToken: Bearer token for access
-  qps: queries per second
-  burst: burst value
-deployment:
-  metadata:
-    # Add pod metadata here
-  spec:
-    # Add a normal pod spec here, plus the following option here:
-    pluginContainer:
-      # A single container configuration the plugin will run in. Do not specify the image, the engine will fill that.
-timeouts:
-  http: 15s
+image:
+  deployer_name: kubernetes
+  connection:
+    host: api.server.host
+    path: /api
+    username: foo
+    password: bar
+    serverName: tls.server.name
+    cert: PEM-encoded certificate
+    key: PEM-encoded key
+    cacert: PEM-encoded CA certificate
+    bearerToken: Bearer token for access
+    qps: queries per second
+    burst: burst value
+  deployment:
+    metadata:
+      # Add pod metadata here
+    spec:
+      # Add a normal pod spec here, plus the following option here:
+      pluginContainer:
+        # A single container configuration the plugin will run in. Do not specify the image, the engine will fill that.
+  timeouts:
+    http: 15s
 ```
