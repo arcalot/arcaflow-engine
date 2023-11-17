@@ -43,7 +43,8 @@ var executeLifecycleStage = step.LifecycleStage{
 	RunningName:  "executing",
 	FinishedName: "finished",
 	InputFields: map[string]struct{}{
-		"items": {},
+		"items":    {},
+		"wait_for": {},
 	},
 	NextStages: []string{
 		string(StageIDOutputs),
@@ -207,6 +208,20 @@ func (r *runnableStep) Lifecycle(_ map[string]any) (step.Lifecycle[step.Lifecycl
 							nil,
 						),
 						true,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+					),
+					"wait_for": schema.NewPropertySchema(
+						schema.NewAnySchema(),
+						schema.NewDisplayValue(
+							schema.PointerTo("Wait for condition"),
+							schema.PointerTo("Used to wait for a previous step stage to complete before running the step which is waiting."),
+							nil,
+						),
+						false,
 						nil,
 						nil,
 						nil,
