@@ -474,6 +474,8 @@ outputs:
 `
 
 func TestWaitForSerial_Foreach(t *testing.T) {
+	// This test highlights a lack of observability in this part of
+	// Arcaflow's engine.
 	// For this test, a workflow runs two steps, where each step runs a wait
 	// step for 10 ms. The second wait step waits for the first to succeed
 	// after which it runs. Due to the wait for condition, the steps will
@@ -511,10 +513,7 @@ func TestWaitForSerial_Foreach(t *testing.T) {
 		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
 	)
 	assert.NoError(t, err)
-	//stepRegistry := stepregistry.New(
-	//	NewTestImplStepRegistry(logger, t),
-	//	lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
-	//	)
+
 	factories.stepRegistry = stepRegistry
 	executor := lang.Must2(workflow.NewExecutor(
 		logger,
@@ -545,6 +544,98 @@ func TestWaitForSerial_Foreach(t *testing.T) {
 	} else {
 		t.Fatalf("Test execution time is less than 20 milliseconds; steps are not running serially.")
 	}
+}
+
+var waitForStartedForeachWf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject 
+      properties: {}
+steps:
+  pre_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 2
+  second_wait:
+    wait_for: !expr $.steps.first_wait.starting.started
+    kind: foreach
+    parallelism: 3
+    items: 
+    - wait_time_ms: 2
+    - wait_time_ms: 2
+    - wait_time_ms: 2
+    workflow: subworkflow.yaml
+  first_wait:
+    wait_for: !expr $.steps.pre_wait.outputs
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 2
+outputs:
+  success:
+    first_step_output: !expr $.steps.first_wait.outputs
+    second_step_output: !expr $.steps.second_wait.outputs
+`
+
+func TestWaitForStarted_Foreach(t *testing.T) {
+	// This test highlights a lack of observability in this part of
+	// Arcaflow's engine.
+	// For this test, the second wait step depends on the first wait
+	// step's running state being started.
+
+	logConfig := log.Config{
+		Level:       log.LevelInfo,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForStartedForeachWf)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(waitForSerialForeachSubwf),
+	}))
+
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
 }
 
 type workflowFactory struct {
