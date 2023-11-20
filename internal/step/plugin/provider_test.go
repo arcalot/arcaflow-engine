@@ -10,6 +10,7 @@ import (
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testdeployer "go.flow.arcalot.io/testdeployer"
+	stubdeployer "go.flow.arcalot.io/testdeployer/stub"
 	"sync"
 	"testing"
 )
@@ -188,16 +189,67 @@ func TestProvider_MismatchedDeploymentTypes(t *testing.T) {
 			Destination: log.DestinationStdout,
 		},
 	)
-	deployerRegistry := deployer_registry.New(deployer.Any(testdeployer.NewFactory()))
-	// Mismatched. test-impl is has the deployment type builtin, but we're trying to specify it for the image type.
 	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{
-			"deployer_name": "test-impl",
-		},
+		"builtin": map[string]any{
+			"deployer_name": "test-impl"},
 	}
 
-	_, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
+	deployerRegistry := deployer_registry.New(
+		deployer.Any(testdeployer.NewFactory()),
+		//deployer.Any(fakedeployer.NewFactory()),
+		deployer.Any(stubdeployer.NewFactory()))
+
+	_, err := plugin.New(logger, deployerRegistry, map[string]any{
+		"wrong": map[string]any{
+			"deployer_name": "test-impl",
+		}})
 	assert.Error(t, err)
+
+	_, err = plugin.New(logger, deployerRegistry, map[string]any{
+		"test-double": map[string]any{
+			"deployer_name": "test-impl",
+		}})
+	assert.Error(t, err)
+
+	_, err = plugin.New(logger, deployerRegistry, map[string]any{
+		"builtin": map[string]any{
+			"deployer_name": "bad",
+		}})
+	assert.Error(t, err)
+
+	plp, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
+	assert.NoError(t, err)
+
+	stepSchema := map[string]any{
+		"plugin": map[string]any{
+			"src":             "simulation",
+			"deployment_type": "builtin"},
+		"deploy": map[string]any{
+			"deployer_name": "test-stub"},
+	}
+	byteSchema := map[string][]byte{}
+
+	_, err = plp.LoadSchema(stepSchema, byteSchema)
+	assert.Error(t, err)
+
+	stepSchema = map[string]any{
+		"plugin": map[string]any{
+			"src":             "simulation",
+			"deployment_type": "test-double"},
+		"deploy": map[string]any{
+			"deployer_name": "test-impl"},
+	}
+	_, err = plp.LoadSchema(stepSchema, byteSchema)
+	assert.Error(t, err)
+
+	stepSchema = map[string]any{
+		"plugin": map[string]any{
+			"src":             "simulation",
+			"deployment_type": "builtin"},
+	}
+
+	_, err = plp.LoadSchema(stepSchema, byteSchema)
+	assert.NoError(t, err)
 }
 
 func TestProvider_Utility(t *testing.T) {

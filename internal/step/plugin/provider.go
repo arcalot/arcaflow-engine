@@ -256,6 +256,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 	if !ok {
 		return nil, fmt.Errorf("missing local deployer for requested type %s", requestedDeploymentType)
 	}
+
 	pluginConnector, err := applicableLocalDeployer.Deploy(ctx, pluginSource)
 	if err != nil {
 		cancel()
