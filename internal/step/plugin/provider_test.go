@@ -182,75 +182,6 @@ func TestProvider_MissingDeployer(t *testing.T) {
 	_, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
 	assert.Error(t, err)
 }
-func TestProvider_MismatchedDeploymentTypes(t *testing.T) {
-	logger := log.New(
-		log.Config{
-			Level:       log.LevelError,
-			Destination: log.DestinationStdout,
-		},
-	)
-	workflowDeployerCfg := map[string]any{
-		"builtin": map[string]any{
-			"deployer_name": "test-impl"},
-	}
-
-	deployerRegistry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()),
-		//deployer.Any(fakedeployer.NewFactory()),
-		deployer.Any(stubdeployer.NewFactory()))
-
-	_, err := plugin.New(logger, deployerRegistry, map[string]any{
-		"wrong": map[string]any{
-			"deployer_name": "test-impl",
-		}})
-	assert.Error(t, err)
-
-	_, err = plugin.New(logger, deployerRegistry, map[string]any{
-		"test-double": map[string]any{
-			"deployer_name": "test-impl",
-		}})
-	assert.Error(t, err)
-
-	_, err = plugin.New(logger, deployerRegistry, map[string]any{
-		"builtin": map[string]any{
-			"deployer_name": "bad",
-		}})
-	assert.Error(t, err)
-
-	plp, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
-	assert.NoError(t, err)
-
-	stepSchema := map[string]any{
-		"plugin": map[string]any{
-			"src":             "simulation",
-			"deployment_type": "builtin"},
-		"deploy": map[string]any{
-			"deployer_name": "test-stub"},
-	}
-	byteSchema := map[string][]byte{}
-
-	_, err = plp.LoadSchema(stepSchema, byteSchema)
-	assert.Error(t, err)
-
-	stepSchema = map[string]any{
-		"plugin": map[string]any{
-			"src":             "simulation",
-			"deployment_type": "test-double"},
-		"deploy": map[string]any{
-			"deployer_name": "test-impl"},
-	}
-	_, err = plp.LoadSchema(stepSchema, byteSchema)
-	assert.Error(t, err)
-
-	stepSchema = map[string]any{
-		"plugin": map[string]any{
-			"src":             "simulation",
-			"deployment_type": "builtin"},
-	}
-
-	_, err = plp.LoadSchema(stepSchema, byteSchema)
-	assert.NoError(t, err)
-}
 
 func TestProvider_Utility(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
@@ -307,17 +238,21 @@ func TestProvider_HappyError(t *testing.T) {
 	}
 
 	deployerRegistry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
+		deployer.Any(testdeployer.NewFactory()),
+		deployer.Any(stubdeployer.NewFactory()))
 
+	// Deployer type not in deployer registry
 	_, err := plugin.New(logger, deployerRegistry, map[string]any{
 		"wrong": map[string]any{
 			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
 
+	// Deployment type test-double is in deployer registry, but does not
+	// match the deployment type for test-impl
 	_, err = plugin.New(logger, deployerRegistry, map[string]any{
-		"builtin": map[string]any{
-			"deployer_name": "bad",
+		"test-double": map[string]any{
+			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
 
@@ -349,6 +284,14 @@ func TestProvider_HappyError(t *testing.T) {
 	// non-existent stage
 	assert.Error(t, running.ProvideStageInput(
 		"", nil))
+
+	// deployer name and deployment type mismatch
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		map[string]any{"deploy": map[string]any{
+			"deployer_name": "test-stub",
+			"deploy_time":   1}},
+	))
 
 	// unserialize malformed deploy schema
 	assert.Error(t, running.ProvideStageInput(
