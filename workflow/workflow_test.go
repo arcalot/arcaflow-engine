@@ -430,10 +430,7 @@ steps:
   second_wait:
     wait_for: !expr $.steps.first_wait.outputs.success
     kind: foreach
-    parallelism: 3
     items: 
-    - wait_time_ms: 10
-    - wait_time_ms: 10
     - wait_time_ms: 10
     workflow: subworkflow.yaml
   first_wait:
@@ -565,10 +562,7 @@ steps:
   second_wait:
     wait_for: !expr $.steps.first_wait.starting.started
     kind: foreach
-    parallelism: 3
     items: 
-    - wait_time_ms: 2
-    - wait_time_ms: 2
     - wait_time_ms: 2
     workflow: subworkflow.yaml
   first_wait:
