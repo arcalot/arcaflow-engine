@@ -10,6 +10,7 @@ import (
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testdeployer "go.flow.arcalot.io/testdeployer"
+	stubdeployer "go.flow.arcalot.io/testdeployer/stub"
 	"sync"
 	"testing"
 )
@@ -252,20 +253,27 @@ func TestProvider_HappyError(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
 			"deployer_name": "test-impl"},
+		"test-double": map[string]any{
+			"deployer_name": "test-stub",
+		},
 	}
 
 	deployerRegistry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
+		deployer.Any(testdeployer.NewFactory()),
+		deployer.Any(stubdeployer.NewFactory()))
 
+	// Deployer type not in deployer registry
 	_, err := plugin.New(logger, deployerRegistry, map[string]any{
 		"wrong": map[string]any{
 			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
 
+	// Deployment type test-double is in deployer registry, but does not
+	// match the deployment type for test-impl
 	_, err = plugin.New(logger, deployerRegistry, map[string]any{
-		"builtin": map[string]any{
-			"deployer_name": "bad",
+		"test-double": map[string]any{
+			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
 
@@ -297,6 +305,14 @@ func TestProvider_HappyError(t *testing.T) {
 	// non-existent stage
 	assert.Error(t, running.ProvideStageInput(
 		"", nil))
+
+	// deployer name and deployment type mismatch
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		map[string]any{"deploy": map[string]any{
+			"deployer_name": "test-stub",
+			"deploy_time":   1}},
+	))
 
 	// unserialize malformed deploy schema
 	assert.Error(t, running.ProvideStageInput(
