@@ -14,7 +14,7 @@ require (
 	go.flow.arcalot.io/pluginsdk v0.5.1
 	go.flow.arcalot.io/podmandeployer v0.7.0
 	go.flow.arcalot.io/pythondeployer v0.4.0
-	go.flow.arcalot.io/testdeployer v0.4.0
+	go.flow.arcalot.io/testdeployer v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

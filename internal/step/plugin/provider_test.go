@@ -6,10 +6,10 @@ import (
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/deployer"
 	deployer_registry "go.flow.arcalot.io/deployer/registry"
-	docker "go.flow.arcalot.io/dockerdeployer"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testdeployer "go.flow.arcalot.io/testdeployer"
+	stubdeployer "go.flow.arcalot.io/testdeployer/stub"
 	"sync"
 	"testing"
 )
@@ -111,59 +111,6 @@ func (s *stageChangeHandler) OnStepComplete(
 	s.message <- message
 }
 
-func TestProvider_MultipleDeployers(t *testing.T) {
-	logger := log.New(
-		log.Config{
-			Level:       log.LevelError,
-			Destination: log.DestinationStdout,
-		},
-	)
-	deployerRegistry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()),
-		deployer.Any(docker.NewFactory()))
-	deployTimeMs := 20
-	workflowDeployerCfg := map[string]any{
-		"builtin": map[string]any{
-			"deployer_name":  "test-impl",
-			"deploy_time":    deployTimeMs,
-			"deploy_succeed": true,
-		},
-		"image": map[string]any{
-			"deployer_name": "docker",
-		},
-	}
-
-	plp, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
-	assert.NoError(t, err)
-	assert.Equals(t, plp.Kind(), "plugin")
-	assert.NotNil(t, plp.ProviderSchema())
-	assert.NotNil(t, plp.RunProperties())
-	assert.NotNil(t, plp.Lifecycle())
-
-	stepSchema := map[string]any{
-		"plugin": map[string]any{
-			"src":             "simulation",
-			"deployment_type": "builtin",
-		},
-	}
-	byteSchema := map[string][]byte{}
-
-	runnable, err := plp.LoadSchema(stepSchema, byteSchema)
-	assert.NoError(t, err)
-
-	assert.NotNil(t, runnable.RunSchema())
-
-	_, err = runnable.Lifecycle(map[string]any{"step": "wait"})
-	assert.NoError(t, err)
-
-	_, err = runnable.Lifecycle(map[string]any{"step": "hello"})
-	assert.NoError(t, err)
-
-	// There is more than one step, so no specified one will cause an error.
-	_, err = runnable.Lifecycle(map[string]any{"step": nil})
-	assert.Error(t, err)
-}
-
 func TestProvider_MissingDeployer(t *testing.T) {
 	logger := log.New(
 		log.Config{
@@ -174,24 +121,6 @@ func TestProvider_MissingDeployer(t *testing.T) {
 	deployerRegistry := deployer_registry.New() // Empty. So it will error out.
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
-			"deployer_name": "test-impl",
-		},
-	}
-
-	_, err := plugin.New(logger, deployerRegistry, workflowDeployerCfg)
-	assert.Error(t, err)
-}
-func TestProvider_MismatchedDeploymentTypes(t *testing.T) {
-	logger := log.New(
-		log.Config{
-			Level:       log.LevelError,
-			Destination: log.DestinationStdout,
-		},
-	)
-	deployerRegistry := deployer_registry.New(deployer.Any(testdeployer.NewFactory()))
-	// Mismatched. test-impl is has the deployment type builtin, but we're trying to specify it for the image type.
-	workflowDeployerCfg := map[string]any{
-		"image": map[string]any{
 			"deployer_name": "test-impl",
 		},
 	}
@@ -252,20 +181,27 @@ func TestProvider_HappyError(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
 			"deployer_name": "test-impl"},
+		"stubby": map[string]any{
+			"deployer_name": "test-stub",
+		},
 	}
 
 	deployerRegistry := deployer_registry.New(
-		deployer.Any(testdeployer.NewFactory()))
+		deployer.Any(testdeployer.NewFactory()),
+		deployer.Any(stubdeployer.NewFactory()))
 
+	// Deployer type not in deployer registry
 	_, err := plugin.New(logger, deployerRegistry, map[string]any{
 		"wrong": map[string]any{
 			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
 
+	// Deployment type stubby is in deployer registry, but does not
+	// match the deployment type for test-impl
 	_, err = plugin.New(logger, deployerRegistry, map[string]any{
-		"builtin": map[string]any{
-			"deployer_name": "bad",
+		"stubby": map[string]any{
+			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
 
@@ -297,6 +233,14 @@ func TestProvider_HappyError(t *testing.T) {
 	// non-existent stage
 	assert.Error(t, running.ProvideStageInput(
 		"", nil))
+
+	// deployer name and deployment type mismatch
+	assert.Error(t, running.ProvideStageInput(
+		string(plugin.StageIDDeploy),
+		map[string]any{"deploy": map[string]any{
+			"deployer_name": "test-stub",
+			"deploy_time":   1}},
+	))
 
 	// unserialize malformed deploy schema
 	assert.Error(t, running.ProvideStageInput(
