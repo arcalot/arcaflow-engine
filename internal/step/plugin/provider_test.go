@@ -181,7 +181,7 @@ func TestProvider_HappyError(t *testing.T) {
 	workflowDeployerCfg := map[string]any{
 		"builtin": map[string]any{
 			"deployer_name": "test-impl"},
-		"test-double": map[string]any{
+		"stubby": map[string]any{
 			"deployer_name": "test-stub",
 		},
 	}
@@ -197,10 +197,10 @@ func TestProvider_HappyError(t *testing.T) {
 		}})
 	assert.Error(t, err)
 
-	// Deployment type test-double is in deployer registry, but does not
+	// Deployment type stubby is in deployer registry, but does not
 	// match the deployment type for test-impl
 	_, err = plugin.New(logger, deployerRegistry, map[string]any{
-		"test-double": map[string]any{
+		"stubby": map[string]any{
 			"deployer_name": "test-impl",
 		}})
 	assert.Error(t, err)
