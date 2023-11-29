@@ -376,7 +376,7 @@ func (e *executor) verifyStageInputs(
 		if providedInputForField == nil {
 			// not present
 			if stageInputSchema.RequiredValue {
-				return fmt.Errorf("required input %s of type %s not found for step %s",
+				return fmt.Errorf("required input '%s' of type '%s' not found for step '%s'",
 					name, stageInputSchema.TypeID(), stepID)
 			}
 		} else {
@@ -773,8 +773,8 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 			for _, dependency := range dependencies {
 				dependencyKind := dependency[1]
 				switch dependencyKind {
-				case "input":
-					inputNode, err := dag.GetNodeByID("input")
+				case WorkflowInputKey:
+					inputNode, err := dag.GetNodeByID(WorkflowInputKey)
 					if err != nil {
 						return fmt.Errorf("failed to find input node (%w)", err)
 					}
@@ -784,7 +784,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 							return fmt.Errorf("failed to connect input to %s (%w)", currentNode.ID(), err)
 						}
 					}
-				case "steps":
+				case WorkflowStepsKey:
 					var prevNodeID string
 					switch dependencyNodes := len(dependency); {
 					case dependencyNodes == 4: // Example: $.steps.example.outputs
