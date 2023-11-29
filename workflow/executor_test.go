@@ -126,7 +126,9 @@ input:
       properties: {}
 steps:
   incomplete_wait:
-    plugin: "n/a"
+    plugin: 
+      src: "n/a"
+      deployment_type: builtin
     step: wait
     # Missing input
 outputs:
@@ -155,9 +157,12 @@ func TestMissingInput(t *testing.T) {
 	// For this test, a workflow's step will be missing its inputs.
 	_, err := getTestImplPreparedWorkflow(t, missingInputWorkflowDefinition1)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "required input 'input' of type 'scope' not found for step 'incomplete_wait'")
 
 	_, err = getDummyDeployerPreparedWorkflow(t, missingInputWorkflowDefinition2)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "required input 'name' of type 'string' not found for step 'say_hi'")
+
 }
 
 var mismatchedStepInputTypesWorkflowDefinition = `
@@ -170,12 +175,16 @@ input:
       properties: {}
 steps:
   wait_1:
-    plugin: "n/a"
+    plugin: 
+      src: "n/a"
+      deployment_type: builtin
     step: wait
     input:
       wait_time_ms: 0
   wait_2:
-    plugin: "n/a"
+    plugin:
+      src: "n/a"
+      deployment_type: builtin
     step: wait
     input:
       # Should fail during preparation, due to message being a string, and wait_time_ms expecting an int
@@ -188,6 +197,7 @@ outputs:
 func TestMismatchedStepInputTypes(t *testing.T) {
 	_, err := getTestImplPreparedWorkflow(t, mismatchedStepInputTypesWorkflowDefinition)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported data type for 'int' type: *schema.StringSchema")
 }
 
 var mismatchedInputTypesWorkflowDefinition = `
@@ -207,7 +217,9 @@ input:
             type_id: string
 steps:
   wait_1:
-    plugin: "n/a"
+    plugin: 
+      src: "n/a"
+      deployment_type: builtin
     step: wait
     input:
       # This is trying to put a string into an int field
@@ -220,4 +232,5 @@ outputs:
 func TestMismatchedInputTypes(t *testing.T) {
 	_, err := getTestImplPreparedWorkflow(t, mismatchedInputTypesWorkflowDefinition)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported data type for 'int' type: *schema.StringSchema")
 }
