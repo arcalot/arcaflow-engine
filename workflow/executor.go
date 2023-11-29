@@ -383,7 +383,7 @@ func (e *executor) verifyStageInputs(
 			// It is present, so make sure it is compatible.
 			err := e.preValidateCompatibility(internalDataModel, providedInputForField, stageInputSchema, workflowContext)
 			if err != nil {
-				return fmt.Errorf("input validation failed for workflow step %s stage %s (%w)", stepID, stage.ID, err)
+				return fmt.Errorf("input validation failed for workflow step '%s' stage '%s' (%w)", stepID, stage.ID, err)
 			}
 		}
 	}

@@ -234,3 +234,45 @@ func TestMismatchedInputTypes(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type for 'int' type: *schema.StringSchema")
 }
+
+var invalidWaitfor = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_1:
+    plugin: 
+      src: "n/a"
+      deployment_type: builtin
+    step: wait
+    input:
+      wait_time_ms: 0
+  wait_2:
+    plugin:
+      src: "n/a"
+      deployment_type: builtin
+    step: wait
+    input:
+      wait_time_ms: 0
+    # invalid wait for specification
+    # specifically, deploy does not have any outputs 
+    wait_for: !expr steps.wait_1.deploy
+outputs:
+  a:
+    b: !expr $.steps.wait_2.outputs
+`
+
+func TestDependOnNoOutputs(t *testing.T) {
+	// This test is to validate that this error is caught at workflow
+	// preparation instead of workflow execution.
+	// panic: cannot resolve expressions for steps.wait_2.starting
+	//   (failed to resolve workflow map expressions (map key deploy not found))
+	_, err := getTestImplPreparedWorkflow(t, invalidWaitfor)
+	assert.Error(t, err)
+	//_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{})
+	//assert.NoError(t, err)
+}
