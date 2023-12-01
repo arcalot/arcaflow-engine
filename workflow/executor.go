@@ -92,7 +92,7 @@ type executor struct {
 // 5. We can now construct the output data model of the workflow.
 func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte) (ExecutableWorkflow, error) {
 	dag := dgraph.New[*DAGItem]()
-	if _, err := dag.AddNode("input", &DAGItem{
+	if _, err := dag.AddNode(WorkflowInputKey, &DAGItem{
 		Kind: "input",
 	}); err != nil {
 		return nil, fmt.Errorf("failed to add input node (%w)", err)
@@ -314,13 +314,13 @@ func (e *executor) connectStepDependencies(
 					stageData[inputField] = data
 				}
 				if err := e.prepareDependencies(workflowContext, data, currentStageNode, internalDataModel, dag); err != nil {
-					return fmt.Errorf("failed to build dependency tree for %s (%w)", currentStageNode.ID(), err)
+					return fmt.Errorf("failed to build dependency tree for '%s' (%w)", currentStageNode.ID(), err)
 				}
 			}
 			currentStageNode.Item().Data = stageData
 			if len(stage.InputSchema) > 0 {
 				currentStageNode.Item().DataSchema = schema.NewObjectSchema(
-					"input",
+					WorkflowInputKey,
 					stage.InputSchema,
 				)
 			}
@@ -493,7 +493,7 @@ func (e *executor) buildInternalDataModel(input schema.Scope, stepOutputProperti
 		schema.NewObjectSchema(
 			"workflow",
 			map[string]*schema.PropertySchema{
-				"input": schema.NewPropertySchema(
+				WorkflowInputKey: schema.NewPropertySchema(
 					input,
 					schema.NewDisplayValue(
 						schema.PointerTo("Input"),
@@ -507,9 +507,9 @@ func (e *executor) buildInternalDataModel(input schema.Scope, stepOutputProperti
 					nil,
 					nil,
 				),
-				"steps": schema.NewPropertySchema(
+				WorkflowStepsKey: schema.NewPropertySchema(
 					schema.NewObjectSchema(
-						"steps",
+						WorkflowStepsKey,
 						stepOutputProperties,
 					),
 					nil,
@@ -550,7 +550,13 @@ func (e *executor) buildOutputProperties(
 				err,
 			)
 		}
-		stageOutputProperties := make(map[string]*schema.PropertySchema, len(stage.Outputs))
+		
+		stageOutputsLen := len(stage.Outputs)
+		if stageOutputsLen == 0 {
+			continue
+		}
+		stageOutputProperties := make(map[string]*schema.PropertySchema, stageOutputsLen)
+
 		for outputID, outputSchema := range stage.Outputs {
 			stageDAGItem := &DAGItem{
 				Kind:     DAGItemKindStepStageOutput,

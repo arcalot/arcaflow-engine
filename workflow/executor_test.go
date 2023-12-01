@@ -269,10 +269,10 @@ outputs:
 func TestDependOnNoOutputs(t *testing.T) {
 	// This test is to validate that this error is caught at workflow
 	// preparation instead of workflow execution.
-	// panic: cannot resolve expressions for steps.wait_2.starting
-	//   (failed to resolve workflow map expressions (map key deploy not found))
+	// The error handling does not currently distinguish between the edge cases:
+	// - wait_1 = {}; not having a property named 'deploy',
+	// - wait_1 = { deploy: nil }; the 'deploy' property has no outputs (i.e. nil output)
 	_, err := getTestImplPreparedWorkflow(t, invalidWaitfor)
 	assert.Error(t, err)
-	//_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{})
-	//assert.NoError(t, err)
+	assert.Contains(t, err.Error(), "object wait_1 does not have a property named deploy")
 }
