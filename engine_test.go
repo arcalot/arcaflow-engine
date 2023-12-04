@@ -3,6 +3,7 @@ package engine_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	log "go.arcalot.io/log/v2"
@@ -193,4 +194,81 @@ outputs:
 	assert.Equals(t, outputError, false)
 	assert.Equals(t, outputID, "success")
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
+}
+
+func TestE2EWorkflowDefaultInput(t *testing.T) {
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`{}`),
+		map[string][]byte{
+			"workflow.yaml": []byte(`version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        name:
+          type:
+            type_id: string
+          default: not
+          required: false
+steps:
+  example:
+    plugin: 
+      src: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+      deployment_type: image
+    step: hello-world
+    input:
+    #  name: !expr $.input.name
+outputs:
+  success:
+    message: !expr $.steps.example.outputs.success.message`),
+		},
+		"",
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, not!"})
+}
+
+func TestE2EWorkflowDefaultInputInteger(t *testing.T) {
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`{}`),
+		map[string][]byte{
+			"workflow.yaml": []byte(`version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        wait_time:
+          type:
+            type_id: float
+          default: 2.0
+          required: false
+steps:
+  example:
+    deploy:
+      deployer_name: docker
+    plugin: 
+      src: quay.io/mleader/wait:default-1
+      deployment_type: image
+    step: wait
+    input:
+      seconds: !expr $.input.wait_time
+outputs:
+  success:
+    message: !expr $.steps.example.outputs.success.message`),
+		},
+		"",
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	fmt.Printf("%s\n", outputData.(map[any]any)["message"])
+	//assert.Contains(outputData.(map[any]any), map[any]any{"message": "Hello, not!"})
 }
