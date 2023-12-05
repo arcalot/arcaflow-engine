@@ -550,58 +550,52 @@ func (e *executor) buildOutputProperties(
 				err,
 			)
 		}
-		
-		stageOutputsLen := len(stage.Outputs)
-		if stageOutputsLen == 0 {
-			continue
-		}
-		stageOutputProperties := make(map[string]*schema.PropertySchema, stageOutputsLen)
 
-		for outputID, outputSchema := range stage.Outputs {
-			stageDAGItem := &DAGItem{
-				Kind:     DAGItemKindStepStageOutput,
-				StepID:   stepID,
-				StageID:  stage.ID,
-				OutputID: outputID,
-				Provider: runnableStep,
+		stageOutputsLen := len(stage.Outputs)
+
+		if stageOutputsLen > 0 {
+			// only add stages with outputs
+			stageOutputProperties := make(map[string]*schema.PropertySchema, stageOutputsLen)
+			m, err2 := e.addOutputProperties(
+				stage, stepID, runnableStep, dag, stepNode,
+				stageOutputProperties, outputProperties)
+			if err2 != nil {
+				return m, err2
 			}
-			stageNode, err := dag.AddNode(stageDAGItem.String(), stageDAGItem)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"failed to add output %s for stage %s in step %s to DAG (%w)",
-					outputID,
-					stage.ID,
-					stepID,
-					err,
-				)
-			}
-			if err := stepNode.Connect(stageNode.ID()); err != nil {
-				return nil, fmt.Errorf(
-					"failed to connect stage %s to its output %s in step %s (%w)",
-					stage.ID, outputID, stepID, err,
-				)
-			}
-			stageOutputProperties[outputID] = schema.NewPropertySchema(
-				outputSchema.Schema(),
-				outputSchema.Display(),
-				false,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
+		}
+	}
+	return outputProperties, nil
+}
+
+func (e *executor) addOutputProperties(stage step.LifecycleStageWithSchema, stepID string, runnableStep step.RunnableStep, dag dgraph.DirectedGraph[*DAGItem], stepNode dgraph.Node[*DAGItem], stageOutputProperties map[string]*schema.PropertySchema, outputProperties map[string]*schema.PropertySchema) (map[string]*schema.PropertySchema, error) {
+	for outputID, outputSchema := range stage.Outputs {
+		stageDAGItem := &DAGItem{
+			Kind:     DAGItemKindStepStageOutput,
+			StepID:   stepID,
+			StageID:  stage.ID,
+			OutputID: outputID,
+			Provider: runnableStep,
+		}
+		stageNode, err := dag.AddNode(stageDAGItem.String(), stageDAGItem)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to add output %s for stage %s in step %s to DAG (%w)",
+				outputID,
+				stage.ID,
+				stepID,
+				err,
 			)
 		}
-
-		stageOutputs := schema.NewObjectSchema(
-			GetStageNodeID(stepID, stage.ID),
-			stageOutputProperties,
-		)
-
-		outputProperties[stage.ID] = schema.NewPropertySchema(
-			stageOutputs,
-			nil,
-			true,
+		if err := stepNode.Connect(stageNode.ID()); err != nil {
+			return nil, fmt.Errorf(
+				"failed to connect stage %s to its output %s in step %s (%w)",
+				stage.ID, outputID, stepID, err,
+			)
+		}
+		stageOutputProperties[outputID] = schema.NewPropertySchema(
+			outputSchema.Schema(),
+			outputSchema.Display(),
+			false,
 			nil,
 			nil,
 			nil,
@@ -609,7 +603,23 @@ func (e *executor) buildOutputProperties(
 			nil,
 		)
 	}
-	return outputProperties, nil
+
+	stageOutputs := schema.NewObjectSchema(
+		GetStageNodeID(stepID, stage.ID),
+		stageOutputProperties,
+	)
+
+	outputProperties[stage.ID] = schema.NewPropertySchema(
+		stageOutputs,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	return nil, nil
 }
 
 func (e *executor) getRunData(stepKind step.Provider, runnableStep step.RunnableStep, stepID string, stepDataMap map[any]any) (map[string]any, error) {
