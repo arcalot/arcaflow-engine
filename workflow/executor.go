@@ -556,18 +556,32 @@ func (e *executor) buildOutputProperties(
 		if stageOutputsLen > 0 {
 			// only add stages with outputs
 			stageOutputProperties := make(map[string]*schema.PropertySchema, stageOutputsLen)
-			m, err2 := e.addOutputProperties(
+			stageOutputs, err2 := e.addOutputProperties(
 				stage, stepID, runnableStep, dag, stepNode,
-				stageOutputProperties, outputProperties)
+				stageOutputProperties)
 			if err2 != nil {
-				return m, err2
+				return nil, err2
 			}
+			outputProperties[stage.ID] = schema.NewPropertySchema(
+				stageOutputs,
+				nil,
+				true,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			)
 		}
 	}
 	return outputProperties, nil
 }
 
-func (e *executor) addOutputProperties(stage step.LifecycleStageWithSchema, stepID string, runnableStep step.RunnableStep, dag dgraph.DirectedGraph[*DAGItem], stepNode dgraph.Node[*DAGItem], stageOutputProperties map[string]*schema.PropertySchema, outputProperties map[string]*schema.PropertySchema) (map[string]*schema.PropertySchema, error) {
+func (e *executor) addOutputProperties(
+	stage step.LifecycleStageWithSchema, stepID string, runnableStep step.RunnableStep,
+	dag dgraph.DirectedGraph[*DAGItem], stepNode dgraph.Node[*DAGItem],
+	stageOutputProperties map[string]*schema.PropertySchema) (*schema.ObjectSchema, error) {
+
 	for outputID, outputSchema := range stage.Outputs {
 		stageDAGItem := &DAGItem{
 			Kind:     DAGItemKindStepStageOutput,
@@ -609,17 +623,7 @@ func (e *executor) addOutputProperties(stage step.LifecycleStageWithSchema, step
 		stageOutputProperties,
 	)
 
-	outputProperties[stage.ID] = schema.NewPropertySchema(
-		stageOutputs,
-		nil,
-		true,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-	return nil, nil
+	return stageOutputs, nil
 }
 
 func (e *executor) getRunData(stepKind step.Provider, runnableStep step.RunnableStep, stepID string, stepDataMap map[any]any) (map[string]any, error) {
