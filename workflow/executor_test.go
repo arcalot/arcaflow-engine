@@ -234,3 +234,50 @@ func TestMismatchedInputTypes(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type for 'int' type: *schema.StringSchema")
 }
+
+var invalidWaitfor = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_1:
+    plugin: 
+      src: "n/a"
+      deployment_type: builtin
+    step: wait
+    input:
+      wait_time_ms: 0
+  wait_2:
+    plugin:
+      src: "n/a"
+      deployment_type: builtin
+    step: wait
+    input:
+      wait_time_ms: 0
+    # invalid wait for specification
+    # specifically, deploy does not have any outputs 
+    wait_for: !expr steps.wait_1.deploy
+outputs:
+  a:
+    b: !expr $.steps.wait_2.outputs
+`
+
+func TestDependOnNoOutputs(t *testing.T) {
+	// This test is to validate that this error is caught at workflow
+	// preparation instead of workflow execution.
+
+	// The error handling does not currently distinguish between the edge cases:
+	// - wait_1 = {}; not having a property named 'deploy',
+	// - wait_1 = { deploy: nil }; the 'deploy' property has no outputs (i.e. nil output)
+	//
+	// This is not a robust test. If it continues to break, it should be improved, or removed.
+	// To improve this test the engine needs to improve observability
+	// into the workflow's expression path data structure at preparation time.
+	_, err := getTestImplPreparedWorkflow(t, invalidWaitfor)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "object wait_1 does not have a property named deploy")
+}
