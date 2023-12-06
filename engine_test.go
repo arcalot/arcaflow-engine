@@ -3,7 +3,6 @@ package engine_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	log "go.arcalot.io/log/v2"
@@ -231,47 +230,4 @@ outputs:
 	assert.Equals(t, outputError, false)
 	assert.Equals(t, outputID, "success")
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, not!"})
-}
-
-func TestE2EWorkflowDefaultInputInteger(t *testing.T) {
-	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
-		context.Background(),
-		[]byte(`{}`),
-		map[string][]byte{
-			"workflow.yaml": []byte(`version: v0.2.0
-input:
-  root: RootObject
-  objects:
-    RootObject:
-      id: RootObject
-      properties:
-        wait_time:
-          type:
-            type_id: float
-          #default: 2.0
-          required: false
-steps:
-  example:
-    deploy:
-      deployer_name: docker
-    plugin: 
-      src: quay.io/mleader/wait:default-1
-      deployment_type: image
-    step: wait
-    input: {}
-outputs:
-  success:
-    message: !expr $.steps.example.outputs.success.message`),
-		},
-		"",
-	)
-	assert.NoError(t, err)
-	assert.Equals(t, outputError, false)
-	assert.Equals(t, outputID, "success")
-	fmt.Printf("%s\n", outputData.(map[any]any)["message"])
-	//fmt.Printf("msg: %s||\n", outputData.(map[string]string)["message"])
-	//workflow_default_wait := 2.0
-	//msg_exp := fmt.Sprintf("scheduled to wait for %d seconds", int64(workflow_default_wait))
-
-	//assert.Contains(t, outputData.(map[string]string)["message"], msg_exp)
 }
