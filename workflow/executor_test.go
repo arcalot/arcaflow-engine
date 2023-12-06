@@ -274,9 +274,9 @@ func TestDependOnNoOutputs(t *testing.T) {
 	// - wait_1 = {}; not having a property named 'deploy',
 	// - wait_1 = { deploy: nil }; the 'deploy' property has no outputs (i.e. nil output)
 	//
-	// This is not a robust test. It should be improved, or removed, if it continues to break.
+	// This is not a robust test. If it continues to break, it should be improved, or removed.
 	// To improve this test the engine needs to improve observability
-	// into the workflow's path structure at preparation time.
+	// into the workflow's expression path data structure at preparation time.
 	_, err := getTestImplPreparedWorkflow(t, invalidWaitfor)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "object wait_1 does not have a property named deploy")
