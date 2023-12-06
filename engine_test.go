@@ -220,7 +220,7 @@ steps:
       deployment_type: image
     step: hello-world
     input:
-    #  name: !expr $.input.name
+      name: !expr $.input.name
 outputs:
   success:
     message: !expr $.steps.example.outputs.success.message`),
@@ -270,5 +270,8 @@ outputs:
 	assert.Equals(t, outputError, false)
 	assert.Equals(t, outputID, "success")
 	fmt.Printf("%s\n", outputData.(map[any]any)["message"])
-	//assert.Contains(outputData.(map[any]any), map[any]any{"message": "Hello, not!"})
+	workflow_default_wait := 2.0
+	msg_exp := fmt.Sprintf("scheduled to wait for %d seconds", int64(workflow_default_wait))
+	fmt.Printf("msg: %s||\n", outputData.(map[string]string)["message"])
+	assert.Contains(t, outputData.(map[string]string)["message"], msg_exp)
 }
