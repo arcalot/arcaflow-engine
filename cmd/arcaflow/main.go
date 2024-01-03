@@ -5,12 +5,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go.arcalot.io/log/v2"
+	"go.flow.arcalot.io/engine/loadfile"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
-
-	"go.arcalot.io/log/v2"
 
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
@@ -37,6 +36,15 @@ const ExitCodeWorkflowErrorOutput = 2
 
 // ExitCodeWorkflowFailed indicates that the workflow execution failed.
 const ExitCodeWorkflowFailed = 3
+
+// RequiredFileKeyWorkflow is the key for the workflow file in hash map of files required for execution.
+const RequiredFileKeyWorkflow = "workflow"
+
+// RequiredFileKeyConfig is the key for the config file in hash map of files required for execution.
+const RequiredFileKeyConfig = "config"
+
+// RequiredFileKeyInput is the key for the input file in hash map of files required for execution.
+const RequiredFileKeyInput = "input"
 
 func main() {
 	tempLogger := log.New(log.Config{
@@ -117,6 +125,31 @@ Options:
 	}
 
 	var err error
+
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		tempLogger.Errorf("Failed to determine absolute path of arcaflow context directory %s (%v)", dir, err)
+		os.Exit(ExitCodeInvalidData)
+	}
+
+	requiredFiles := map[string]string{
+		RequiredFileKeyConfig:   configFile,
+		RequiredFileKeyInput:    input,
+		RequiredFileKeyWorkflow: workflowFile,
+	}
+	var requiredFilesAbs = map[string]string{}
+	for key, f := range requiredFiles {
+		abspath := f
+		if !filepath.IsAbs(f) {
+			abspath = filepath.Join(absDir, f)
+		}
+		requiredFilesAbs[key] = abspath
+	}
+	var requiredFilesAbsSlice = make([]string, len(requiredFiles))
+	for _, f := range requiredFilesAbs {
+		requiredFilesAbsSlice = append(requiredFilesAbsSlice, f)
+	}
+
 	var configData any = map[any]any{}
 	if configFile != "" {
 		configData, err = loadYamlFile(configFile)
@@ -136,7 +169,7 @@ Options:
 
 	logger := log.New(cfg.Log).WithLabel("source", "main")
 
-	dirContext, err := loadContext(dir)
+	dirContext, err := loadfile.LoadContext(requiredFilesAbsSlice)
 	if err != nil {
 		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 		flag.Usage()
@@ -160,7 +193,7 @@ Options:
 		}
 	}
 
-	os.Exit(runWorkflow(flow, dirContext, workflowFile, logger, inputData))
+	os.Exit(runWorkflow(flow, dirContext, requiredFilesAbs[RequiredFileKeyWorkflow], logger, inputData))
 }
 
 func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) int {
@@ -222,32 +255,6 @@ func handleOSInterrupt(ctrlC chan os.Signal, cancel context.CancelFunc, logger l
 	}
 	logger.Warningf("Force exiting. You may need to manually delete pods or containers.")
 	os.Exit(1)
-}
-
-func loadContext(dir string) (map[string][]byte, error) {
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain absolute path of context directory %s (%w)", dir, err)
-	}
-	result := map[string][]byte{}
-	err = filepath.Walk(absDir,
-		func(path string, i os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			// only attempt to read regular files
-			if i.Mode().IsRegular() {
-				fileData, err := os.ReadFile(path) //nolint:gosec
-				if err != nil {
-					return fmt.Errorf("failed to read file from context directory: %s (%w)", path, err)
-				}
-				path = strings.TrimPrefix(path, absDir)
-				path = strings.TrimPrefix(path, string([]byte{os.PathSeparator}))
-				result[path] = fileData
-			}
-			return nil
-		})
-	return result, err
 }
 
 func loadYamlFile(configFile string) (any, error) {
