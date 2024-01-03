@@ -235,8 +235,8 @@ func loadContext(dir string) (map[string][]byte, error) {
 			if err != nil {
 				return err
 			}
-
-			if !i.IsDir() {
+			// only attempt to read regular files
+			if i.Mode().IsRegular() {
 				fileData, err := os.ReadFile(path) //nolint:gosec
 				if err != nil {
 					return fmt.Errorf("failed to read file from context directory: %s (%w)", path, err)
