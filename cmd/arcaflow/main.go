@@ -6,14 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"go.arcalot.io/log/v2"
-	"go.flow.arcalot.io/engine/loadfile"
-	"os"
-	"os/signal"
-	"path/filepath"
-
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/loadfile"
 	"gopkg.in/yaml.v3"
+	"os"
+	"os/signal"
 )
 
 // These variables are filled using ldflags during the build process with Goreleaser.
@@ -126,28 +124,16 @@ Options:
 
 	var err error
 
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		tempLogger.Errorf("Failed to determine absolute path of arcaflow context directory %s (%v)", dir, err)
-		os.Exit(ExitCodeInvalidData)
-	}
-
 	requiredFiles := map[string]string{
 		RequiredFileKeyConfig:   configFile,
 		RequiredFileKeyInput:    input,
 		RequiredFileKeyWorkflow: workflowFile,
 	}
-	var requiredFilesAbs = map[string]string{}
-	for key, f := range requiredFiles {
-		abspath := f
-		if !filepath.IsAbs(f) {
-			abspath = filepath.Join(absDir, f)
-		}
-		requiredFilesAbs[key] = abspath
-	}
-	var requiredFilesAbsSlice = make([]string, len(requiredFiles))
-	for _, f := range requiredFilesAbs {
-		requiredFilesAbsSlice = append(requiredFilesAbsSlice, f)
+
+	requiredFilesAbsPaths, err := loadfile.ContextAbsFilepaths(dir, requiredFiles)
+	if err != nil {
+		tempLogger.Errorf("Failed to determine absolute path of arcaflow context directory %s (%v)", dir, err)
+		os.Exit(ExitCodeInvalidData)
 	}
 
 	var configData any = map[any]any{}
@@ -169,6 +155,10 @@ Options:
 
 	logger := log.New(cfg.Log).WithLabel("source", "main")
 
+	var requiredFilesAbsSlice = make([]string, len(requiredFiles))
+	for _, f := range requiredFilesAbsPaths {
+		requiredFilesAbsSlice = append(requiredFilesAbsSlice, f)
+	}
 	dirContext, err := loadfile.LoadContext(requiredFilesAbsSlice)
 	if err != nil {
 		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
@@ -193,7 +183,7 @@ Options:
 		}
 	}
 
-	os.Exit(runWorkflow(flow, dirContext, requiredFilesAbs[RequiredFileKeyWorkflow], logger, inputData))
+	os.Exit(runWorkflow(flow, dirContext, requiredFilesAbsPaths[RequiredFileKeyWorkflow], logger, inputData))
 }
 
 func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) int {
