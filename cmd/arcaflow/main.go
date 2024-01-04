@@ -130,15 +130,16 @@ Options:
 		RequiredFileKeyWorkflow: workflowFile,
 	}
 
-	requiredFilesAbsPaths, err := loadfile.ContextAbsFilepaths(dir, requiredFiles)
+	requiredFilesAbsPaths, err := loadfile.AbsPathsWithContext(dir, requiredFiles)
 	if err != nil {
+		flag.Usage()
 		tempLogger.Errorf("Failed to determine absolute path of arcaflow context directory %s (%v)", dir, err)
 		os.Exit(ExitCodeInvalidData)
 	}
 
 	var configData any = map[any]any{}
 	if configFile != "" {
-		configData, err = loadYamlFile(configFile)
+		configData, err = loadYamlFile(requiredFilesAbsPaths[RequiredFileKeyConfig])
 		if err != nil {
 			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 			flag.Usage()
@@ -151,17 +152,20 @@ Options:
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
 	}
-	cfg.Log.Stdout = os.Stderr
 
+	// now we are ready to instantiate our main logger
+	cfg.Log.Stdout = os.Stderr
 	logger := log.New(cfg.Log).WithLabel("source", "main")
 
-	var requiredFilesAbsSlice = make([]string, len(requiredFiles))
+	var requiredFilesAbsSlice = make([]string, len(requiredFilesAbsPaths))
+	var j int
 	for _, f := range requiredFilesAbsPaths {
-		requiredFilesAbsSlice = append(requiredFilesAbsSlice, f)
+		requiredFilesAbsSlice[j] = f
+		j++
 	}
 	dirContext, err := loadfile.LoadContext(requiredFilesAbsSlice)
 	if err != nil {
-		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
+		logger.Errorf("Failed to load required files into context (%v)", err)
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
 	}

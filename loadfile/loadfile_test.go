@@ -22,38 +22,85 @@ func TestLoadContext(t *testing.T) {
 
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
 
-	// create a directory and a file
+	// create a directory
 	dirname := "mydir"
 	dirpath := filepath.Join(testdir, dirname)
-	filename := "myfile"
 	assert.NoError(t, os.MkdirAll(dirpath, os.ModePerm))
-	f, err := os.CreateTemp(testdir, filename)
+
+	// create a file
+	filename := "myfile"
+	filePath := filepath.Join(testdir, filename)
+	f, err := os.Create(filepath.Clean(filePath))
 	assert.NoError(t, err)
-	tempfilepath := f.Name()
 	assert.NoError(t, f.Close())
 
-	// create symlinks to the above directory and file
+	// create symlink to the directory
 	symlinkDirname := dirname + "_sym"
-	symlinkFilepath := tempfilepath + "_sym"
 	symlinkDirpath := filepath.Join(testdir, symlinkDirname)
 	assert.NoError(t, os.Symlink(dirpath, symlinkDirpath))
-	assert.NoError(t, os.Symlink(tempfilepath, symlinkFilepath))
+
+	// create symlink to the file
+	symlinkFilepath := filePath + "_sym"
+	assert.NoError(t, os.Symlink(filePath, symlinkFilepath))
 
 	neededFiles := []string{
-		tempfilepath,
+		filePath,
 		symlinkFilepath,
 	}
 	filemap, err := loadfile.LoadContext(neededFiles)
-	filemapExp := map[string][]byte{
-		tempfilepath:    {},
-		symlinkFilepath: {},
-	}
 	// assert no error on attempting to read files
 	// that cannot be read
 	assert.NoError(t, err)
 
-	// assert only the regular file will be loaded
+	// assert only the regular and symlinked file are loaded
+	filemapExp := map[string][]byte{
+		filePath:        {},
+		symlinkFilepath: {},
+	}
 	assert.Equals(t, filemap, filemapExp)
+
+	// error on loading a directory
+	neededFiles = []string{
+		dirpath,
+	}
+	_, err = loadfile.LoadContext(neededFiles)
+	assert.Error(t, err)
+
+	// error on loading a symlink directory
+	neededFiles = []string{
+		symlinkDirpath,
+	}
+	_, err = loadfile.LoadContext(neededFiles)
+	assert.Error(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, os.RemoveAll(testdir))
+	})
+}
+
+// This tests AbsPathsWithContext joins relative paths with the
+// context (root) directory, and passes through absolute paths
+// unmodified.
+func TestContextAbsFilepaths(t *testing.T) {
+	testdir, err := os.MkdirTemp(os.TempDir(), "")
+	assert.NoError(t, err)
+
+	testFilepaths := map[string]string{
+		"a": "a.yaml",
+		"b": "/b.toml",
+		"c": "../rel/subdir/c.txt",
+	}
+
+	absPathsExp := map[string]string{
+		"a": filepath.Join(testdir, testFilepaths["a"]),
+		// since the 'b' file has an absolute path, it should be unmodified
+		"b": "/b.toml",
+		"c": filepath.Join(testdir, testFilepaths["c"]),
+	}
+
+	absPathsGot, err := loadfile.AbsPathsWithContext(testdir, testFilepaths)
+	assert.NoError(t, err)
+	assert.Equals(t, absPathsExp, absPathsGot)
 
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(testdir))
