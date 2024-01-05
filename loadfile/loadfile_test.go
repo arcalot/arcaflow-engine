@@ -63,8 +63,11 @@ func TestLoadContext(t *testing.T) {
 	neededFiles = []string{
 		dirpath,
 	}
+
+	errFileRead := "reading file"
 	ctxFiles, err := loadfile.LoadContext(neededFiles)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), errFileRead)
 	assert.Equals(t, ctxFiles, nil)
 
 	// error on loading a symlink directory
@@ -73,6 +76,7 @@ func TestLoadContext(t *testing.T) {
 	}
 	ctxFiles, err = loadfile.LoadContext(neededFiles)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), errFileRead)
 	assert.Equals(t, ctxFiles, nil)
 
 	t.Cleanup(func() {
