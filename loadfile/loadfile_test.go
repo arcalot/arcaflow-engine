@@ -63,17 +63,17 @@ func TestLoadContext(t *testing.T) {
 	neededFiles = []string{
 		dirpath,
 	}
-	_, err = loadfile.LoadContext(neededFiles)
+	ctxFiles, err := loadfile.LoadContext(neededFiles)
 	assert.Error(t, err)
-	//assert.Nil(t, ctxFiles)
+	assert.Equals(t, ctxFiles, nil)
 
 	// error on loading a symlink directory
 	neededFiles = []string{
 		symlinkDirpath,
 	}
-	_, err = loadfile.LoadContext(neededFiles)
+	ctxFiles, err = loadfile.LoadContext(neededFiles)
 	assert.Error(t, err)
-	//assert.Nil(t, ctxFiles)
+	assert.Equals(t, ctxFiles, nil)
 
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(testdir))
