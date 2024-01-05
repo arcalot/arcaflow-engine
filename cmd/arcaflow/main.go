@@ -5,16 +5,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"strings"
-
 	"go.arcalot.io/log/v2"
-
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/loadfile"
 	"gopkg.in/yaml.v3"
+	"os"
+	"os/signal"
 )
 
 // These variables are filled using ldflags during the build process with Goreleaser.
@@ -37,6 +34,15 @@ const ExitCodeWorkflowErrorOutput = 2
 
 // ExitCodeWorkflowFailed indicates that the workflow execution failed.
 const ExitCodeWorkflowFailed = 3
+
+// RequiredFileKeyWorkflow is the key for the workflow file in hash map of files required for execution.
+const RequiredFileKeyWorkflow = "workflow"
+
+// RequiredFileKeyConfig is the key for the config file in hash map of files required for execution.
+const RequiredFileKeyConfig = "config"
+
+// RequiredFileKeyInput is the key for the input file in hash map of files required for execution.
+const RequiredFileKeyInput = "input"
 
 func main() {
 	tempLogger := log.New(log.Config{
@@ -117,9 +123,23 @@ Options:
 	}
 
 	var err error
+
+	requiredFiles := map[string]string{
+		RequiredFileKeyConfig:   configFile,
+		RequiredFileKeyInput:    input,
+		RequiredFileKeyWorkflow: workflowFile,
+	}
+
+	requiredFilesAbsPaths, err := loadfile.AbsPathsWithContext(dir, requiredFiles)
+	if err != nil {
+		flag.Usage()
+		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
+		os.Exit(ExitCodeInvalidData)
+	}
+
 	var configData any = map[any]any{}
 	if configFile != "" {
-		configData, err = loadYamlFile(configFile)
+		configData, err = loadYamlFile(requiredFilesAbsPaths[RequiredFileKeyConfig])
 		if err != nil {
 			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 			flag.Usage()
@@ -132,13 +152,20 @@ Options:
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
 	}
-	cfg.Log.Stdout = os.Stderr
 
+	// now we are ready to instantiate our main logger
+	cfg.Log.Stdout = os.Stderr
 	logger := log.New(cfg.Log).WithLabel("source", "main")
 
-	dirContext, err := loadContext(dir)
+	var requiredFilesAbsSlice = make([]string, len(requiredFilesAbsPaths))
+	var j int
+	for _, f := range requiredFilesAbsPaths {
+		requiredFilesAbsSlice[j] = f
+		j++
+	}
+	dirContext, err := loadfile.LoadContext(requiredFilesAbsSlice)
 	if err != nil {
-		logger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
+		logger.Errorf("Failed to load required files into context (%v)", err)
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
 	}
@@ -160,7 +187,7 @@ Options:
 		}
 	}
 
-	os.Exit(runWorkflow(flow, dirContext, workflowFile, logger, inputData))
+	os.Exit(runWorkflow(flow, dirContext, requiredFilesAbsPaths[RequiredFileKeyWorkflow], logger, inputData))
 }
 
 func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) int {
@@ -222,32 +249,6 @@ func handleOSInterrupt(ctrlC chan os.Signal, cancel context.CancelFunc, logger l
 	}
 	logger.Warningf("Force exiting. You may need to manually delete pods or containers.")
 	os.Exit(1)
-}
-
-func loadContext(dir string) (map[string][]byte, error) {
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain absolute path of context directory %s (%w)", dir, err)
-	}
-	result := map[string][]byte{}
-	err = filepath.Walk(absDir,
-		func(path string, i os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if !i.IsDir() {
-				fileData, err := os.ReadFile(path) //nolint:gosec
-				if err != nil {
-					return fmt.Errorf("failed to read file from context directory: %s (%w)", path, err)
-				}
-				path = strings.TrimPrefix(path, absDir)
-				path = strings.TrimPrefix(path, string([]byte{os.PathSeparator}))
-				result[path] = fileData
-			}
-			return nil
-		})
-	return result, err
 }
 
 func loadYamlFile(configFile string) (any, error) {
