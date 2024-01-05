@@ -133,7 +133,7 @@ Options:
 	requiredFilesAbsPaths, err := loadfile.AbsPathsWithContext(dir, requiredFiles)
 	if err != nil {
 		flag.Usage()
-		tempLogger.Errorf("Failed to determine absolute path of arcaflow context directory %s (%v)", dir, err)
+		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
 		os.Exit(ExitCodeInvalidData)
 	}
 
