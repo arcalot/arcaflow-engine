@@ -92,7 +92,6 @@ github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/imdario/mergo v0.3.6 h1:xTNEAn+kxVO7dTZGu0CegyqKZmoWFI0rF8UxjlB2d28=
-github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
@@ -152,8 +151,8 @@ github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415/go.mod h1:
 github.com/xeipuuv/gojsonschema v1.2.0/go.mod h1:anYRn/JVcOK2ZgGU+IjEV4nwlhoK5sQluxsYJ78Id3Y=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-go.arcalot.io/assert v1.6.0 h1:iKA8SZZ1MRblMX5QAwwY5RbpR+VNyp//4IU7vo08Xu0=
-go.arcalot.io/assert v1.6.0/go.mod h1:Xy3ScX0p9IMY89gdsgexOKxnmDr0nGHG9dV7p8Uxg7w=
+go.arcalot.io/assert v1.6.1 h1:pr7wvTE/vZJ4pY0f88R8tXicTOGogkGS1mtY0Qb7GRE=
+go.arcalot.io/assert v1.6.1/go.mod h1:Xy3ScX0p9IMY89gdsgexOKxnmDr0nGHG9dV7p8Uxg7w=
 go.arcalot.io/dgraph v1.1.0 h1:c0LR7+xdUy7Ki6e4nR9rBvK0Upr4Nu49fu+poP/9WMg=
 go.arcalot.io/dgraph v1.1.0/go.mod h1:FuNv92OgHsJYepD6Unwn+S/4DioBnv06JxQ2BtQct7E=
 go.arcalot.io/lang v1.0.0 h1:mgDaieT4wWdZTnR4V7+/pgYRmzfU7VZZgIzHccuxAbY=
@@ -170,8 +169,6 @@ go.flow.arcalot.io/kubernetesdeployer v0.8.0 h1:UjH/aspPif/k+X65sLWlNDZAW5JlzUfg
 go.flow.arcalot.io/kubernetesdeployer v0.8.0/go.mod h1:BhERhKpvQMJkrcW9lbBF4kJEe+OGhz2NpSftZIgtVNQ=
 go.flow.arcalot.io/pluginsdk v0.5.1 h1:ebb2ThAqmjmwGpDyKpd1wEDUisPqPabgARjFohy47Io=
 go.flow.arcalot.io/pluginsdk v0.5.1/go.mod h1:2s2f//7uOkBjr1QaiWJD/bqDIeLlINJtD1BhiY4aGPM=
-go.flow.arcalot.io/podmandeployer v0.6.2 h1:iAAZGgwhxInEVAleakavGruHnW4qsD/v39JpfnTeXiE=
-go.flow.arcalot.io/podmandeployer v0.6.2/go.mod h1:BmKbyG2qZG9PMPLkIeXUvKVJfU+AZx+POLvydZN26IY=
 go.flow.arcalot.io/podmandeployer v0.7.0 h1:bXzWi4IjjLTIftUbH2NPgPiyTb82lzERVgfHP4zpmXI=
 go.flow.arcalot.io/podmandeployer v0.7.0/go.mod h1:tiWVDNpeNpPrY2GloihwjtnCEzJf8zNxBbiwVGRX7rs=
 go.flow.arcalot.io/pythondeployer v0.4.0 h1:l8nw6awYMVzgND+ZXdbnNJPYu3V0sgSUFsIzn+SRgh0=
