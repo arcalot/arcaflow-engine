@@ -13,7 +13,7 @@ require (
 	go.flow.arcalot.io/kubernetesdeployer v0.8.0
 	go.flow.arcalot.io/pluginsdk v0.5.1
 	go.flow.arcalot.io/podmandeployer v0.7.0
-	go.flow.arcalot.io/pythondeployer v0.4.0
+	go.flow.arcalot.io/pythondeployer v0.5.0
 	go.flow.arcalot.io/testdeployer v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -50,6 +50,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	go.arcalot.io/exex v0.1.0 // indirect
 	go.flow.arcalot.io/testplugin v0.3.0 // indirect
 	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/net v0.15.0 // indirect
