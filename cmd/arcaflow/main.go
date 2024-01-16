@@ -130,16 +130,25 @@ Options:
 		RequiredFileKeyWorkflow: workflowFile,
 	}
 
-	requiredFilesAbsPaths, err := loadfile.AbsPathsWithContext(dir, requiredFiles)
+	fileCtx, err := loadfile.NewFileContext(dir, requiredFiles)
 	if err != nil {
 		flag.Usage()
 		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
 		os.Exit(ExitCodeInvalidData)
 	}
+	fmt.Printf("%v\n", fileCtx)
+
+	//requiredFilesAbsPaths, err := loadfile.AbsPathsWithContext(dir, requiredFiles)
+	//if err != nil {
+	//	flag.Usage()
+	//	tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
+	//	os.Exit(ExitCodeInvalidData)
+	//}
 
 	var configData any = map[any]any{}
 	if configFile != "" {
-		configData, err = loadYamlFile(requiredFilesAbsPaths[RequiredFileKeyConfig])
+		//configData, err = loadYamlFile(requiredFilesAbsPaths[RequiredFileKeyConfig])
+		configData, err = loadYamlFile(*fileCtx.AbsPathByKey(RequiredFileKeyConfig))
 		if err != nil {
 			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 			flag.Usage()
@@ -157,13 +166,14 @@ Options:
 	cfg.Log.Stdout = os.Stderr
 	logger := log.New(cfg.Log).WithLabel("source", "main")
 
-	var requiredFilesAbsSlice = make([]string, len(requiredFilesAbsPaths))
-	var j int
-	for _, f := range requiredFilesAbsPaths {
-		requiredFilesAbsSlice[j] = f
-		j++
-	}
-	dirContext, err := loadfile.LoadContext(requiredFilesAbsSlice)
+	//var requiredFilesAbsSlice = make([]string, len(requiredFilesAbsPaths))
+	//var j int
+	//for _, f := range requiredFilesAbsPaths {
+	//	requiredFilesAbsSlice[j] = f
+	//	j++
+	//}
+	//dirContext, err := loadfile.LoadContext(requiredFilesAbsSlice)
+	err = fileCtx.LoadContext()
 	if err != nil {
 		logger.Errorf("Failed to load required files into context (%v)", err)
 		flag.Usage()
@@ -187,10 +197,10 @@ Options:
 		}
 	}
 
-	os.Exit(runWorkflow(flow, dirContext, requiredFilesAbsPaths[RequiredFileKeyWorkflow], logger, inputData))
+	os.Exit(runWorkflow(flow, *fileCtx, RequiredFileKeyWorkflow, logger, inputData))
 }
 
-func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workflowFile string, logger log.Logger, inputData []byte) int {
+func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileContext, workflowFile string, logger log.Logger, inputData []byte) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctrlC := make(chan os.Signal, 4) // We expect up to three ctrl-C inputs. Plus one extra to buffer in case.
 	signal.Notify(ctrlC, os.Interrupt)
@@ -201,7 +211,7 @@ func runWorkflow(flow engine.WorkflowEngine, dirContext map[string][]byte, workf
 		cancel()
 	}()
 
-	workflow, err := flow.Parse(dirContext, workflowFile)
+	workflow, err := flow.Parse(fileCtx, workflowFile)
 	if err != nil {
 		logger.Errorf("Invalid workflow (%v)", err)
 		return ExitCodeInvalidData
