@@ -85,11 +85,6 @@ func (fc *FileContext) ContentByKey(fileKey string) []byte {
 	return cf.Content
 }
 
-func (fc *FileContext) ContentByID(fileID string) []byte {
-	cf := fc.GetByID(fileID)
-	return cf.Content
-}
-
 // LoadContext reads the content of each file into a map where the key
 // is the absolute filepath and the file content is the value.
 func LoadContext(neededFilepaths []string) (map[string][]byte, error) {

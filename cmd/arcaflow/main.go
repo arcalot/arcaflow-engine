@@ -136,14 +136,6 @@ Options:
 		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
 		os.Exit(ExitCodeInvalidData)
 	}
-	fmt.Printf("%v\n", fileCtx)
-
-	//requiredFilesAbsPaths, err := loadfile.AbsPathsWithContext(dir, requiredFiles)
-	//if err != nil {
-	//	flag.Usage()
-	//	tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
-	//	os.Exit(ExitCodeInvalidData)
-	//}
 
 	var configData any = map[any]any{}
 	if configFile != "" {
@@ -166,13 +158,6 @@ Options:
 	cfg.Log.Stdout = os.Stderr
 	logger := log.New(cfg.Log).WithLabel("source", "main")
 
-	//var requiredFilesAbsSlice = make([]string, len(requiredFilesAbsPaths))
-	//var j int
-	//for _, f := range requiredFilesAbsPaths {
-	//	requiredFilesAbsSlice[j] = f
-	//	j++
-	//}
-	//dirContext, err := loadfile.LoadContext(requiredFilesAbsSlice)
 	err = fileCtx.LoadContext()
 	if err != nil {
 		logger.Errorf("Failed to load required files into context (%v)", err)
