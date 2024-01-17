@@ -83,8 +83,8 @@ func (w workflowEngine) Parse(
 	if workflowFileName == "" {
 		workflowFileName = "workflow.yaml"
 	}
-	workflowContents, ok := files.Content[workflowFileName]
-	if !ok {
+	workflowContents := files.ContentByKey(workflowFileName)
+	if workflowContents == nil {
 		return nil, ErrNoWorkflowFile
 	}
 
@@ -105,7 +105,7 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	preparedWorkflow, err := executor.Prepare(wf, files.Content)
+	preparedWorkflow, err := executor.Prepare(wf, files.Contents())
 	if err != nil {
 		return nil, err
 	}

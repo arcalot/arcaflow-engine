@@ -16,7 +16,6 @@ type ContextFile struct {
 type FileContext struct {
 	RootDir string
 	Files   map[string]ContextFile
-	Content map[string][]byte
 }
 
 func NewFileContext(rootDir string, files map[string]string) (*FileContext, error) {
@@ -42,7 +41,7 @@ func NewFileContext(rootDir string, files map[string]string) (*FileContext, erro
 // LoadContext reads the content of each file into a map where the key
 // is the absolute filepath and the file content is the value.
 func (fc *FileContext) LoadContext() error {
-	result := map[string][]byte{}
+	result := map[string]ContextFile{}
 	var err error
 	for key, cf := range fc.Files {
 		absPath := cf.AbsolutePath
@@ -50,39 +49,43 @@ func (fc *FileContext) LoadContext() error {
 		if err != nil {
 			return fmt.Errorf("error reading file %s (%w)", absPath, err)
 		}
-		//result[key] = ContextFile{
-		//	ID:           cf.ID,
-		//	AbsolutePath: cf.AbsolutePath,
-		//	Content:      fileData,
-		//}
-		result[key] = fileData
+		result[key] = ContextFile{
+			ID:           cf.ID,
+			AbsolutePath: cf.AbsolutePath,
+			Content:      fileData,
+		}
 	}
-	fc.Content = result
+	fc.Files = result
 	return err
 }
 
-func (fc *FileContext) GetByID(fileID string) *ContextFile {
-	for _, cf := range fc.Files {
-		if cf.ID == fileID {
-			return &cf
-		}
-	}
-	return nil
-}
-
-func (fc *FileContext) GetByKey(fileKey string) *ContextFile {
-	cf := fc.Files[fileKey]
-	return &cf
+func (fc *FileContext) GetByKey(fileKey string) (*ContextFile, bool) {
+	cf, ok := fc.Files[fileKey]
+	return &cf, ok
 }
 
 func (fc *FileContext) AbsPathByKey(fileKey string) *string {
-	cf := fc.GetByKey(fileKey)
+	cf, ok := fc.GetByKey(fileKey)
+	if !ok {
+		return nil
+	}
 	return &cf.AbsolutePath
 }
 
 func (fc *FileContext) ContentByKey(fileKey string) []byte {
-	cf := fc.GetByKey(fileKey)
+	cf, ok := fc.GetByKey(fileKey)
+	if !ok {
+		return nil
+	}
 	return cf.Content
+}
+
+func (fc *FileContext) Contents() map[string][]byte {
+	result := map[string][]byte{}
+	for key, f := range fc.Files {
+		result[key] = f.Content
+	}
+	return result
 }
 
 // LoadContext reads the content of each file into a map where the key
