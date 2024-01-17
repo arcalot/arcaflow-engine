@@ -47,7 +47,7 @@ func Test_LoadContext(t *testing.T) {
 		filePath:        filePath,
 		symlinkFilepath: symlinkFilepath,
 	}
-	fc, err := loadfile.NewFileCache(testdir, neededFiles)
+	fc, err := loadfile.NewFileCacheUsingContext(testdir, neededFiles)
 	// assert no error on attempting to read files
 	// that cannot be read
 	assert.NoError(t, err)
@@ -67,7 +67,7 @@ func Test_LoadContext(t *testing.T) {
 	}
 
 	errFileRead := "reading file"
-	fc, err = loadfile.NewFileCache(testdir, neededFiles)
+	fc, err = loadfile.NewFileCacheUsingContext(testdir, neededFiles)
 	assert.NoError(t, err)
 	err = fc.LoadContext()
 	assert.Error(t, err)
@@ -78,7 +78,7 @@ func Test_LoadContext(t *testing.T) {
 	neededFiles = map[string]string{
 		symlinkDirpath: symlinkDirpath,
 	}
-	fc, err = loadfile.NewFileCache(testdir, neededFiles)
+	fc, err = loadfile.NewFileCacheUsingContext(testdir, neededFiles)
 	assert.NoError(t, err)
 	err = fc.LoadContext()
 	assert.Error(t, err)
@@ -109,7 +109,7 @@ func Test_NewFileCache(t *testing.T) {
 		"c": filepath.Join(testdir, testFilepaths["c"]),
 	}
 
-	fc, err := loadfile.NewFileCache(testdir, testFilepaths)
+	fc, err := loadfile.NewFileCacheUsingContext(testdir, testFilepaths)
 	assert.NoError(t, err)
 	absPathsGot := fc.AbsPaths()
 	assert.Equals(t, absPathsExp, absPathsGot)

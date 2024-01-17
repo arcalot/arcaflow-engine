@@ -130,7 +130,7 @@ Options:
 		RequiredFileKeyWorkflow: workflowFile,
 	}
 
-	fileCtx, err := loadfile.NewFileCache(dir, requiredFiles)
+	fileCtx, err := loadfile.NewFileCacheUsingContext(dir, requiredFiles)
 	if err != nil {
 		flag.Usage()
 		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
@@ -181,7 +181,7 @@ Options:
 		}
 	}
 
-	os.Exit(runWorkflow(flow, *fileCtx, RequiredFileKeyWorkflow, logger, inputData))
+	os.Exit(runWorkflow(flow, fileCtx, RequiredFileKeyWorkflow, logger, inputData))
 }
 
 func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflowFile string, logger log.Logger, inputData []byte) int {
