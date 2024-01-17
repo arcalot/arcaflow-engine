@@ -114,3 +114,52 @@ func Test_NewFileCache(t *testing.T) {
 	absPathsGot := fc.AbsPaths()
 	assert.Equals(t, absPathsExp, absPathsGot)
 }
+
+// This tests that the merge file cache combines the contents
+// of two file caches appropriately, where non-unique file keys
+// are overwritten by a later file cache argument.
+func Test_MergeFileCaches(t *testing.T) {
+	content := []byte(`content`)
+	replacedContent := []byte(`replaced content`)
+	content1 := []byte(`content1`)
+	content2 := []byte(`content2`)
+	commonName := "robot"
+	filename1 := "b"
+	filename2 := "c"
+
+	files1 := map[string][]byte{
+		filename1:  content1,
+		commonName: content,
+	}
+	rootDir1 := "1"
+	fc1 := loadfile.NewFileCache(rootDir1, files1)
+
+	files2 := map[string][]byte{
+		commonName: replacedContent,
+		filename2:  content2,
+	}
+	expRootDir := "2"
+	fc2 := loadfile.NewFileCache(expRootDir, files2)
+
+	expMergedFiles := map[string]loadfile.ContextFile{
+		filename1: {
+			ID:           filename1,
+			AbsolutePath: filename1,
+			Content:      content1,
+		},
+		filename2: {
+			ID:           filename2,
+			AbsolutePath: filename2,
+			Content:      content2,
+		},
+		commonName: {
+			ID:           commonName,
+			AbsolutePath: commonName,
+			Content:      replacedContent,
+		},
+	}
+
+	fcMerged := loadfile.MergeFileCaches(fc1, fc2)
+	assert.Equals(t, fcMerged.RootDir(), expRootDir)
+	assert.Equals(t, fcMerged.Files(), expMergedFiles)
+}

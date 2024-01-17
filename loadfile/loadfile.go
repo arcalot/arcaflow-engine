@@ -31,6 +31,7 @@ type FileCache interface {
 	ContentByKey(fileKey string) []byte
 	Contents() map[string][]byte
 	AbsPaths() map[string]string
+	Files() map[string]ContextFile
 }
 
 // NewFileCacheUsingContext creates a mapping of files to their absolute paths and
@@ -147,18 +148,24 @@ func (fc *fileCache) AbsPaths() map[string]string {
 	return result
 }
 
+// Files returns the mapping of file keys to their ContextFile
+func (fc *fileCache) Files() map[string]ContextFile {
+	return fc.files
+}
+
 // MergeFileCaches merges any number of file caches into one file cache.
 // The new root directory will be the root directory of the last file cache
 // argument. File keys found later in iteration will overwrite previously
 // file keys, if there is a name clash.
-func MergeFileCaches(fileCaches ...fileCache) FileCache {
+func MergeFileCaches(fileCaches ...FileCache) FileCache {
 	cache := map[string]ContextFile{}
 	rootDir := ""
+
 	for _, fc := range fileCaches {
-		for key, contextFile := range fc.files {
+		for key, contextFile := range fc.Files() {
 			cache[key] = contextFile
 		}
-		rootDir = fc.rootDir
+		rootDir = fc.RootDir()
 	}
 	return &fileCache{
 		rootDir: rootDir,
