@@ -26,11 +26,10 @@ type fileCache struct {
 type FileCache interface {
 	RootDir() string
 	LoadContext() error
-	GetByKey(fileKey string) (*ContextFile, bool)
-	AbsPathByKey(fileKey string) *string
-	ContentByKey(fileKey string) []byte
+	GetByKey(fileKey string) (*ContextFile, error)
+	AbsPathByKey(fileKey string) (string, error)
+	ContentByKey(fileKey string) ([]byte, error)
 	Contents() map[string][]byte
-	AbsPaths() map[string]string
 	Files() map[string]ContextFile
 }
 
@@ -104,29 +103,32 @@ func (fc *fileCache) RootDir() string {
 }
 
 // GetByKey asks if the file cache contains the given fileKey.
-func (fc *fileCache) GetByKey(fileKey string) (*ContextFile, bool) {
+func (fc *fileCache) GetByKey(fileKey string) (*ContextFile, error) {
 	cf, ok := fc.files[fileKey]
-	return &cf, ok
+	if !ok {
+		return nil, fmt.Errorf("file cache does not contain %q", fileKey)
+	}
+	return &cf, nil
 }
 
 // AbsPathByKey returns the absolute file path of a given file key,
 // if it exists in the file cache, nil otherwise.
-func (fc *fileCache) AbsPathByKey(fileKey string) *string {
-	cf, ok := fc.GetByKey(fileKey)
-	if !ok {
-		return nil
+func (fc *fileCache) AbsPathByKey(fileKey string) (string, error) {
+	cf, err := fc.GetByKey(fileKey)
+	if err != nil {
+		return "", err
 	}
-	return &cf.AbsolutePath
+	return cf.AbsolutePath, nil
 }
 
 // ContentByKey returns the file content of a given file key, if it
 // exists in the file cache, nil otherwise.
-func (fc *fileCache) ContentByKey(fileKey string) []byte {
-	cf, ok := fc.GetByKey(fileKey)
-	if !ok {
-		return nil
+func (fc *fileCache) ContentByKey(fileKey string) ([]byte, error) {
+	cf, err := fc.GetByKey(fileKey)
+	if err != nil {
+		return nil, err
 	}
-	return cf.Content
+	return cf.Content, nil
 }
 
 // Contents returns a mapping of the file cache's file keys to file Content.
@@ -134,16 +136,6 @@ func (fc *fileCache) Contents() map[string][]byte {
 	result := map[string][]byte{}
 	for key, f := range fc.files {
 		result[key] = f.Content
-	}
-	return result
-}
-
-// AbsPaths returns a mapping of the file cache's file keys to
-// absolute file paths.
-func (fc *fileCache) AbsPaths() map[string]string {
-	result := map[string]string{}
-	for key, f := range fc.files {
-		result[key] = f.AbsolutePath
 	}
 	return result
 }

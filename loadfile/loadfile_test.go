@@ -72,7 +72,9 @@ func Test_LoadContext(t *testing.T) {
 	err = fc.LoadContext()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), errFileRead)
-	assert.Nil(t, fc.ContentByKey(dirpath))
+	content, err := fc.ContentByKey(dirpath)
+	assert.NoError(t, err)
+	assert.Nil(t, content)
 
 	// error on loading a symlink directory
 	neededFiles = map[string]string{
@@ -83,7 +85,9 @@ func Test_LoadContext(t *testing.T) {
 	err = fc.LoadContext()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), errFileRead)
-	assert.Nil(t, fc.ContentByKey(symlinkDirpath))
+	content, err = fc.ContentByKey(symlinkDirpath)
+	assert.NoError(t, err)
+	assert.Nil(t, content)
 }
 
 // This tests the construction of a new file cache, and the
@@ -111,10 +115,12 @@ func Test_NewFileCache(t *testing.T) {
 
 	fc, err := loadfile.NewFileCacheUsingContext(testdir, testFilepaths)
 	assert.NoError(t, err)
-	absPathsGot := fc.AbsPaths()
+	absPathsGot := FileCacheAbsPaths(fc)
 	assert.Equals(t, absPathsExp, absPathsGot)
 	// test file key not in file cache returns nil
-	assert.Nil(t, fc.AbsPathByKey(""))
+	_, err = fc.AbsPathByKey("")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "file cache does not contain")
 }
 
 // This tests that the merge file cache combines the contents
@@ -164,4 +170,12 @@ func Test_MergeFileCaches(t *testing.T) {
 	fcMerged := loadfile.MergeFileCaches(fc1, fc2)
 	assert.Equals(t, fcMerged.RootDir(), expRootDir)
 	assert.Equals(t, fcMerged.Files(), expMergedFiles)
+}
+
+func FileCacheAbsPaths(fc loadfile.FileCache) map[string]string {
+	result := map[string]string{}
+	for key, f := range fc.Files() {
+		result[key] = f.AbsolutePath
+	}
+	return result
 }

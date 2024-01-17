@@ -138,8 +138,9 @@ Options:
 	}
 
 	var configData any = map[any]any{}
-	if configFile != "" {
-		configData, err = loadYamlFile(*fileCtx.AbsPathByKey(RequiredFileKeyConfig))
+	configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
+	if err != nil {
+		configData, err = loadYamlFile(configFilePath)
 		if err != nil {
 			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 			flag.Usage()
