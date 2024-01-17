@@ -16,8 +16,10 @@ type ContextFile struct {
 }
 
 type fileCache struct {
+	// Root directory for given relative filepaths
 	rootDir string
-	files   map[string]ContextFile
+	// Mapping of unique keys that reference a file needed for execution
+	files map[string]ContextFile
 }
 
 // FileCache is a container of ContextFiles, and a context (root)
@@ -33,10 +35,10 @@ type FileCache interface {
 	Files() map[string]ContextFile
 }
 
-// NewFileCacheUsingContext creates a mapping of files to their absolute paths and
-// file contents. rootDir is the context directory (root directory) in
-// which the files can be found. 'files' is a mapping of the desired file
-// key to a relative or absolute file path.
+// NewFileCacheUsingContext returns a FileCache object containing the provided root directory string and a
+// new map based on the provided map. The new map uses the same keys as the input but their corresponding
+// values contain absolute file paths. Relative file paths provided in the input map are prefixed with the root
+// directory before being included in the output map.
 func NewFileCacheUsingContext(rootDir string, files map[string]string) (FileCache, error) {
 	absDir, err := filepath.Abs(rootDir)
 	if err != nil {
@@ -57,10 +59,12 @@ func NewFileCacheUsingContext(rootDir string, files map[string]string) (FileCach
 		rootDir: absDir, files: filesAbsPaths}, nil
 }
 
-// NewFileCache creates a file cache where the fileContents is
-// a mapping of paths to file contents. The keys in fileContents
-// become the keys in Files, and the absolute paths and ID for
-// each context file.
+// NewFileCache returns a FileCache object containing provided
+// root directory string and a new map based on the provided
+// map. The new map uses the same keys as the input and the
+// corresponding values include the contents from the input;
+// the key value is also used as the ID and the absolute path for
+// the entries.
 func NewFileCache(rootDir string, fileContents map[string][]byte) FileCache {
 	files := map[string]ContextFile{}
 	for key, content := range fileContents {
