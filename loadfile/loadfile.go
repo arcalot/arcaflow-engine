@@ -88,11 +88,21 @@ func (fc *FileCache) ContentByKey(fileKey string) []byte {
 	return cf.Content
 }
 
-// Contents return a mapping of the file cache's file keys to file Content.
+// Contents returns a mapping of the file cache's file keys to file Content.
 func (fc *FileCache) Contents() map[string][]byte {
 	result := map[string][]byte{}
 	for key, f := range fc.Files {
 		result[key] = f.Content
+	}
+	return result
+}
+
+// AbsPaths returns a mapping of the file cache's file keys to
+// absolute file paths.
+func (fc *FileCache) AbsPaths() map[string]string {
+	result := map[string]string{}
+	for key, f := range fc.Files {
+		result[key] = f.AbsolutePath
 	}
 	return result
 }

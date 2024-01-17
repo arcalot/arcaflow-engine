@@ -112,12 +112,16 @@ func TestContextAbsFilepaths(t *testing.T) {
 	})
 }
 
-// This tests AbsPathsWithContext which joins relative paths
-// with the context (root) directory, and passes through
-// absolute paths unmodified.
-func Test_NewFileContext(t *testing.T) {
+// This tests the construction of a new file cache, and the
+// determination of the absolute file paths. The file cache
+// joins relative paths with the context (root) directory,
+// and passes through absolute paths unmodified.
+func Test_NewFileCache(t *testing.T) {
 	testdir, err := os.MkdirTemp(os.TempDir(), "")
 	assert.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, os.RemoveAll(testdir))
+	})
 
 	testFilepaths := map[string]string{
 		"a": "a.yaml",
@@ -131,13 +135,10 @@ func Test_NewFileContext(t *testing.T) {
 		"c": filepath.Join(testdir, testFilepaths["c"]),
 	}
 
-	absPathsGot, err := loadfile.AbsPathsWithContext(testdir, testFilepaths)
+	fc, err := loadfile.NewFileCache(testdir, testFilepaths)
 	assert.NoError(t, err)
+	absPathsGot := fc.AbsPaths()
 	assert.Equals(t, absPathsExp, absPathsGot)
-
-	t.Cleanup(func() {
-		assert.NoError(t, os.RemoveAll(testdir))
-	})
 }
 
 // This tests the functional behavior of LoadContext when it is given
@@ -149,10 +150,10 @@ func Test_NewFileContext(t *testing.T) {
 // disregard (not throw an error) files with a type it cannot read.
 func Test_LoadContext(t *testing.T) {
 	testdir := "/tmp/loadfile-test"
-	// cleanup directory even if it's there
-	_ = os.RemoveAll(testdir)
-
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
+	t.Cleanup(func() {
+		assert.NoError(t, os.RemoveAll(testdir))
+	})
 
 	// create a directory
 	dirname := "mydir"
@@ -175,13 +176,15 @@ func Test_LoadContext(t *testing.T) {
 	symlinkFilepath := filePath + "_sym"
 	assert.NoError(t, os.Symlink(filePath, symlinkFilepath))
 
-	neededFiles := []string{
-		filePath,
-		symlinkFilepath,
+	neededFiles := map[string]string{
+		filePath:        filePath,
+		symlinkFilepath: symlinkFilepath,
 	}
-	filemap, err := loadfile.LoadContext(neededFiles)
+	fc, err := loadfile.NewFileCache(testdir, neededFiles)
 	// assert no error on attempting to read files
 	// that cannot be read
+	assert.NoError(t, err)
+	err = fc.LoadContext()
 	assert.NoError(t, err)
 
 	// assert only the regular and symlinked file are loaded
@@ -189,29 +192,29 @@ func Test_LoadContext(t *testing.T) {
 		filePath:        {},
 		symlinkFilepath: {},
 	}
-	assert.Equals(t, filemap, filemapExp)
+	assert.Equals(t, fc.Contents(), filemapExp)
 
 	// error on loading a directory
-	neededFiles = []string{
-		dirpath,
+	neededFiles = map[string]string{
+		dirpath: dirpath,
 	}
 
 	errFileRead := "reading file"
-	ctxFiles, err := loadfile.LoadContext(neededFiles)
+	fc, err = loadfile.NewFileCache(testdir, neededFiles)
+	assert.NoError(t, err)
+	err = fc.LoadContext()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), errFileRead)
-	assert.Nil(t, ctxFiles)
+	assert.Nil(t, fc.ContentByKey(dirpath))
 
 	// error on loading a symlink directory
-	neededFiles = []string{
-		symlinkDirpath,
+	neededFiles = map[string]string{
+		symlinkDirpath: symlinkDirpath,
 	}
-	ctxFiles, err = loadfile.LoadContext(neededFiles)
+	fc, err = loadfile.NewFileCache(testdir, neededFiles)
+	assert.NoError(t, err)
+	err = fc.LoadContext()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), errFileRead)
-	assert.Nil(t, ctxFiles)
-
-	t.Cleanup(func() {
-		assert.NoError(t, os.RemoveAll(testdir))
-	})
+	assert.Nil(t, fc.ContentByKey(symlinkDirpath))
 }
