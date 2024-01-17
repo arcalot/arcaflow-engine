@@ -15,14 +15,14 @@ type ContextFile struct {
 	Content      []byte
 }
 
-// FileCache is a container of ContextFiles, and a context (root)
-// directory path to be used in conjunction with files that do not
-// provide an absolute file path.
 type fileCache struct {
 	rootDir string
 	files   map[string]ContextFile
 }
 
+// FileCache is a container of ContextFiles, and a context (root)
+// directory path to be used in conjunction with files that do not
+// provide an absolute file path.
 type FileCache interface {
 	RootDir() string
 	LoadContext() error
