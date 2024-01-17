@@ -113,6 +113,8 @@ func Test_NewFileCache(t *testing.T) {
 	assert.NoError(t, err)
 	absPathsGot := fc.AbsPaths()
 	assert.Equals(t, absPathsExp, absPathsGot)
+	// test file key not in file cache returns nil
+	assert.Nil(t, fc.AbsPathByKey(""))
 }
 
 // This tests that the merge file cache combines the contents

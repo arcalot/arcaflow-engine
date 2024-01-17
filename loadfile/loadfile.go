@@ -148,7 +148,7 @@ func (fc *fileCache) AbsPaths() map[string]string {
 	return result
 }
 
-// Files returns the mapping of file keys to their ContextFile
+// Files returns the mapping of file keys to their ContextFile.
 func (fc *fileCache) Files() map[string]ContextFile {
 	return fc.files
 }
