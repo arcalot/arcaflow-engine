@@ -97,6 +97,25 @@ func (fc *FileCache) Contents() map[string][]byte {
 	return result
 }
 
+// MergeFileCaches merges any number of file caches into one file cache.
+// The new root directory will be the root directory of the last file cache
+// argument. File keys found later in iteration will overwrite previously
+// file keys, if there is a name clash.
+func MergeFileCaches(fileCaches ...FileCache) *FileCache {
+	cache := map[string]ContextFile{}
+	rootDir := ""
+	for _, fc := range fileCaches {
+		for key, contextFile := range fc.Files {
+			cache[key] = contextFile
+		}
+		rootDir = fc.RootDir
+	}
+	return &FileCache{
+		RootDir: rootDir,
+		Files:   cache,
+	}
+}
+
 // LoadContext reads the content of each file into a map where the key
 // is the absolute filepath and the file content is the value.
 func LoadContext(neededFilepaths []string) (map[string][]byte, error) {

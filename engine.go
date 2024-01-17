@@ -94,6 +94,32 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
+	stepFilePaths := map[string]string{}
+	for _, stepData := range wf.Steps {
+		stepDataMap, ok1 := stepData.(map[any]any)
+		if ok1 {
+			kind, ok1 := stepDataMap["kind"]
+			if ok1 {
+				kindString := kind.(string)
+				if kindString == "foreach" {
+					subworkflowPath := stepDataMap["workflow"]
+					subworkflowPathString := subworkflowPath.(string)
+					stepFilePaths[subworkflowPathString] = subworkflowPathString
+				}
+			}
+		}
+	}
+
+	stepFileCache, err := loadfile.NewFileCache(files.RootDir, stepFilePaths)
+	if err != nil {
+		return nil, err
+	}
+	err = stepFileCache.LoadContext()
+	if err != nil {
+		return nil, err
+	}
+	fc := loadfile.MergeFileCaches(files, *stepFileCache)
+
 	v, err := SupportedVersion(wf.Version)
 	if err != nil {
 		return nil, err
@@ -105,7 +131,7 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	preparedWorkflow, err := executor.Prepare(wf, files.Contents())
+	preparedWorkflow, err := executor.Prepare(wf, fc.Contents())
 	if err != nil {
 		return nil, err
 	}
