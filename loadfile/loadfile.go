@@ -13,34 +13,37 @@ type ContextFile struct {
 	Content      []byte
 }
 
-type FileContext struct {
+type FileCache struct {
 	RootDir string
 	Files   map[string]ContextFile
 }
 
-func NewFileContext(rootDir string, files map[string]string) (*FileContext, error) {
+// NewFileCache creates a mapping of files to their absolute paths and
+// file contents. rootDir is the context directory (root directory) in
+// which the files can be found. 'files' is a mapping of the desired file
+// key to a relative or absolute file path.
+func NewFileCache(rootDir string, files map[string]string) (*FileCache, error) {
 	absDir, err := filepath.Abs(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("error determining context directory absolute path %s (%w)", rootDir, err)
 	}
-	requiredFilesAbs := map[string]ContextFile{}
+	filesAbsPaths := map[string]ContextFile{}
 	for key, f := range files {
 		abspath := f
 		if !filepath.IsAbs(f) {
 			abspath = filepath.Join(absDir, f)
 		}
-		requiredFilesAbs[key] = ContextFile{
+		filesAbsPaths[key] = ContextFile{
 			ID:           f,
 			AbsolutePath: abspath,
 		}
 	}
-	return &FileContext{
-		RootDir: absDir, Files: requiredFilesAbs}, nil
+	return &FileCache{
+		RootDir: absDir, Files: filesAbsPaths}, nil
 }
 
-// LoadContext reads the content of each file into a map where the key
-// is the absolute filepath and the file content is the value.
-func (fc *FileContext) LoadContext() error {
+// LoadContext reads the content of each context file into Content.
+func (fc *FileCache) LoadContext() error {
 	result := map[string]ContextFile{}
 	var err error
 	for key, cf := range fc.Files {
@@ -59,12 +62,15 @@ func (fc *FileContext) LoadContext() error {
 	return err
 }
 
-func (fc *FileContext) GetByKey(fileKey string) (*ContextFile, bool) {
+// GetByKey asks if the file cache contains the given fileKey.
+func (fc *FileCache) GetByKey(fileKey string) (*ContextFile, bool) {
 	cf, ok := fc.Files[fileKey]
 	return &cf, ok
 }
 
-func (fc *FileContext) AbsPathByKey(fileKey string) *string {
+// AbsPathByKey returns the absolute file path of a given file key,
+// if it exists in the file cache, nil otherwise.
+func (fc *FileCache) AbsPathByKey(fileKey string) *string {
 	cf, ok := fc.GetByKey(fileKey)
 	if !ok {
 		return nil
@@ -72,7 +78,9 @@ func (fc *FileContext) AbsPathByKey(fileKey string) *string {
 	return &cf.AbsolutePath
 }
 
-func (fc *FileContext) ContentByKey(fileKey string) []byte {
+// ContentByKey returns the file content of a given file key, if it
+// exists in the file cache, nil otherwise.
+func (fc *FileCache) ContentByKey(fileKey string) []byte {
 	cf, ok := fc.GetByKey(fileKey)
 	if !ok {
 		return nil
@@ -80,7 +88,8 @@ func (fc *FileContext) ContentByKey(fileKey string) []byte {
 	return cf.Content
 }
 
-func (fc *FileContext) Contents() map[string][]byte {
+// Contents return a mapping of the file cache's file keys to file Content.
+func (fc *FileCache) Contents() map[string][]byte {
 	result := map[string][]byte{}
 	for key, f := range fc.Files {
 		result[key] = f.Content

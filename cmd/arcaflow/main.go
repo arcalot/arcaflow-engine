@@ -130,7 +130,7 @@ Options:
 		RequiredFileKeyWorkflow: workflowFile,
 	}
 
-	fileCtx, err := loadfile.NewFileContext(dir, requiredFiles)
+	fileCtx, err := loadfile.NewFileCache(dir, requiredFiles)
 	if err != nil {
 		flag.Usage()
 		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
@@ -139,7 +139,6 @@ Options:
 
 	var configData any = map[any]any{}
 	if configFile != "" {
-		//configData, err = loadYamlFile(requiredFilesAbsPaths[RequiredFileKeyConfig])
 		configData, err = loadYamlFile(*fileCtx.AbsPathByKey(RequiredFileKeyConfig))
 		if err != nil {
 			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
@@ -185,7 +184,7 @@ Options:
 	os.Exit(runWorkflow(flow, *fileCtx, RequiredFileKeyWorkflow, logger, inputData))
 }
 
-func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileContext, workflowFile string, logger log.Logger, inputData []byte) int {
+func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflowFile string, logger log.Logger, inputData []byte) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctrlC := make(chan os.Signal, 4) // We expect up to three ctrl-C inputs. Plus one extra to buffer in case.
 	signal.Notify(ctrlC, os.Interrupt)

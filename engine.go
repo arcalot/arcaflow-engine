@@ -23,14 +23,14 @@ type WorkflowEngine interface {
 	RunWorkflow(
 		ctx context.Context,
 		input []byte,
-		workflowContext loadfile.FileContext,
+		workflowContext loadfile.FileCache,
 		workflowFileName string,
 	) (outputID string, outputData any, outputError bool, err error)
 
 	// Parse ingests a workflow context as a map of files to their contents and a workflow file name and
 	// parses the data into an executable workflow.
 	Parse(
-		workflowContext loadfile.FileContext,
+		workflowContext loadfile.FileCache,
 		workflowFileName string,
 	) (
 		workflow Workflow,
@@ -66,7 +66,7 @@ type workflowEngine struct {
 func (w workflowEngine) RunWorkflow(
 	ctx context.Context,
 	input []byte,
-	workflowContext loadfile.FileContext,
+	workflowContext loadfile.FileCache,
 	workflowFileName string,
 ) (outputID string, outputData any, outputError bool, err error) {
 	wf, err := w.Parse(workflowContext, workflowFileName)
@@ -77,7 +77,7 @@ func (w workflowEngine) RunWorkflow(
 }
 
 func (w workflowEngine) Parse(
-	files loadfile.FileContext,
+	files loadfile.FileCache,
 	workflowFileName string,
 ) (Workflow, error) {
 	if workflowFileName == "" {
