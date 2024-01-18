@@ -3,6 +3,7 @@ package loadfile_test
 import (
 	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/loadfile"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,7 +17,10 @@ import (
 // read (i.e. not throw an error on a call to os.ReadFile()), and
 // disregard (not throw an error) files with a type it cannot read.
 func Test_LoadContext(t *testing.T) {
-	testdir := "/tmp/loadfile-test"
+	testdir := filepath.Join(TestDir, "load-ctx")
+	// cleanup directory even if it's there
+	_ = os.RemoveAll(testdir)
+
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(testdir))
@@ -88,7 +92,7 @@ func Test_LoadContext(t *testing.T) {
 // joins relative paths with the context (root) directory,
 // and passes through absolute paths unmodified.
 func Test_NewFileCache(t *testing.T) {
-	testdir, err := os.MkdirTemp(os.TempDir(), "")
+	testdir, err := os.MkdirTemp(TestDir, "")
 	assert.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(testdir))
@@ -171,4 +175,18 @@ func FileCacheAbsPaths(fc loadfile.FileCache) map[string]string {
 		result[key] = f.AbsolutePath
 	}
 	return result
+}
+
+var TestDir = filepath.Join(os.TempDir(), "loadfile-tests")
+
+func TestMain(m *testing.M) {
+	// cleanup directory even if it's there
+	_ = os.RemoveAll(TestDir)
+	err := os.MkdirAll(TestDir, os.ModePerm)
+	if err != nil {
+		log.Fatalf("failed to make directory %s %v", TestDir, err)
+	}
+	exitCode := m.Run()
+	_ = os.RemoveAll(TestDir)
+	os.Exit(exitCode)
 }
