@@ -137,8 +137,14 @@ Options:
 		os.Exit(ExitCodeInvalidData)
 	}
 
-	var configData any = map[any]any{}
 	configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
+	if err != nil {
+		tempLogger.Errorf("Unable to load configuration file %s (%v)", configFile, err)
+		flag.Usage()
+		os.Exit(ExitCodeInvalidData)
+	}
+
+	var configData any = map[any]any{}
 	if err != nil {
 		configData, err = loadYamlFile(configFilePath)
 		if err != nil {
