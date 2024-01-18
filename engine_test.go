@@ -225,9 +225,7 @@ func Test_ParseSubworkflows(t *testing.T) {
 		fileCache,
 		"workflow",
 	)
-
 	assert.NoError(t, err)
 	assert.Equals(t, outputError, false)
 	assert.Equals(t, outputID, "success")
-	//assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
 }

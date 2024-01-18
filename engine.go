@@ -124,6 +124,9 @@ func (w workflowEngine) Parse(
 	}, nil
 }
 
+// StepWorkflowPaths finds all the file paths to workflows referenced
+// in a workflow's steps. The key for each found workflow file is the
+// file path as it is written in this workflow.
 func StepWorkflowPaths(wf *workflow.Workflow) map[string]string {
 	stepFilePaths := map[string]string{}
 	for _, stepData := range wf.Steps {
@@ -143,6 +146,8 @@ func StepWorkflowPaths(wf *workflow.Workflow) map[string]string {
 	return stepFilePaths
 }
 
+// SubworkflowCache creates a file cache of the sub-workflows referenced
+// in this workflow using rootDir as a context.
 func SubworkflowCache(wf *workflow.Workflow, rootDir string) (loadfile.FileCache, error) {
 	stepWorkflowPaths := StepWorkflowPaths(wf)
 	if len(stepWorkflowPaths) == 0 {
