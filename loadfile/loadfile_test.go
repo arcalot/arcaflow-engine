@@ -18,13 +18,7 @@ import (
 // disregard (not throw an error) files with a type it cannot read.
 func Test_LoadContext(t *testing.T) {
 	testdir := filepath.Join(TestDir, "load-ctx")
-	// cleanup directory even if it's there
-	_ = os.RemoveAll(testdir)
-
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
-	t.Cleanup(func() {
-		assert.NoError(t, os.RemoveAll(testdir))
-	})
 
 	// create a directory
 	dirname := "mydir"
@@ -94,9 +88,6 @@ func Test_LoadContext(t *testing.T) {
 func Test_NewFileCache(t *testing.T) {
 	testdir, err := os.MkdirTemp(TestDir, "")
 	assert.NoError(t, err)
-	t.Cleanup(func() {
-		assert.NoError(t, os.RemoveAll(testdir))
-	})
 
 	testFilepaths := map[string]string{
 		"a": "a.yaml",
