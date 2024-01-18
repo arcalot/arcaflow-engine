@@ -144,7 +144,7 @@ Options:
 		os.Exit(ExitCodeInvalidData)
 	}
 
-	var configData any = map[any]any{}
+	var configData any
 	configData, err = loadYamlFile(configFilePath)
 	if err != nil {
 		tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
