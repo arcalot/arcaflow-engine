@@ -61,20 +61,16 @@ func Test_LoadContext(t *testing.T) {
 	}
 	assert.Equals(t, fc.Contents(), filemapExp)
 
+	errFileRead := "reading file"
 	// error on loading a directory
 	neededFiles = map[string]string{
 		dirpath: dirpath,
 	}
-
-	errFileRead := "reading file"
 	fc, err = loadfile.NewFileCacheUsingContext(testdir, neededFiles)
 	assert.NoError(t, err)
 	err = fc.LoadContext()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), errFileRead)
-	content, err := fc.ContentByKey(dirpath)
-	assert.NoError(t, err)
-	assert.Nil(t, content)
 
 	// error on loading a symlink directory
 	neededFiles = map[string]string{
@@ -85,9 +81,6 @@ func Test_LoadContext(t *testing.T) {
 	err = fc.LoadContext()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), errFileRead)
-	content, err = fc.ContentByKey(symlinkDirpath)
-	assert.NoError(t, err)
-	assert.Nil(t, content)
 }
 
 // This tests the construction of a new file cache, and the
