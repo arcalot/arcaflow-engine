@@ -210,3 +210,24 @@ outputs:
 	assert.Equals(t, outputID, "success")
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
 }
+
+func Test_ParseSubworkflows(t *testing.T) {
+	fileCache, err := loadfile.NewFileCacheUsingContext(
+		"fixtures/test-subworkflow",
+		map[string]string{
+			"workflow": "workflow.yaml",
+		})
+	assert.NoError(t, err)
+	assert.NoError(t, fileCache.LoadContext())
+	outputID, _, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`{}`),
+		fileCache,
+		"workflow",
+	)
+
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	//assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
+}

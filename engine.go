@@ -98,7 +98,10 @@ func (w workflowEngine) Parse(
 	if err != nil {
 		return nil, err
 	}
-	filesMerged := loadfile.MergeFileCaches(files, stepWorkflowFileCache)
+	if stepWorkflowFileCache != nil {
+		// should have sub-workflows to merge if the cache exists
+		files = loadfile.MergeFileCaches(stepWorkflowFileCache, files)
+	}
 
 	v, err := SupportedVersion(wf.Version)
 	if err != nil {
@@ -111,7 +114,7 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	preparedWorkflow, err := executor.Prepare(wf, filesMerged.Contents())
+	preparedWorkflow, err := executor.Prepare(wf, files.Contents())
 	if err != nil {
 		return nil, err
 	}
