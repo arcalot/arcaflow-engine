@@ -8,6 +8,7 @@ import (
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/yaml"
+	"go.flow.arcalot.io/engine/loadfile"
 	"go.flow.arcalot.io/engine/workflow"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
@@ -22,14 +23,14 @@ type WorkflowEngine interface {
 	RunWorkflow(
 		ctx context.Context,
 		input []byte,
-		workflowContext map[string][]byte,
+		workflowContext loadfile.FileCache,
 		workflowFileName string,
 	) (outputID string, outputData any, outputError bool, err error)
 
 	// Parse ingests a workflow context as a map of files to their contents and a workflow file name and
 	// parses the data into an executable workflow.
 	Parse(
-		workflowContext map[string][]byte,
+		workflowContext loadfile.FileCache,
 		workflowFileName string,
 	) (
 		workflow Workflow,
@@ -65,7 +66,7 @@ type workflowEngine struct {
 func (w workflowEngine) RunWorkflow(
 	ctx context.Context,
 	input []byte,
-	workflowContext map[string][]byte,
+	workflowContext loadfile.FileCache,
 	workflowFileName string,
 ) (outputID string, outputData any, outputError bool, err error) {
 	wf, err := w.Parse(workflowContext, workflowFileName)
@@ -76,14 +77,14 @@ func (w workflowEngine) RunWorkflow(
 }
 
 func (w workflowEngine) Parse(
-	files map[string][]byte,
+	files loadfile.FileCache,
 	workflowFileName string,
 ) (Workflow, error) {
 	if workflowFileName == "" {
 		workflowFileName = "workflow.yaml"
 	}
-	workflowContents, ok := files[workflowFileName]
-	if !ok {
+	workflowContents, err := files.ContentByKey(workflowFileName)
+	if err != nil {
 		return nil, ErrNoWorkflowFile
 	}
 
@@ -104,7 +105,7 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	preparedWorkflow, err := executor.Prepare(wf, files)
+	preparedWorkflow, err := executor.Prepare(wf, files.Contents())
 	if err != nil {
 		return nil, err
 	}
