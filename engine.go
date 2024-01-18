@@ -94,6 +94,12 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
+	stepWorkflowFileCache, err := SubworkflowCache(wf, files.RootDir())
+	if err != nil {
+		return nil, err
+	}
+	filesMerged := loadfile.MergeFileCaches(files, stepWorkflowFileCache)
+
 	v, err := SupportedVersion(wf.Version)
 	if err != nil {
 		return nil, err
@@ -105,7 +111,7 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	preparedWorkflow, err := executor.Prepare(wf, files.Contents())
+	preparedWorkflow, err := executor.Prepare(wf, filesMerged.Contents())
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +119,41 @@ func (w workflowEngine) Parse(
 	return &engineWorkflow{
 		workflow: preparedWorkflow,
 	}, nil
+}
+
+func StepWorkflowPaths(wf *workflow.Workflow) map[string]string {
+	stepFilePaths := map[string]string{}
+	for _, stepData := range wf.Steps {
+		stepDataMap, ok1 := stepData.(map[any]any)
+		if ok1 {
+			kind, ok1 := stepDataMap["kind"]
+			if ok1 {
+				kindString := kind.(string)
+				if kindString == "foreach" {
+					subworkflowPath := stepDataMap["workflow"]
+					subworkflowPathString := subworkflowPath.(string)
+					stepFilePaths[subworkflowPathString] = subworkflowPathString
+				}
+			}
+		}
+	}
+	return stepFilePaths
+}
+
+func SubworkflowCache(wf *workflow.Workflow, rootDir string) (loadfile.FileCache, error) {
+	stepWorkflowPaths := StepWorkflowPaths(wf)
+	if len(stepWorkflowPaths) == 0 {
+		return nil, nil
+	}
+	stepWorkflowFileCache, err := loadfile.NewFileCacheUsingContext(rootDir, stepWorkflowPaths)
+	if err != nil {
+		return nil, err
+	}
+	err = stepWorkflowFileCache.LoadContext()
+	if err != nil {
+		return nil, err
+	}
+	return stepWorkflowFileCache, nil
 }
 
 // SupportedVersion confirms whether a given version string
