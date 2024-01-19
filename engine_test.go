@@ -215,7 +215,7 @@ func Test_ParseSubworkflows(t *testing.T) {
 	fileCache, err := loadfile.NewFileCacheUsingContext(
 		"fixtures/test-subworkflow",
 		map[string]string{
-			"workflow": "workflow.yaml",
+			"workflow": "test-workflow.yaml",
 		})
 	assert.NoError(t, err)
 	assert.NoError(t, fileCache.LoadContext())
