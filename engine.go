@@ -99,7 +99,6 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 	if stepWorkflowFileCache != nil {
-		// should have sub-workflows to merge if the cache exists
 		files = loadfile.MergeFileCaches(stepWorkflowFileCache, files)
 	}
 

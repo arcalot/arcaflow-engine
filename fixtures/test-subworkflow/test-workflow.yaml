@@ -26,7 +26,7 @@ steps:
       - seconds: .1
       - seconds: .1
       - seconds: .1
-    workflow: subworkflow-3.yaml
+    workflow: subworkflow-1.yaml
 outputs:
   success:
     step_1: !expr $.steps.wait_wf_1.outputs
