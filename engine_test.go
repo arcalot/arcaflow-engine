@@ -3,6 +3,7 @@ package engine_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"go.flow.arcalot.io/engine/loadfile"
 	"testing"
 
@@ -211,11 +212,45 @@ outputs:
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
 }
 
+// Test_CacheSubworkflows tests that every sub-workflow filename
+// referenced in the main workflow is incorporated into the
+// workflow's execution.
 func Test_ParseSubworkflows(t *testing.T) {
 	fileCache, err := loadfile.NewFileCacheUsingContext(
 		"fixtures/test-subworkflow",
 		map[string]string{
-			"workflow": "test-workflow.yaml",
+			"workflow": "workflow-happy.yaml",
+		})
+	assert.NoError(t, err)
+	assert.NoError(t, fileCache.LoadContext())
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`{}`),
+		fileCache,
+		"workflow",
+	)
+	fmt.Printf("%v\n", outputData)
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	nStepOutput := 3
+	outputDataTyped := outputData.(map[any]any)
+	assert.Equals(t, len(outputDataTyped), nStepOutput)
+	for _, v := range outputDataTyped {
+		vMapStr := v.(map[string]any)
+		assert.MapContainsKey(t, "success", vMapStr)
+	}
+}
+
+// Test_CacheSubworkflows_Error tests whether the subworkflow
+// with an error was added to cache by executing a plugin
+// that will unconditionally report an error ID status. This
+// test has failed, if no error is reported.
+func Test_CacheSubworkflows_Error(t *testing.T) {
+	fileCache, err := loadfile.NewFileCacheUsingContext(
+		"fixtures/test-subworkflow",
+		map[string]string{
+			"workflow": "workflow-error.yaml",
 		})
 	assert.NoError(t, err)
 	assert.NoError(t, fileCache.LoadContext())
@@ -227,5 +262,5 @@ func Test_ParseSubworkflows(t *testing.T) {
 	)
 	assert.NoError(t, err)
 	assert.Equals(t, outputError, false)
-	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputID, "error")
 }

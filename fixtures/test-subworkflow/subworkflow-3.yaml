@@ -12,7 +12,7 @@ input:
 steps:
   wait_1:
     plugin:
-      src: quay.io/arcalot/arcaflow-plugin-wait:atp-v3_cc3e02b
+      src: quay.io/arcalot/arcaflow-plugin-test-impl-go:atp-v3_cc3e02b
       deployment_type: image
     step: wait
     input:
