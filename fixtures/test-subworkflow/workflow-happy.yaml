@@ -10,21 +10,15 @@ steps:
     kind: foreach
     items:
       - seconds: .1
-      - seconds: .1
-      - seconds: .1
     workflow: subworkflow-1.yaml
   wait_wf_2:
     kind: foreach
     items:
       - seconds: .1
-      - seconds: .1
-      - seconds: .1
     workflow: subworkflow-2.yaml
   wait_wf_3:
     kind: foreach
     items:
-      - seconds: .1
-      - seconds: .1
       - seconds: .1
     workflow: subworkflow-1.yaml
 outputs:
