@@ -28,6 +28,12 @@ func createTestEngine(t *testing.T) engine.WorkflowEngine {
 	cfg.Log.T = t
 	cfg.Log.Level = log.LevelDebug
 	cfg.Log.Destination = log.DestinationTest
+	cfg.LocalDeployers["image"] = map[string]any{
+		"deployer_name": "docker",
+		"deployment": map[string]any{
+			"imagePullPolicy": "IfNotPresent",
+		},
+	}
 	flow, err := engine.New(
 		cfg,
 	)
