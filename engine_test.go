@@ -220,7 +220,7 @@ outputs:
 // Test_CacheSubworkflows tests that every sub-workflow filename
 // referenced in the main workflow is incorporated into the
 // workflow's execution.
-func Test_ParseSubworkflows(t *testing.T) {
+func Test_CacheSubworkflows(t *testing.T) {
 	fileCache, err := loadfile.NewFileCacheUsingContext(
 		"fixtures/test-subworkflow",
 		map[string]string{
