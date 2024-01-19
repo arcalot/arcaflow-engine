@@ -99,7 +99,7 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 	if stepWorkflowFileCache != nil {
-		files = loadfile.MergeFileCaches(stepWorkflowFileCache, files)
+		files, _ = loadfile.MergeFileCaches(stepWorkflowFileCache, files)
 	}
 
 	v, err := SupportedVersion(wf.Version)
