@@ -37,6 +37,12 @@ jobs:
             ~/.cache/go-build
           key: go-test-${{ hashFiles('**/go.sum') }}
           restore-keys: go-test-
+      - name: look around
+        run: |
+          pwd
+          ls .
+          ls fixtures
+          ls fixtures/test-subworkflow
       - name: Run go test
         run: |
           set -euo pipefail
