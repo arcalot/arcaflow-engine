@@ -152,15 +152,15 @@ func SubworkflowCache(wf *workflow.Workflow, rootDir string) (loadfile.FileCache
 	if len(stepWorkflowPaths) == 0 {
 		return nil, nil
 	}
-	stepWorkflowFileCache, err := loadfile.NewFileCacheUsingContext(rootDir, stepWorkflowPaths)
+	subworkflowCache, err := loadfile.NewFileCacheUsingContext(rootDir, stepWorkflowPaths)
 	if err != nil {
 		return nil, err
 	}
-	err = stepWorkflowFileCache.LoadContext()
+	err = subworkflowCache.LoadContext()
 	if err != nil {
 		return nil, err
 	}
-	return stepWorkflowFileCache, nil
+	return subworkflowCache, nil
 }
 
 // SupportedVersion confirms whether a given version string
