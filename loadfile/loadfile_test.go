@@ -127,14 +127,14 @@ func Test_MergeFileCaches(t *testing.T) {
 		filename1:  content1,
 		commonName: content,
 	}
-	rootDir1 := "1"
-	fc1 := loadfile.NewFileCache(rootDir1, files1)
+	expRootDir := "1"
+	fc1 := loadfile.NewFileCache(expRootDir, files1)
 
 	files2 := map[string][]byte{
 		commonName: replacedContent,
 		filename2:  content2,
 	}
-	expRootDir := "2"
+
 	fc2 := loadfile.NewFileCache(expRootDir, files2)
 
 	expMergedFiles := map[string]loadfile.ContextFile{
@@ -155,9 +155,23 @@ func Test_MergeFileCaches(t *testing.T) {
 		},
 	}
 
-	fcMerged := loadfile.MergeFileCaches(fc1, fc2)
+	fcMerged, err := loadfile.MergeFileCaches(fc1, fc2)
+	assert.NoError(t, err)
 	assert.Equals(t, fcMerged.RootDir(), expRootDir)
 	assert.Equals(t, fcMerged.Files(), expMergedFiles)
+
+	newRootDir := "3"
+	filename3 := "d"
+	content3 := []byte(`content3`)
+
+	files3 := map[string][]byte{
+		filename3: content3,
+	}
+
+	fc3 := loadfile.NewFileCache(newRootDir, files3)
+	fcMerged2, err := loadfile.MergeFileCaches(fcMerged, fc3)
+	assert.Error(t, err)
+	assert.Nil(t, fcMerged2)
 }
 
 func FileCacheAbsPaths(fc loadfile.FileCache) map[string]string {

@@ -1,0 +1,22 @@
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        seconds:
+          type:
+            type_id: float
+            min: 0
+steps:
+  wait_1:
+    plugin:
+      src: quay.io/arcalot/arcaflow-plugin-wait:atp-v3_cc3e02b
+      deployment_type: image
+    step: wait
+    input:
+      seconds: !expr $.input.seconds
+outputs:
+  success:
+    a: !expr $.steps.wait_1.outputs

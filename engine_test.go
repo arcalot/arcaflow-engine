@@ -28,6 +28,12 @@ func createTestEngine(t *testing.T) engine.WorkflowEngine {
 	cfg.Log.T = t
 	cfg.Log.Level = log.LevelDebug
 	cfg.Log.Destination = log.DestinationTest
+	cfg.LocalDeployers["image"] = map[string]any{
+		"deployer_name": "docker",
+		"deployment": map[string]any{
+			"imagePullPolicy": "IfNotPresent",
+		},
+	}
 	flow, err := engine.New(
 		cfg,
 	)
@@ -209,4 +215,33 @@ outputs:
 	assert.Equals(t, outputError, false)
 	assert.Equals(t, outputID, "success")
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
+}
+
+// Test_CacheSubworkflows tests that every sub-workflow filename
+// referenced in the main workflow is incorporated into the
+// workflow's execution.
+func Test_CacheSubworkflows(t *testing.T) {
+	fileCache, err := loadfile.NewFileCacheUsingContext(
+		"fixtures/test-subworkflow",
+		map[string]string{
+			"workflow": "workflow-happy.yaml",
+		})
+	assert.NoError(t, err)
+	assert.NoError(t, fileCache.LoadContext())
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`{}`),
+		fileCache,
+		"workflow",
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	nStepOutput := 3
+	outputDataTyped := outputData.(map[any]any)
+	assert.Equals(t, len(outputDataTyped), nStepOutput)
+	for _, v := range outputDataTyped {
+		vMapStr := v.(map[string]any)
+		assert.MapContainsKey(t, "success", vMapStr)
+	}
 }
