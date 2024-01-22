@@ -153,7 +153,7 @@ func (fc *fileCache) Files() map[string]ContextFile {
 // The new root directory will be the root directory of the last file cache
 // argument. File keys found later in iteration will overwrite previously
 // file keys, if there is a name clash.
-func MergeFileCaches(fileCaches ...FileCache) FileCache {
+func MergeFileCaches(fileCaches ...FileCache) (FileCache, error) {
 	cache := map[string]ContextFile{}
 	rootDir := ""
 
@@ -161,10 +161,13 @@ func MergeFileCaches(fileCaches ...FileCache) FileCache {
 		for key, contextFile := range fc.Files() {
 			cache[key] = contextFile
 		}
+		if rootDir != "" && rootDir != fc.RootDir() {
+			return nil, fmt.Errorf("file caches have different root directory %q, %q", rootDir, fc.RootDir())
+		}
 		rootDir = fc.RootDir()
 	}
 	return &fileCache{
 		rootDir: rootDir,
 		files:   cache,
-	}
+	}, nil
 }

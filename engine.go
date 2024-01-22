@@ -94,6 +94,17 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
+	stepWorkflowFileCache, err := SubworkflowCache(wf, files.RootDir())
+	if err != nil {
+		return nil, err
+	}
+	if stepWorkflowFileCache != nil {
+		files, err = loadfile.MergeFileCaches(stepWorkflowFileCache, files)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	v, err := SupportedVersion(wf.Version)
 	if err != nil {
 		return nil, err
@@ -113,6 +124,46 @@ func (w workflowEngine) Parse(
 	return &engineWorkflow{
 		workflow: preparedWorkflow,
 	}, nil
+}
+
+// StepWorkflowPaths finds all the file paths to workflows referenced
+// in a workflow's steps. The key for each found workflow file is the
+// file path as it is written in this workflow.
+func StepWorkflowPaths(wf *workflow.Workflow) map[string]string {
+	stepFilePaths := map[string]string{}
+	for _, stepData := range wf.Steps {
+		stepDataMap, ok1 := stepData.(map[any]any)
+		if ok1 {
+			kind, ok1 := stepDataMap["kind"]
+			if ok1 {
+				kindString := kind.(string)
+				if kindString == "foreach" {
+					subworkflowPath := stepDataMap["workflow"]
+					subworkflowPathString := subworkflowPath.(string)
+					stepFilePaths[subworkflowPathString] = subworkflowPathString
+				}
+			}
+		}
+	}
+	return stepFilePaths
+}
+
+// SubworkflowCache creates a file cache of the sub-workflows referenced
+// in this workflow using rootDir as a context.
+func SubworkflowCache(wf *workflow.Workflow, rootDir string) (loadfile.FileCache, error) {
+	stepWorkflowPaths := StepWorkflowPaths(wf)
+	if len(stepWorkflowPaths) == 0 {
+		return nil, nil
+	}
+	subworkflowCache, err := loadfile.NewFileCacheUsingContext(rootDir, stepWorkflowPaths)
+	if err != nil {
+		return nil, err
+	}
+	err = subworkflowCache.LoadContext()
+	if err != nil {
+		return nil, err
+	}
+	return subworkflowCache, nil
 }
 
 // SupportedVersion confirms whether a given version string
