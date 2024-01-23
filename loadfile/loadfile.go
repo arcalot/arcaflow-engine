@@ -158,6 +158,9 @@ func MergeFileCaches(fileCaches ...FileCache) (FileCache, error) {
 	rootDir := ""
 
 	for _, fc := range fileCaches {
+		if fc == nil {
+			continue
+		}
 		for key, contextFile := range fc.Files() {
 			cache[key] = contextFile
 		}

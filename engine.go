@@ -94,7 +94,8 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	stepWorkflowFileCache, err := SubworkflowCache(wf, files.RootDir())
+	flowCaches := make([]loadfile.FileCache, 0)
+	stepWorkflowFileCache, err := SubworkflowCache(wf, files.RootDir(), yamlConverter, flowCaches)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +151,7 @@ func StepWorkflowPaths(wf *workflow.Workflow) map[string]string {
 
 // SubworkflowCache creates a file cache of the sub-workflows referenced
 // in this workflow using rootDir as a context.
-func SubworkflowCache(wf *workflow.Workflow, rootDir string) (loadfile.FileCache, error) {
+func SubworkflowCache(wf *workflow.Workflow, rootDir string, converter workflow.YAMLConverter, flowCaches []loadfile.FileCache) (loadfile.FileCache, error) {
 	stepWorkflowPaths := StepWorkflowPaths(wf)
 	if len(stepWorkflowPaths) == 0 {
 		return nil, nil
@@ -160,6 +161,23 @@ func SubworkflowCache(wf *workflow.Workflow, rootDir string) (loadfile.FileCache
 		return nil, err
 	}
 	err = subworkflowCache.LoadContext()
+	if err != nil {
+		return nil, err
+	}
+	for _, ctxFile := range subworkflowCache.Files() {
+		subwf, err := converter.FromYAML(ctxFile.Content)
+		if err != nil {
+			return nil, err
+		}
+		flowCache, err := SubworkflowCache(subwf, rootDir, converter, flowCaches)
+		if err != nil {
+			return nil, err
+		}
+		flowCaches = append(flowCaches, flowCache)
+	}
+
+	flowCaches = append(flowCaches, subworkflowCache)
+	subworkflowCache, err = loadfile.MergeFileCaches(flowCaches...)
 	if err != nil {
 		return nil, err
 	}
