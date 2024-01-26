@@ -172,6 +172,13 @@ func Test_MergeFileCaches(t *testing.T) {
 	fcMerged2, err := loadfile.MergeFileCaches(fcMerged, fc3)
 	assert.Error(t, err)
 	assert.Nil(t, fcMerged2)
+
+	// nil file caches should not be merged
+	var fcNil loadfile.FileCache
+	fcMerged3, err := loadfile.MergeFileCaches(fcMerged, fcNil, fcNil)
+	assert.NoError(t, err)
+	assert.Equals(t, fcMerged3.RootDir(), expRootDir)
+	assert.Equals(t, fcMerged3.Files(), expMergedFiles)
 }
 
 func FileCacheAbsPaths(fc loadfile.FileCache) map[string]string {
