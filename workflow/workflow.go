@@ -522,7 +522,7 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error) {
 	if expr, ok := inputData.(expressions.Expression); ok {
 		l.logger.Debugf("Evaluating expression %s...", expr.String())
-		return expr.Evaluate(dataModel, l.workflowContext)
+		return expr.Evaluate(dataModel, make(map[string]schema.CallableFunction), l.workflowContext) // TODO
 	}
 	v := reflect.ValueOf(inputData)
 	switch v.Kind() {

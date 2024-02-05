@@ -455,7 +455,7 @@ func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, 
 	if expr, ok := inputField.(expressions.Expression); ok {
 		// Is expression, so evaluate it.
 		e.logger.Debugf("Evaluating expression %s...", expr.String())
-		return expr.Type(rootSchema, workflowContext)
+		return expr.Type(rootSchema, make(map[string]schema.Function), workflowContext) // TODO
 	}
 
 	v := reflect.ValueOf(inputField)
@@ -792,7 +792,16 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 	case reflect.Struct:
 		switch s := stepData.(type) {
 		case expressions.Expression:
-			dependencies, err := s.Dependencies(outputSchema, workflowContext)
+			// Evaluate the dependencies of the expression on the data structure.
+			// Include extraneous is false due to this only being needed for connecting to the appropriate node,
+			// as opposed to the data provided by that node.
+			pathUnpackRequirements := expressions.UnpackRequirements{
+				ExcludeDataRootPaths:     false,
+				ExcludeFunctionRootPaths: true, // We don't need to setup DAG connections for them.
+				StopAtTerminals:          true, // I don't think we need the extra info. We just need the connection.
+				IncludeKeys:              false,
+			}
+			dependencies, err := s.Dependencies(outputSchema, make(map[string]schema.Function), workflowContext, pathUnpackRequirements) // TODO
 			if err != nil {
 				return fmt.Errorf(
 					"failed to evaluate dependencies of the expression %s (%w)",

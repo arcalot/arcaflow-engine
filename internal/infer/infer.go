@@ -53,7 +53,7 @@ func Scope(data any, internalDataModel *schema.ScopeSchema, workflowContext map[
 // Type attempts to infer the data model from the data, possibly evaluating expressions.
 func Type(data any, internalDataModel *schema.ScopeSchema, workflowContext map[string][]byte) (schema.Type, error) {
 	if expression, ok := data.(expressions.Expression); ok {
-		expressionType, err := expression.Type(internalDataModel, workflowContext)
+		expressionType, err := expression.Type(internalDataModel, make(map[string]schema.Function), workflowContext) // TODO
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expression.String(), err)
 		}
