@@ -162,7 +162,14 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 			}
 			outputSchema = outputSchemaData.(*schema.StepOutputSchema)
 		}
-		outputSchema, err = infer.OutputSchema(outputData, outputID, outputSchema, internalDataModel, workflowContext)
+		outputSchema, err = infer.OutputSchema(
+			outputData,
+			outputID,
+			outputSchema,
+			internalDataModel,
+			e.callableFunctionSchemas,
+			workflowContext,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read/infer workflow output schema for output %s (%w)", outputID, err)
 		}

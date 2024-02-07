@@ -14,9 +14,16 @@ import (
 )
 
 // OutputSchema either uses the passed output schema or infers the schema from the data model.
-func OutputSchema(data any, outputID string, outputSchema *schema.StepOutputSchema, internalDataModel *schema.ScopeSchema, workflowContext map[string][]byte) (*schema.StepOutputSchema, error) {
+func OutputSchema(
+	data any,
+	outputID string,
+	outputSchema *schema.StepOutputSchema,
+	internalDataModel *schema.ScopeSchema,
+	functions map[string]schema.Function,
+	workflowContext map[string][]byte,
+) (*schema.StepOutputSchema, error) {
 	if outputSchema == nil {
-		inferredScope, err := Scope(data, internalDataModel, workflowContext)
+		inferredScope, err := Scope(data, internalDataModel, functions, workflowContext)
 		if err != nil {
 			return nil, fmt.Errorf("unable to infer output schema for %s (%w)", outputID, err)
 		}
@@ -30,8 +37,13 @@ func OutputSchema(data any, outputID string, outputSchema *schema.StepOutputSche
 }
 
 // Scope will infer a scope from the data.
-func Scope(data any, internalDataModel *schema.ScopeSchema, workflowContext map[string][]byte) (schema.Scope, error) {
-	dataType, err := Type(data, internalDataModel, workflowContext)
+func Scope(
+	data any,
+	internalDataModel *schema.ScopeSchema,
+	functions map[string]schema.Function,
+	workflowContext map[string][]byte,
+) (schema.Scope, error) {
+	dataType, err := Type(data, internalDataModel, functions, workflowContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to infer data type (%w)", err)
 	}
@@ -51,9 +63,14 @@ func Scope(data any, internalDataModel *schema.ScopeSchema, workflowContext map[
 }
 
 // Type attempts to infer the data model from the data, possibly evaluating expressions.
-func Type(data any, internalDataModel *schema.ScopeSchema, workflowContext map[string][]byte) (schema.Type, error) {
+func Type(
+	data any,
+	internalDataModel *schema.ScopeSchema,
+	functions map[string]schema.Function,
+	workflowContext map[string][]byte,
+) (schema.Type, error) {
 	if expression, ok := data.(expressions.Expression); ok {
-		expressionType, err := expression.Type(internalDataModel, make(map[string]schema.Function), workflowContext) // TODO
+		expressionType, err := expression.Type(internalDataModel, functions, workflowContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expression.String(), err)
 		}
@@ -62,9 +79,9 @@ func Type(data any, internalDataModel *schema.ScopeSchema, workflowContext map[s
 	v := reflect.ValueOf(data)
 	switch v.Kind() {
 	case reflect.Map:
-		return mapType(v, internalDataModel, workflowContext)
+		return mapType(v, internalDataModel, functions, workflowContext)
 	case reflect.Slice:
-		return sliceType(v, internalDataModel, workflowContext)
+		return sliceType(v, internalDataModel, functions, workflowContext)
 	case reflect.String:
 		return schema.NewStringSchema(nil, nil, nil), nil
 	case reflect.Int8:
@@ -116,9 +133,10 @@ func Type(data any, internalDataModel *schema.ScopeSchema, workflowContext map[s
 func mapType(
 	v reflect.Value,
 	internalDataModel *schema.ScopeSchema,
+	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
-	keyType, err := sliceItemType(v.MapKeys(), internalDataModel, workflowContext)
+	keyType, err := sliceItemType(v.MapKeys(), internalDataModel, functions, workflowContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to infer map key type (%w)", err)
 	}
@@ -126,7 +144,7 @@ func mapType(
 	case schema.TypeIDString:
 		fallthrough
 	case schema.TypeIDStringEnum:
-		return objectType(v, internalDataModel, workflowContext)
+		return objectType(v, internalDataModel, functions, workflowContext)
 	case schema.TypeIDInt:
 	case schema.TypeIDIntEnum:
 	default:
@@ -136,7 +154,7 @@ func mapType(
 	for _, mapKey := range v.MapKeys() {
 		mapValue := v.MapIndex(mapKey)
 		mapValueAny := mapValue.Interface()
-		valueType, err := Type(mapValueAny, internalDataModel, workflowContext)
+		valueType, err := Type(mapValueAny, internalDataModel, functions, workflowContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to infer type of %d (%w)", mapValueAny, err)
 		}
@@ -169,11 +187,12 @@ func mapType(
 func objectType(
 	value reflect.Value,
 	internalDataModel *schema.ScopeSchema,
+	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
 	properties := make(map[string]*schema.PropertySchema, value.Len())
 	for _, keyValue := range value.MapKeys() {
-		propertyType, err := Type(value.MapIndex(keyValue).Interface(), internalDataModel, workflowContext)
+		propertyType, err := Type(value.MapIndex(keyValue).Interface(), internalDataModel, functions, workflowContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to infer property %s type (%w)", keyValue.Interface(), err)
 		}
@@ -198,13 +217,14 @@ func objectType(
 func sliceType(
 	v reflect.Value,
 	internalDataModel *schema.ScopeSchema,
+	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
 	values := make([]reflect.Value, v.Len())
 	for i := 0; i < v.Len(); i++ {
 		values[i] = v.Index(i)
 	}
-	foundType, err := sliceItemType(values, internalDataModel, workflowContext)
+	foundType, err := sliceItemType(values, internalDataModel, functions, workflowContext)
 	if err != nil {
 		return nil, err
 	}
@@ -215,12 +235,17 @@ func sliceType(
 	), nil
 }
 
-func sliceItemType(values []reflect.Value, internalDataModel *schema.ScopeSchema, workflowContext map[string][]byte) (schema.Type, error) {
+func sliceItemType(
+	values []reflect.Value,
+	internalDataModel *schema.ScopeSchema,
+	functions map[string]schema.Function,
+	workflowContext map[string][]byte,
+) (schema.Type, error) {
 	types := make([]schema.Type, len(values))
 	var foundType schema.Type
 	for i, value := range values {
 		var err error
-		types[i], err = Type(value.Interface(), internalDataModel, workflowContext)
+		types[i], err = Type(value.Interface(), internalDataModel, functions, workflowContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to infer type for item %d (%w)", i, err)
 		}

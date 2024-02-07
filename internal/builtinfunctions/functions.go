@@ -1,3 +1,4 @@
+// Package builtinfunctions provides functions available to expressions in workflows.
 package builtinfunctions
 
 import (
@@ -8,6 +9,7 @@ import (
 	"strings"
 )
 
+// GetFunctions returns a map of all functions currently available.
 func GetFunctions() map[string]schema.CallableFunction {
 	// Simple conversions
 	intToFloatFunction := getIntToFloatFunction()
@@ -161,9 +163,7 @@ func getBooleanToStringFunction() schema.CallableFunction {
 			),
 			nil,
 		),
-		func(a bool) string {
-			return strconv.FormatBool(a)
-		},
+		strconv.FormatBool, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -245,9 +245,7 @@ func getStringToBoolFunction() schema.CallableFunction {
 			),
 			nil,
 		),
-		func(s string) (bool, error) {
-			return strconv.ParseBool(s)
-		},
+		strconv.ParseBool, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -267,16 +265,14 @@ func getCeilFunction() schema.CallableFunction {
 				// Description based on documentation for math.Ceil
 				"Ceil returns the least integer value greater than or equal to x.\n"+
 					"For example `ceil(1.5)` outputs `2.0`, and `ceil(-1.5)` outputs `-1.0`"+
-					"Special cases are:\n"+
-					"Ceil(±0) = ±0\n"+
-					"Ceil(±Inf) = ±Inf\n"+
-					"Ceil(NaN) = Na",
+					"Special cases are:\n"+ //nolint:goconst
+					"ceil(±0) = ±0\n"+
+					"ceil(±Inf) = ±Inf\n"+
+					"ceil(NaN) = Na",
 			),
 			nil,
 		),
-		func(a float64) float64 {
-			return math.Ceil(a)
-		},
+		math.Ceil, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -297,15 +293,13 @@ func getFloorFunction() schema.CallableFunction {
 				"Floor returns the greatest integer value less than or equal to x.\n"+
 					"For example `floor(1.5)` outputs `1.0`, and `floor(-1.5)` outputs `-2.0`"+
 					"Special cases are:\n"+
-					"Ceil(±0) = ±0\n"+
-					"Ceil(±Inf) = ±Inf\n"+
-					"Ceil(NaN) = Na",
+					"floor(±0) = ±0\n"+
+					"floor(±Inf) = ±Inf\n"+
+					"floor(NaN) = Na",
 			),
 			nil,
 		),
-		func(a float64) float64 {
-			return math.Floor(a)
-		},
+		math.Floor, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -326,15 +320,13 @@ func getRoundFunction() schema.CallableFunction {
 				"Round returns the nearest integer, rounding half away from zero.\n"+
 					"For example `round(1.5)` outputs `2.0`, and `round(-1.5)` outputs `-2.0`"+
 					"Special cases are:\n"+
-					"Ceil(±0) = ±0\n"+
-					"Ceil(±Inf) = ±Inf\n"+
-					"Ceil(NaN) = Na",
+					"round(±0) = ±0\n"+
+					"round(±Inf) = ±Inf\n"+
+					"round(NaN) = Na",
 			),
 			nil,
 		),
-		func(a float64) float64 {
-			return math.Round(a)
-		},
+		math.Round, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -354,14 +346,12 @@ func getAbsFunction() schema.CallableFunction {
 				// Description based on documentation for math.Abs
 				"abs returns the absolute value of x.\n"+
 					"Special cases are:\n"+
-					"Ceil(±Inf) = +Inf\n"+
-					"Ceil(NaN) = Na",
+					"abs(±Inf) = +Inf\n"+
+					"abs(NaN) = Na",
 			),
 			nil,
 		),
-		func(a float64) float64 {
-			return math.Abs(a)
-		},
+		math.Abs, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -382,9 +372,7 @@ func getToLowerFunction() schema.CallableFunction {
 			),
 			nil,
 		),
-		func(s string) string {
-			return strings.ToLower(s)
-		},
+		strings.ToLower, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -405,9 +393,7 @@ func getToUpperFunction() schema.CallableFunction {
 			),
 			nil,
 		),
-		func(s string) string {
-			return strings.ToUpper(s)
-		},
+		strings.ToUpper, // Wrap go standard lib function.
 	)
 	if err != nil {
 		panic(err)
@@ -433,9 +419,7 @@ func getSplitStringFunction() schema.CallableFunction {
 			),
 			nil,
 		),
-		func(source string, separator string) []string {
-			return strings.Split(source, separator)
-		},
+		strings.Split,
 	)
 	if err != nil {
 		panic(err)

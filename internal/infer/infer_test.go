@@ -60,7 +60,7 @@ var testData = []testEntry{
 func TestInfer(t *testing.T) {
 	for _, entry := range testData {
 		t.Run(entry.name, func(t *testing.T) {
-			inferredType, err := infer.Type(entry.input, nil, nil)
+			inferredType, err := infer.Type(entry.input, nil, make(map[string]schema.Function), nil)
 			if err != nil {
 				t.Fatalf("%v", err)
 			}

@@ -25,11 +25,11 @@ var testData = map[string]struct {
 		false,
 		-1.0,
 	},
-	"int-to-float-negative-zero": {
+	"int-to-float-zero": {
 		"intToFloat",
-		[]any{int64(-0)},
+		[]any{int64(0)},
 		false,
-		-0.0,
+		0.0,
 	},
 	"float-to-int-positive": {
 		"floatToInt",
@@ -43,11 +43,11 @@ var testData = map[string]struct {
 		false,
 		int64(-1),
 	},
-	"float-to-int-negative-zero": {
+	"float-to-int-zero": {
 		"floatToInt",
-		[]any{-0.0},
+		[]any{0.0},
 		false,
-		int64(-0),
+		int64(0),
 	},
 	"int-to-string-positive": {
 		"intToString",
@@ -363,7 +363,7 @@ var testData = map[string]struct {
 	},
 	"abs-1": {
 		"abs",
-		[]any{-0.0},
+		[]any{0.0},
 		false,
 		0.0,
 	},
