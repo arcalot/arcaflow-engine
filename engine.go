@@ -6,6 +6,7 @@ import (
 	"fmt"
 	log "go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/loadfile"
@@ -112,7 +113,7 @@ func (w workflowEngine) Parse(
 	}
 	wf.Version = v
 
-	executor, err := workflow.NewExecutor(w.logger, w.config, w.stepRegistry)
+	executor, err := workflow.NewExecutor(w.logger, w.config, w.stepRegistry, builtinfunctions.GetFunctions())
 	if err != nil {
 		return nil, err
 	}

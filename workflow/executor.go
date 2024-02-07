@@ -22,6 +22,7 @@ func NewExecutor(
 	logger log.Logger,
 	config *config.Config,
 	stepRegistry step.Registry,
+	callableFunctions map[string]schema.CallableFunction,
 ) (Executor, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("bug: no logger passed to NewExecutor")
@@ -29,10 +30,16 @@ func NewExecutor(
 	if stepRegistry == nil {
 		return nil, fmt.Errorf("bug: no step registry passed to NewExecutor")
 	}
+	functionSchemas := make(map[string]schema.Function, len(callableFunctions))
+	for k, v := range callableFunctions {
+		functionSchemas[k] = v
+	}
 	return &executor{
-		logger:       logger.WithLabel("source", "executor"),
-		stepRegistry: stepRegistry,
-		config:       config,
+		logger:                  logger.WithLabel("source", "executor"),
+		stepRegistry:            stepRegistry,
+		config:                  config,
+		callableFunctions:       callableFunctions,
+		callableFunctionSchemas: functionSchemas,
 	}, nil
 }
 
@@ -67,9 +74,11 @@ type ExecutableWorkflow interface {
 }
 
 type executor struct {
-	logger       log.Logger
-	config       *config.Config
-	stepRegistry step.Registry
+	logger                  log.Logger
+	config                  *config.Config
+	stepRegistry            step.Registry
+	callableFunctionSchemas map[string]schema.Function
+	callableFunctions       map[string]schema.CallableFunction
 }
 
 // Prepare goes through all workflow steps and constructs their schema and input data.
@@ -184,6 +193,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	return &executableWorkflow{
 		logger:            e.logger,
 		config:            e.config,
+		callableFunctions: e.callableFunctions,
 		dag:               dag,
 		input:             typedInput,
 		stepRunData:       stepRunData,
@@ -455,7 +465,7 @@ func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, 
 	if expr, ok := inputField.(expressions.Expression); ok {
 		// Is expression, so evaluate it.
 		e.logger.Debugf("Evaluating expression %s...", expr.String())
-		return expr.Type(rootSchema, make(map[string]schema.Function), workflowContext) // TODO
+		return expr.Type(rootSchema, e.callableFunctionSchemas, workflowContext)
 	}
 
 	v := reflect.ValueOf(inputField)
@@ -801,7 +811,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 				StopAtTerminals:          true, // I don't think we need the extra info. We just need the connection.
 				IncludeKeys:              false,
 			}
-			dependencies, err := s.Dependencies(outputSchema, make(map[string]schema.Function), workflowContext, pathUnpackRequirements) // TODO
+			dependencies, err := s.Dependencies(outputSchema, e.callableFunctionSchemas, workflowContext, pathUnpackRequirements)
 			if err != nil {
 				return fmt.Errorf(
 					"failed to evaluate dependencies of the expression %s (%w)",

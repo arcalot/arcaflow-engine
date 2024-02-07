@@ -3,6 +3,7 @@ package foreach_test
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 
 	"go.arcalot.io/lang"
 	"go.arcalot.io/log/v2"
@@ -86,6 +87,7 @@ func ExampleNew() {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(mainWorkflow)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
@@ -131,5 +133,5 @@ func (f *workflowFactory) createWorkflow(logger log.Logger) (workflow.Executor, 
 	if stepR == nil {
 		return nil, fmt.Errorf("YAML converter not available yet, please call the factory function after the engine has initialized")
 	}
-	return workflow.NewExecutor(logger, f.config, stepR)
+	return workflow.NewExecutor(logger, f.config, stepR, builtinfunctions.GetFunctions())
 }

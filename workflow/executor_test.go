@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 	"go.arcalot.io/assert"
+	"go.arcalot.io/lang"
 	"go.flow.arcalot.io/deployer"
 	deployerregistry "go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	testimpl "go.flow.arcalot.io/testdeployer"
 	"testing"
 
-	"go.arcalot.io/lang"
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/internal/step/dummy"
 	stepregistry "go.flow.arcalot.io/engine/internal/step/registry"
@@ -34,6 +35,7 @@ func getTestImplPreparedWorkflow(t *testing.T, workflowDefinition string) (workf
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := assert.NoErrorR[*workflow.Workflow](t)(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(workflowDefinition)))
 	return executor.Prepare(wf, map[string][]byte{})
@@ -49,6 +51,7 @@ func getDummyDeployerPreparedWorkflow(t *testing.T, workflowDefinition string) (
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := assert.NoErrorR[*workflow.Workflow](t)(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(workflowDefinition)))
 	return executor.Prepare(wf, map[string][]byte{})
@@ -279,5 +282,5 @@ func TestDependOnNoOutputs(t *testing.T) {
 	// into the workflow's expression path data structure at preparation time.
 	_, err := getTestImplPreparedWorkflow(t, invalidWaitfor)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "object wait_1 does not have a property named deploy")
+	assert.Contains(t, err.Error(), "object wait_1 does not have a property named \"deploy\"")
 }

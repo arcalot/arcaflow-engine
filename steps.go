@@ -5,6 +5,7 @@ import (
 	"go.arcalot.io/log/v2"
 	deployerRegistry "go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/foreach"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
@@ -57,5 +58,5 @@ func (f *workflowFactory) createWorkflow(logger log.Logger) (workflow.Executor, 
 	if stepR == nil {
 		return nil, fmt.Errorf("YAML converter not available yet, please call the factory function after the engine has initialized")
 	}
-	return workflow.NewExecutor(logger, f.config, stepR)
+	return workflow.NewExecutor(logger, f.config, stepR, builtinfunctions.GetFunctions())
 }

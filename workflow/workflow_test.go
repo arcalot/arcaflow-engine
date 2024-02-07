@@ -10,6 +10,7 @@ import (
 	"go.flow.arcalot.io/deployer"
 	deployerregistry "go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/foreach"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
@@ -329,6 +330,7 @@ func TestWaitForSerial(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForSerialWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
@@ -410,6 +412,7 @@ func TestWaitForStarted(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForStartedWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
@@ -516,6 +519,7 @@ func TestWaitForSerial_Foreach(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForSerialForeachWf)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
@@ -621,6 +625,7 @@ func TestWaitForStarted_Foreach(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForStartedForeachWf)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
@@ -650,7 +655,7 @@ func (f *workflowFactory) createWorkflow(logger log.Logger) (workflow.Executor, 
 	if stepR == nil {
 		return nil, fmt.Errorf("YAML converter not available yet, please call the factory function after the engine has initialized")
 	}
-	return workflow.NewExecutor(logger, f.config, stepR)
+	return workflow.NewExecutor(logger, f.config, stepR, builtinfunctions.GetFunctions())
 }
 
 var missingInputsFailedDeploymentWorkflowDefinition = `
@@ -782,6 +787,7 @@ func TestEarlyContextCancellation(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(fiveSecWaitWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))

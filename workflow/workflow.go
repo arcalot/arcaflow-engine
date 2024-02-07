@@ -29,6 +29,7 @@ const (
 type executableWorkflow struct {
 	logger            log.Logger
 	config            *config.Config
+	callableFunctions map[string]schema.CallableFunction
 	dag               dgraph.DirectedGraph[*DAGItem]
 	input             schema.Scope
 	stepRunData       map[string]map[string]any
@@ -75,6 +76,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 			WorkflowInputKey: serializedInput,
 			WorkflowStepsKey: map[string]any{},
 		},
+		callableFunctions: e.callableFunctions,
 		dag:               e.dag.Clone(),
 		inputsNotified:    make(map[string]struct{}, len(e.dag.ListNodes())),
 		runningSteps:      make(map[string]step.RunningStep, len(e.dag.ListNodes())),
@@ -222,6 +224,7 @@ type loopState struct {
 	// If steps use this, it could cause dependency problems, concurrency problems, and scalability problems.
 	data              map[string]any
 	dag               dgraph.DirectedGraph[*DAGItem]
+	callableFunctions map[string]schema.CallableFunction
 	inputsNotified    map[string]struct{}
 	runningSteps      map[string]step.RunningStep
 	outputDataChannel chan outputDataType
@@ -522,7 +525,7 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error) {
 	if expr, ok := inputData.(expressions.Expression); ok {
 		l.logger.Debugf("Evaluating expression %s...", expr.String())
-		return expr.Evaluate(dataModel, make(map[string]schema.CallableFunction), l.workflowContext) // TODO
+		return expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
 	}
 	v := reflect.ValueOf(inputData)
 	switch v.Kind() {
