@@ -1,0 +1,30 @@
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        a:
+          type:
+            type_id: string
+steps:
+  no_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+outputs:
+  success:
+    # GOAL: "\\\\" and "\\" and "'"'" and "	" \t Plugin slept for 0 ms.
+    result_raw_inlined: !expr '`"` + $.input.a + `" and "\\" and "''"''" and "	" \t ` + $.steps.no_wait.outputs.success.message'
+    result_raw_flow_scalar: !expr |-
+      `"` + $.input.a + `" and "\\" and "'"'" and "	" \t ` + $.steps.no_wait.outputs.success.message
+    result_inlined_single_quote: !expr '"\"" + $.input.a + "\" and \"\\\\\" and \"''\"''\" and \"\t\" \\t " + $.steps.no_wait.outputs.success.message'
+    result_inlined_double_quote: !expr "'\"' + $.input.a + '\" and \"\\\\\\\\\" and \"\\'\"\\'\" and \"\t\" \\\\t ' + $.steps.no_wait.outputs.success.message"
+    result_flow_scalar_single_quote: !expr |-
+      '"' + $.input.a + '" and "\\\\" and "\'"\'" and "\t" \\t ' + $.steps.no_wait.outputs.success.message
+    result_flow_scalar_double_quote: !expr |-
+      "\"" + $.input.a + "\" and \"\\\\\" and \"'\"'\" and \"\t\" \\t " + $.steps.no_wait.outputs.success.message

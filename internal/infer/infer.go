@@ -208,7 +208,7 @@ func objectType(
 		)
 	}
 	return schema.NewObjectSchema(
-		generateRandomObjectID(),
+		"inferred_schema_"+generateRandomObjectID(),
 		properties,
 	), nil
 }
