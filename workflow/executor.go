@@ -809,13 +809,11 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 	case reflect.Struct:
 		switch s := stepData.(type) {
 		case expressions.Expression:
-			// Evaluate the dependencies of the expression on the data structure.
-			// Include extraneous is false due to this only being needed for connecting to the appropriate node,
-			// as opposed to the data provided by that node.
+			// Evaluate the dependencies of the expression on the main data structure.
 			pathUnpackRequirements := expressions.UnpackRequirements{
 				ExcludeDataRootPaths:     false,
 				ExcludeFunctionRootPaths: true, // We don't need to setup DAG connections for them.
-				StopAtTerminals:          true, // I don't think we need the extra info. We just need the connection.
+				StopAtTerminals:          true, // We need the extra info. We just need the connection.
 				IncludeKeys:              false,
 			}
 			dependencies, err := s.Dependencies(outputSchema, e.callableFunctionSchemas, workflowContext, pathUnpackRequirements)

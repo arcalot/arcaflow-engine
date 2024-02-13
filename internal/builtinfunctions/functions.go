@@ -83,9 +83,9 @@ func getFloatToIntFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToInt"),
 			schema.PointerTo(
-				"Converts a float type into an integer type by down-casting. "+
-					"The value loses any data after the decimal point.\n"+
-					"For example, `5.5` becomes `5`",
+				"Converts a float type into an integer type by discarding the fraction."+
+					" In other words, it is rounded to the nearest integer towards zero.\n"+
+					"For example, `5.5` becomes `5`, and `-1.9` becomes `-1`",
 			),
 			nil,
 		),
@@ -109,7 +109,7 @@ func getIntToStringFunction() schema.CallableFunction {
 			schema.PointerTo("intToString"),
 			schema.PointerTo(
 				"Converts an integer to a string whose characters represent that integer in base-10.\n"+
-					"For example, an input of `55` will output \"55\"",
+					"For example, an input of `55` will output `\"55\"`",
 			),
 			nil,
 		),
@@ -134,7 +134,7 @@ func getFloatToStringFunction() schema.CallableFunction {
 			schema.PointerTo(
 				"Converts a floating point number to a string whose characters"+
 					"represent that number in base-10 as as simple decimal.\n"+
-					"For example, an input of `5000.5` will output \"5000.5\"",
+					"For example, an input of `5000.5` will output `\"5000.5\"`",
 			),
 			nil,
 		),
@@ -159,7 +159,7 @@ func getBooleanToStringFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("boolToString"),
 			schema.PointerTo(
-				"Represents `true` as \"true\", and `false` as \"false\".",
+				"Returns `\"true\"` for `true`, and `\"false\"` for `false`.",
 			),
 			nil,
 		),
@@ -180,7 +180,7 @@ func getStringToIntFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToInt"),
 			schema.PointerTo(
-				"Interprets the string as a base-10 integer. Can fail if the input is not a valid integer.",
+				"Interprets the string as a base-10 integer. Will fail if the input is not a valid integer.",
 			),
 			nil,
 		),
@@ -203,14 +203,14 @@ func getStringToFloatFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToFloat"),
 			schema.PointerTo(
-				"Converts the string s to a 64-bit floating-point number\n\n"+
+				"Converts the input string to a 64-bit floating-point number\n\n"+
 					"Accepts decimal and hexadecimal floating-point numbers\n"+
 					"as defined by the Go syntax for floating point literals\n"+
 					"https://go.dev/ref/spec#Floating-point_literals.\n"+
-					"If s is well-formed and near a valid floating-point number,\n"+
-					"ParseFloat returns the nearest floating-point number rounded\n"+
+					"If the input is well-formed and near a valid floating-point number,\n"+
+					"stringToFloat returns the nearest floating-point number rounded\n"+
 					"using IEEE754 unbiased rounding.\n\n"+
-					"Returns NumError when an invalid input is received.",
+					"Returns an error when an invalid input is received.",
 			),
 			nil,
 		),
@@ -231,7 +231,7 @@ func getStringToBoolFunction() schema.CallableFunction {
 			schema.NewStringSchema(
 				nil,
 				nil,
-				regexp.MustCompile(`[Tt]rue|TRUE|[Ff]alse|FALSE|[tTfF]|[01]$`),
+				regexp.MustCompile(`(?i)^(?:true|false|[tf]|[01])$`),
 			)},
 		schema.NewBoolSchema(),
 		true,
@@ -239,13 +239,15 @@ func getStringToBoolFunction() schema.CallableFunction {
 			schema.PointerTo("stringToBool"),
 			schema.PointerTo(
 				"Interprets the input as a boolean.\n"+
-					"Accepts `1`, `t`, `T`, `true`, `TRUE`, and `True` for true.\n"+
-					"Accepts `0`, 'f', 'F', 'false', 'FALSE', and 'False' for false.\n"+
-					"Returns an error if any other value is input.",
+					"Case insensitively accepts `\"1\"`, `\"t\"`, and `\"true\"` for `true`.\n"+
+					"Case insensitively accepts `\"0\"`, '\"f\"', and '\"false\"' for `false`.\n"+
+					"Returns an error for any other input.",
 			),
 			nil,
 		),
-		strconv.ParseBool, // Wrap go standard lib function.
+		func(s string) (bool, error) {
+			return strconv.ParseBool(strings.ToLower(s))
+		},
 	)
 	if err != nil {
 		panic(err)
@@ -263,12 +265,12 @@ func getCeilFunction() schema.CallableFunction {
 			schema.PointerTo("ceil"),
 			schema.PointerTo(
 				// Description based on documentation for math.Ceil
-				"Ceil returns the least integer value greater than or equal to x.\n"+
+				"Ceil returns the least integer value greater than or equal to the input.\n"+
 					"For example `ceil(1.5)` outputs `2.0`, and `ceil(-1.5)` outputs `-1.0`"+
 					"Special cases are:\n"+ //nolint:goconst
-					"ceil(±0) = ±0\n"+
-					"ceil(±Inf) = ±Inf\n"+
-					"ceil(NaN) = Na",
+					" ceil(±0) = ±0\n"+
+					" ceil(±Inf) = ±Inf\n"+
+					" ceil(NaN) = NaN",
 			),
 			nil,
 		),
@@ -290,12 +292,12 @@ func getFloorFunction() schema.CallableFunction {
 			schema.PointerTo("floor"),
 			schema.PointerTo(
 				// Description based on documentation for math.Floor
-				"Floor returns the greatest integer value less than or equal to x.\n"+
+				"Floor returns the greatest integer value less than or equal to the input.\n"+
 					"For example `floor(1.5)` outputs `1.0`, and `floor(-1.5)` outputs `-2.0`"+
 					"Special cases are:\n"+
-					"floor(±0) = ±0\n"+
-					"floor(±Inf) = ±Inf\n"+
-					"floor(NaN) = Na",
+					" floor(±0) = ±0\n"+
+					" floor(±Inf) = ±Inf\n"+
+					" floor(NaN) = NaN",
 			),
 			nil,
 		),
@@ -317,12 +319,12 @@ func getRoundFunction() schema.CallableFunction {
 			schema.PointerTo("round"),
 			schema.PointerTo(
 				// Description based on documentation for math.Round
-				"Round returns the nearest integer, rounding half away from zero.\n"+
+				"Round returns the nearest integer to the input, rounding half away from zero.\n"+
 					"For example `round(1.5)` outputs `2.0`, and `round(-1.5)` outputs `-2.0`"+
 					"Special cases are:\n"+
-					"round(±0) = ±0\n"+
-					"round(±Inf) = ±Inf\n"+
-					"round(NaN) = Na",
+					" round(±0) = ±0\n"+
+					" round(±Inf) = ±Inf\n"+
+					" round(NaN) = NaN",
 			),
 			nil,
 		),
@@ -346,8 +348,8 @@ func getAbsFunction() schema.CallableFunction {
 				// Description based on documentation for math.Abs
 				"abs returns the absolute value of x.\n"+
 					"Special cases are:\n"+
-					"abs(±Inf) = +Inf\n"+
-					"abs(NaN) = Na",
+					" abs(±Inf) = +Inf\n"+
+					" abs(NaN) = NaN",
 			),
 			nil,
 		),

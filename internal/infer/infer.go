@@ -208,7 +208,7 @@ func objectType(
 		)
 	}
 	return schema.NewObjectSchema(
-		"inferred_schema_"+generateRandomObjectID(),
+		generateRandomObjectID("inferred_schema"),
 		properties,
 	), nil
 }
@@ -263,10 +263,10 @@ func sliceItemType(
 
 var characters = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 var objectIDRandom = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
-func generateRandomObjectID() string {
+func generateRandomObjectID(purpose string) string {
 	result := make([]rune, 32)
 	for i := range result {
 		result[i] = characters[objectIDRandom.Intn(len(characters))]
 	}
-	return string(result)
+	return purpose + "_" + string(result)
 }

@@ -37,15 +37,39 @@ var testData = map[string]struct {
 		false,
 		int64(1),
 	},
-	"float-to-int-negative": {
+	"float-to-int-negative-whole": {
 		"floatToInt",
 		[]any{-1.0},
+		false,
+		int64(-1),
+	},
+	"float-to-int-negative-fractional": {
+		"floatToInt",
+		[]any{-1.9},
 		false,
 		int64(-1),
 	},
 	"float-to-int-zero": {
 		"floatToInt",
 		[]any{0.0},
+		false,
+		int64(0),
+	},
+	"float-to-int-positive-infinity": {
+		"floatToInt",
+		[]any{math.Inf(1)},
+		false,
+		int64(math.MaxInt64),
+	},
+	"float-to-int-negative-infinity": {
+		"floatToInt",
+		[]any{math.Inf(-1)},
+		false,
+		int64(math.MinInt64),
+	},
+	"float-to-int-nan": {
+		"floatToInt",
+		[]any{math.NaN()},
 		false,
 		int64(0),
 	},
@@ -103,6 +127,18 @@ var testData = map[string]struct {
 		false,
 		"NaN",
 	},
+	"float-to-string-positive-infinity": {
+		"floatToString",
+		[]any{math.Inf(1)},
+		false,
+		"+Inf",
+	},
+	"float-to-string-negative-infinity": {
+		"floatToString",
+		[]any{math.Inf(-1)},
+		false,
+		"-Inf",
+	},
 	"bool-to-string-true": {
 		"boolToString",
 		[]any{true},
@@ -151,6 +187,30 @@ var testData = map[string]struct {
 		true,
 		nil,
 	},
+	"string-to-int-invalid-4": {
+		"stringToInt",
+		[]any{"0b1"},
+		true,
+		nil,
+	},
+	"string-to-int-invalid-5": {
+		"stringToInt",
+		[]any{"0o1"},
+		true,
+		nil,
+	},
+	"string-to-int-invalid-6": {
+		"stringToInt",
+		[]any{"0x1"},
+		true,
+		nil,
+	},
+	"string-to-int-invalid-7": {
+		"stringToInt",
+		[]any{"1_000_000"},
+		true,
+		nil,
+	},
 	"string-to-float-positive": {
 		"stringToFloat",
 		[]any{"11.1"},
@@ -163,17 +223,47 @@ var testData = map[string]struct {
 		false,
 		-11.1,
 	},
-	"string-to-float-zero": {
+	"string-to-float-zero-1": {
 		"stringToFloat",
 		[]any{"0"},
 		false,
 		0.0,
 	},
-	"string-to-float-scientific-notation": {
+	"string-to-float-zero-2": {
+		"stringToFloat",
+		[]any{"-0"},
+		false,
+		0.0,
+	},
+	"string-to-float-positive-infinity-1": {
+		"stringToFloat",
+		[]any{"Inf"},
+		false,
+		math.Inf(1),
+	},
+	"string-to-float-positive-infinity-2": {
+		"stringToFloat",
+		[]any{"+Inf"},
+		false,
+		math.Inf(1),
+	},
+	"string-to-float-negative-infinity": {
+		"stringToFloat",
+		[]any{"-Inf"},
+		false,
+		math.Inf(-1),
+	},
+	"string-to-float-scientific-notation-1": {
 		"stringToFloat",
 		[]any{"5e+5"},
 		false,
 		500000.0,
+	},
+	"string-to-float-scientific-notation-2": {
+		"stringToFloat",
+		[]any{"5E-5"},
+		false,
+		0.00005,
 	},
 	"string-to-float-error-1": {
 		"stringToFloat",
@@ -184,6 +274,12 @@ var testData = map[string]struct {
 	"string-to-float-error-2": {
 		"stringToFloat",
 		[]any{"ten"},
+		true,
+		nil,
+	},
+	"string-to-float-error-3": {
+		"stringToFloat",
+		[]any{"5E+500"},
 		true,
 		nil,
 	},
@@ -284,6 +380,12 @@ var testData = map[string]struct {
 		1.0,
 	},
 	"ceil-3": {
+		"ceil",
+		[]any{0.99},
+		false,
+		1.0,
+	},
+	"ceil-4": {
 		"ceil",
 		[]any{-0.1},
 		false,
@@ -397,6 +499,12 @@ var testData = map[string]struct {
 		false,
 		"abc",
 	},
+	"to-lower-4": {
+		"toLower",
+		[]any{"aBc"},
+		false,
+		"abc",
+	},
 	"to-upper-1": {
 		"toUpper",
 		[]any{""},
@@ -412,6 +520,12 @@ var testData = map[string]struct {
 	"to-upper-3": {
 		"toUpper",
 		[]any{"ABC"},
+		false,
+		"ABC",
+	},
+	"to-upper-4": {
+		"toUpper",
+		[]any{"aBc"},
 		false,
 		"ABC",
 	},
@@ -439,12 +553,19 @@ var testData = map[string]struct {
 		false,
 		[]string{"a", "b", "c", "d"},
 	},
+	"split-string-5": {
+		"splitString",
+		[]any{"1,,2,", ","},
+		false,
+		[]string{"1", "", "2", ""},
+	},
 }
 
 func TestFunctionsBulk(t *testing.T) {
 	allFunctions := builtinfunctions.GetFunctions()
 	for name, tc := range testData {
 		testCase := tc
+		name := name
 		t.Run(name, func(t *testing.T) {
 			functionToTest, funcFound := allFunctions[testCase.functionName]
 			if !funcFound {
@@ -453,13 +574,9 @@ func TestFunctionsBulk(t *testing.T) {
 
 			output, err := functionToTest.Call(testCase.rawArguments)
 
-			if testCase.returnError {
-				if err == nil {
-					t.Fatalf("expected error in test case %q; error returned nil", name)
-				}
-				return
-			}
-			if err != nil {
+			if testCase.returnError && err == nil {
+				t.Fatalf("expected error in test case %q; error returned nil", name)
+			} else if !testCase.returnError && err != nil {
 				t.Fatalf("unexpected error in test case %q (%s)", name, err.Error())
 			}
 

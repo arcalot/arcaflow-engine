@@ -282,5 +282,5 @@ func TestDependOnNoOutputs(t *testing.T) {
 	// into the workflow's expression path data structure at preparation time.
 	_, err := getTestImplPreparedWorkflow(t, invalidWaitfor)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "object wait_1 does not have a property named \"deploy\"")
+	assert.Contains(t, err.Error(), `object wait_1 does not have a property named "deploy"`)
 }
