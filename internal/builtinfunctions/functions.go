@@ -346,7 +346,7 @@ func getAbsFunction() schema.CallableFunction {
 			schema.PointerTo("abs"),
 			schema.PointerTo(
 				// Description based on documentation for math.Abs
-				"returns the absolute value of x.\n"+
+				"Returns the absolute value of x.\n"+
 					"Special cases are:\n"+
 					" abs(±Inf) = +Inf\n"+
 					" abs(NaN) = NaN",
@@ -417,7 +417,7 @@ func getSplitStringFunction() schema.CallableFunction {
 			schema.PointerTo(
 				"Splits the given string with the given separator.\n"+
 					" Param 1: The string to split.\n"+
-					" Param 2: The separator.\n",
+					" Param 2: The separator.",
 			),
 			nil,
 		),
