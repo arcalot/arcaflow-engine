@@ -813,7 +813,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 			pathUnpackRequirements := expressions.UnpackRequirements{
 				ExcludeDataRootPaths:     false,
 				ExcludeFunctionRootPaths: true, // We don't need to setup DAG connections for them.
-				StopAtTerminals:          true, // We need the extra info. We just need the connection.
+				StopAtTerminals:          true, // We do not need the extra info. We just need the connection.
 				IncludeKeys:              false,
 			}
 			dependencies, err := s.Dependencies(outputSchema, e.callableFunctionSchemas, workflowContext, pathUnpackRequirements)
