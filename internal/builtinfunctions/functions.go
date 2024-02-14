@@ -248,8 +248,8 @@ func getStringToBoolFunction() schema.CallableFunction {
 			schema.PointerTo("stringToBool"),
 			schema.PointerTo(
 				"Interprets the input as a boolean.\n"+
-					" accepts `\"1\"`, `\"t\"`, and `\"true\"` for `true`.\n"+
-					" accepts `\"0\"`, '\"f\"', and '\"false\"' for `false`.\n"+
+					" Accepts `\"1\"`, `\"t\"`, and `\"true\"` for `true`.\n"+
+					" Accepts `\"0\"`, '\"f\"', and '\"false\"' for `false`.\n"+
 					"Returns an error for any other input.\n"+
 					"Inputs are case insensitive. So `\"True\"` is interpreted as `\"true\"`, for example.",
 			),
