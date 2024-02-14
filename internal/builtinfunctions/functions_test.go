@@ -49,9 +49,15 @@ var testData = map[string]struct {
 		false,
 		int64(-1),
 	},
-	"float-to-int-zero": {
+	"float-to-int-positive-zero": {
 		"floatToInt",
 		[]any{0.0},
+		false,
+		int64(0),
+	},
+	"float-to-int-negative-zero": {
+		"floatToInt",
+		[]any{math.Copysign(0.0, -1)},
 		false,
 		int64(0),
 	},
@@ -120,6 +126,12 @@ var testData = map[string]struct {
 		[]any{0.0},
 		false,
 		"0",
+	},
+	"float-to-string-negative-zero": {
+		"floatToString",
+		[]any{math.Copysign(0.0, -1)},
+		false,
+		"-0",
 	},
 	"float-to-string-nan": {
 		"floatToString",
@@ -233,7 +245,7 @@ var testData = map[string]struct {
 		"stringToFloat",
 		[]any{"-0"},
 		false,
-		0.0,
+		math.Copysign(0.0, -1),
 	},
 	"string-to-float-positive-infinity-1": {
 		"stringToFloat",
