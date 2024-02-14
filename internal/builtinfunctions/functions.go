@@ -85,11 +85,20 @@ func getFloatToIntFunction() schema.CallableFunction {
 			schema.PointerTo(
 				"Converts a float type into an integer type by discarding the fraction."+
 					" In other words, it is rounded to the nearest integer towards zero.\n"+
+					"Special cases:\n"+
+					" +Inf outputs the maximum 64-bit integer (9223372036854775807)\n"+
+					" -Inf and NaN output the minimum 64-bit integer (-9223372036854775808)\n\n"+
 					"For example, `5.5` becomes `5`, and `-1.9` becomes `-1`",
 			),
 			nil,
 		),
 		func(a float64) int64 {
+			// Define behavior for special cases. The raw cast in go has platform-specific behavior.
+			if a == math.Inf(1) {
+				return math.MaxInt64
+			} else if a == math.Inf(-1) || math.IsNaN(a) {
+				return math.MinInt64
+			}
 			return int64(a)
 		},
 	)
