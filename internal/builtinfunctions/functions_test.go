@@ -76,8 +76,8 @@ var testData = map[string]struct {
 	"float-to-int-nan": {
 		"floatToInt",
 		[]any{math.NaN()},
-		false,
-		int64(math.MinInt64),
+		true,
+		nil,
 	},
 	"int-to-string-positive": {
 		"intToString",

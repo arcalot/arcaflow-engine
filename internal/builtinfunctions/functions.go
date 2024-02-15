@@ -2,6 +2,7 @@
 package builtinfunctions
 
 import (
+	"fmt"
 	"go.flow.arcalot.io/pluginsdk/schema"
 	"math"
 	"regexp"
@@ -79,27 +80,31 @@ func getFloatToIntFunction() schema.CallableFunction {
 		"floatToInt",
 		[]schema.Type{schema.NewFloatSchema(nil, nil, nil)},
 		schema.NewIntSchema(nil, nil, nil),
-		false,
+		true,
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToInt"),
 			schema.PointerTo(
 				"Converts a float type into an integer type by discarding the fraction."+
 					" In other words, it is rounded to the nearest integer towards zero.\n"+
 					"Special cases:\n"+
-					" +Inf outputs the maximum 64-bit integer (9223372036854775807)\n"+
-					" -Inf and NaN output the minimum 64-bit integer (-9223372036854775808)\n\n"+
+					" +Inf outputs the maximum signed 64-bit integer (9223372036854775807)\n"+
+					" -Inf outputs the minimum signed 64-bit integer (-9223372036854775808)\n"+
+					" NaN outputs an error\n\n"+
 					"For example, `5.5` becomes `5`, and `-1.9` becomes `-1`",
 			),
 			nil,
 		),
-		func(a float64) int64 {
-			// Define behavior for special cases. The raw cast in go has platform-specific behavior.
-			if a == math.Inf(1) {
-				return math.MaxInt64
-			} else if a == math.Inf(-1) || math.IsNaN(a) {
-				return math.MinInt64
+		func(a float64) (int64, error) {
+			// Because the type conversion in Go has platform-specific behavior, handle
+			// the special cases explicitly so that we get consistent, portable results.
+			if math.IsInf(a, 1) {
+				return math.MaxInt64, nil
+			} else if math.IsInf(a, -1) {
+				return math.MinInt64, nil
+			} else if math.IsNaN(a) {
+				return math.MinInt64, fmt.Errorf("attempted to convert a NaN float to an integer")
 			}
-			return int64(a)
+			return int64(a), nil
 		},
 	)
 	if err != nil {
@@ -240,7 +245,7 @@ func getStringToBoolFunction() schema.CallableFunction {
 			schema.NewStringSchema(
 				nil,
 				nil,
-				regexp.MustCompile(`(?i)^(?:true|false|[tf]|[01])$`),
+				regexp.MustCompile(`(?i)^(?:true|false|[tf01])$`),
 			)},
 		schema.NewBoolSchema(),
 		true,
