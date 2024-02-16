@@ -62,7 +62,7 @@ func getIntToFloatFunction() schema.CallableFunction {
 		false,
 		schema.NewDisplayValue(
 			schema.PointerTo("intToFloat"),
-			schema.PointerTo("Converts an integer type into a floating point type."),
+			schema.PointerTo("Returns a floating-point representation of the inputted integer."),
 			nil,
 		),
 		func(a int64) float64 {
@@ -84,7 +84,8 @@ func getFloatToIntFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToInt"),
 			schema.PointerTo(
-				"Converts a float type into an integer type by discarding the fraction."+
+				"Returns an integer representation of the inputted floating-point number.\n"+
+					" It does this by discarding the the fraction.\n"+
 					" In other words, it is rounded to the nearest integer towards zero.\n"+
 					"Special cases:\n"+
 					" +Inf outputs the maximum signed 64-bit integer (9223372036854775807)\n"+
@@ -123,7 +124,7 @@ func getIntToStringFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("intToString"),
 			schema.PointerTo(
-				"Converts an integer to a string whose characters represent that integer in base-10.\n"+
+				"Returns a string whose characters represent the inputted integer in base-10.\n"+
 					"For example, an input of `55` will output `\"55\"`",
 			),
 			nil,
@@ -147,8 +148,8 @@ func getFloatToStringFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToString"),
 			schema.PointerTo(
-				"Converts a floating point number to a string whose characters"+
-					"represent that number in base-10 as as simple decimal.\n"+
+				"Returns a string whose characters represent the inputted floating-point\n"+
+					"number in base-10 without scientific notation.\n"+
 					"For example, an input of `5000.5` will output `\"5000.5\"`",
 			),
 			nil,
@@ -195,7 +196,8 @@ func getStringToIntFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToInt"),
 			schema.PointerTo(
-				"Interprets the string as a base-10 integer. Will fail if the input is not a valid integer.",
+				"Returns an integer by interpreting the inputted string as\n"+
+					"a base-10 integer. Will fail if the input is not a valid integer.",
 			),
 			nil,
 		),
@@ -218,7 +220,8 @@ func getStringToFloatFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToFloat"),
 			schema.PointerTo(
-				"Converts the input string to a 64-bit floating-point number\n\n"+
+				"Returns a floating point number by interpreting the the input\n"+
+					"string as a 64-bit floating-point number\n\n"+
 					"Accepts decimal and hexadecimal floating-point numbers\n"+
 					"as defined by the Go syntax for floating point literals\n"+
 					"https://go.dev/ref/spec#Floating-point_literals.\n"+
@@ -253,7 +256,7 @@ func getStringToBoolFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToBool"),
 			schema.PointerTo(
-				"Interprets the input as a boolean.\n"+
+				"Returns a boolean by interpreting the input.\n"+
 					" Accepts `\"1\"`, `\"t\"`, and `\"true\"` for `true`.\n"+
 					" Accepts `\"0\"`, '\"f\"', and '\"false\"' for `false`.\n"+
 					"Returns an error for any other input.\n"+
@@ -386,7 +389,7 @@ func getToLowerFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("toLower"),
 			schema.PointerTo(
-				"Outputs the input with Unicode letters mapped to their lower case.",
+				"Returns a version of the input with Unicode letters mapped to their lower case form.",
 			),
 			nil,
 		),
@@ -407,7 +410,7 @@ func getToUpperFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("toUpper"),
 			schema.PointerTo(
-				"Outputs the input with Unicode letters mapped to their upper case.",
+				"Returns a version of the input with Unicode letters mapped to their upper case form.",
 			),
 			nil,
 		),
@@ -431,7 +434,8 @@ func getSplitStringFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("strSplit"),
 			schema.PointerTo(
-				"Splits the given string with the given separator.\n"+
+				"Returns a list of strings by splitting the given string\n"+
+					"with the given separator.\n"+
 					" Param 1: The string to split.\n"+
 					" Param 2: The separator.",
 			),
