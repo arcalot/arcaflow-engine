@@ -97,11 +97,12 @@ func getFloatToIntFunction() schema.CallableFunction {
 		func(a float64) (int64, error) {
 			// Because the type conversion in Go has platform-specific behavior, handle
 			// the special cases explicitly so that we get consistent, portable results.
-			if math.IsInf(a, 1) {
+			switch {
+			case math.IsInf(a, 1):
 				return math.MaxInt64, nil
-			} else if math.IsInf(a, -1) {
+			case math.IsInf(a, -1):
 				return math.MinInt64, nil
-			} else if math.IsNaN(a) {
+			case math.IsNaN(a):
 				return math.MinInt64, fmt.Errorf("attempted to convert a NaN float to an integer")
 			}
 			return int64(a), nil

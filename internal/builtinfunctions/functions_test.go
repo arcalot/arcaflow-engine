@@ -545,7 +545,7 @@ var testData = map[string]struct {
 		"splitString",
 		[]any{"", ","},
 		false,
-		make([]string, 1), // The size appears to matter with DeepEquals
+		[]string{""},
 	},
 	"split-string-2": {
 		"splitString",
