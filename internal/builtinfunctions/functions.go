@@ -338,7 +338,7 @@ func getRoundFunction() schema.CallableFunction {
 			schema.PointerTo("round"),
 			schema.PointerTo(
 				// Description based on documentation for math.Round
-				"Returns the nearest integer to the input, rounding one-half away from zero.\n"+
+				"Returns the nearest integer to the input, rounding one-half value away from zero.\n"+
 					"For example `round(1.5)` outputs `2.0`, and `round(-1.5)` outputs `-2.0`"+
 					"Special cases are:\n"+
 					" round(±0) = ±0.0\n"+
