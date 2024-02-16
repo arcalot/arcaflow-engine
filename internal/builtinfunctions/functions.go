@@ -283,7 +283,7 @@ func getCeilFunction() schema.CallableFunction {
 				"Returns the least integer value greater than or equal to the input.\n"+
 					"For example `ceil(1.5)` outputs `2.0`, and `ceil(-1.5)` outputs `-1.0`"+
 					"Special cases are:\n"+ //nolint:goconst
-					" ceil(±0) = ±0\n"+
+					" ceil(±0) = ±0.0"+
 					" ceil(±Inf) = ±Inf\n"+
 					" ceil(NaN) = NaN",
 			),
@@ -310,7 +310,7 @@ func getFloorFunction() schema.CallableFunction {
 				"Returns the greatest integer value less than or equal to the input.\n"+
 					"For example `floor(1.5)` outputs `1.0`, and `floor(-1.5)` outputs `-2.0`"+
 					"Special cases are:\n"+
-					" floor(±0) = ±0\n"+
+					" floor(±0) = ±0.0\n"+
 					" floor(±Inf) = ±Inf\n"+
 					" floor(NaN) = NaN",
 			),
@@ -334,10 +334,10 @@ func getRoundFunction() schema.CallableFunction {
 			schema.PointerTo("round"),
 			schema.PointerTo(
 				// Description based on documentation for math.Round
-				"Returns the nearest integer to the input, rounding half away from zero.\n"+
+				"Returns the nearest integer to the input, rounding one-half away from zero.\n"+
 					"For example `round(1.5)` outputs `2.0`, and `round(-1.5)` outputs `-2.0`"+
 					"Special cases are:\n"+
-					" round(±0) = ±0\n"+
+					" round(±0) = ±0.0\n"+
 					" round(±Inf) = ±Inf\n"+
 					" round(NaN) = NaN",
 			),
