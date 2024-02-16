@@ -1,0 +1,28 @@
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        seconds:
+          type:
+            type_id: float
+            min: 0
+steps:
+  wait_1:
+    plugin:
+      src: quay.io/arcalot/arcaflow-plugin-wait:0.2.0
+      deployment_type: image
+    step: wait
+    input:
+      seconds: !expr $.input.seconds
+  wait_loop:
+    kind: foreach
+    items:
+      - seconds: .1
+    workflow: depth-2_workflow-1.yaml
+outputs:
+  success:
+    a: !expr $.steps.wait_1.outputs
+    b: !expr $.steps.wait_loop.outputs

@@ -8,6 +8,7 @@ import (
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/yaml"
+	"go.flow.arcalot.io/engine/loadfile"
 	"go.flow.arcalot.io/engine/workflow"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
@@ -22,14 +23,14 @@ type WorkflowEngine interface {
 	RunWorkflow(
 		ctx context.Context,
 		input []byte,
-		workflowContext map[string][]byte,
+		workflowContext loadfile.FileCache,
 		workflowFileName string,
 	) (outputID string, outputData any, outputError bool, err error)
 
 	// Parse ingests a workflow context as a map of files to their contents and a workflow file name and
 	// parses the data into an executable workflow.
 	Parse(
-		workflowContext map[string][]byte,
+		workflowContext loadfile.FileCache,
 		workflowFileName string,
 	) (
 		workflow Workflow,
@@ -65,7 +66,7 @@ type workflowEngine struct {
 func (w workflowEngine) RunWorkflow(
 	ctx context.Context,
 	input []byte,
-	workflowContext map[string][]byte,
+	workflowContext loadfile.FileCache,
 	workflowFileName string,
 ) (outputID string, outputData any, outputError bool, err error) {
 	wf, err := w.Parse(workflowContext, workflowFileName)
@@ -76,14 +77,14 @@ func (w workflowEngine) RunWorkflow(
 }
 
 func (w workflowEngine) Parse(
-	files map[string][]byte,
+	files loadfile.FileCache,
 	workflowFileName string,
 ) (Workflow, error) {
 	if workflowFileName == "" {
 		workflowFileName = "workflow.yaml"
 	}
-	workflowContents, ok := files[workflowFileName]
-	if !ok {
+	workflowContents, err := files.ContentByKey(workflowFileName)
+	if err != nil {
 		return nil, ErrNoWorkflowFile
 	}
 
@@ -91,6 +92,18 @@ func (w workflowEngine) Parse(
 	wf, err := yamlConverter.FromYAML(workflowContents)
 	if err != nil {
 		return nil, err
+	}
+
+	flowCaches := make([]loadfile.FileCache, 0)
+	stepWorkflowFileCache, err := SubworkflowCache(wf, files.RootDir(), yamlConverter, flowCaches)
+	if err != nil {
+		return nil, err
+	}
+	if stepWorkflowFileCache != nil {
+		files, err = loadfile.MergeFileCaches(stepWorkflowFileCache, files)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	v, err := SupportedVersion(wf.Version)
@@ -104,7 +117,7 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	preparedWorkflow, err := executor.Prepare(wf, files)
+	preparedWorkflow, err := executor.Prepare(wf, files.Contents())
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +125,63 @@ func (w workflowEngine) Parse(
 	return &engineWorkflow{
 		workflow: preparedWorkflow,
 	}, nil
+}
+
+// StepWorkflowPaths finds all the file paths to workflows referenced
+// in a workflow's steps. The key for each found workflow file is the
+// file path as it is written in this workflow.
+func StepWorkflowPaths(wf *workflow.Workflow) map[string]string {
+	stepFilePaths := map[string]string{}
+	for _, stepData := range wf.Steps {
+		stepDataMap, ok1 := stepData.(map[any]any)
+		if ok1 {
+			kind, ok1 := stepDataMap["kind"]
+			if ok1 {
+				kindString := kind.(string)
+				if kindString == "foreach" {
+					subworkflowPath := stepDataMap["workflow"]
+					subworkflowPathString := subworkflowPath.(string)
+					stepFilePaths[subworkflowPathString] = subworkflowPathString
+				}
+			}
+		}
+	}
+	return stepFilePaths
+}
+
+// SubworkflowCache creates a file cache of the sub-workflows referenced
+// in this workflow using rootDir as a context.
+func SubworkflowCache(wf *workflow.Workflow, rootDir string, converter workflow.YAMLConverter, flowCaches []loadfile.FileCache) (loadfile.FileCache, error) {
+	stepWorkflowPaths := StepWorkflowPaths(wf)
+	if len(stepWorkflowPaths) == 0 {
+		return nil, nil
+	}
+	subworkflowCache, err := loadfile.NewFileCacheUsingContext(rootDir, stepWorkflowPaths)
+	if err != nil {
+		return nil, err
+	}
+	err = subworkflowCache.LoadContext()
+	if err != nil {
+		return nil, err
+	}
+	for _, ctxFile := range subworkflowCache.Files() {
+		subwf, err := converter.FromYAML(ctxFile.Content)
+		if err != nil {
+			return nil, err
+		}
+		flowCache, err := SubworkflowCache(subwf, rootDir, converter, flowCaches)
+		if err != nil {
+			return nil, err
+		}
+		flowCaches = append(flowCaches, flowCache)
+	}
+
+	flowCaches = append(flowCaches, subworkflowCache)
+	subworkflowCache, err = loadfile.MergeFileCaches(flowCaches...)
+	if err != nil {
+		return nil, err
+	}
+	return subworkflowCache, nil
 }
 
 // SupportedVersion confirms whether a given version string

@@ -1,0 +1,28 @@
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_wf_1:
+    kind: foreach
+    items:
+      - seconds: .1
+    workflow: depth-1_workflow-1.yaml
+  wait_wf_2:
+    kind: foreach
+    items:
+      - seconds: .1
+    workflow: depth-1_workflow-2.yaml
+  wait_wf_3:
+    kind: foreach
+    items:
+      - seconds: .1
+    workflow: depth-1_workflow-1.yaml
+outputs:
+  success:
+    step_1: !expr $.steps.wait_wf_1.outputs
+    step_2: !expr $.steps.wait_wf_2.outputs
+    step_3: !expr $.steps.wait_wf_3.outputs
