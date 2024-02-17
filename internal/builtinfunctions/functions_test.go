@@ -151,6 +151,12 @@ var testData = map[string]struct {
 		false,
 		"-Inf",
 	},
+	"float-to-formatted-string-positive-whole": {
+		"floatToFormattedString",
+		[]any{11.0, "f", int64(-1)},
+		false,
+		"11",
+	},
 	"bool-to-string-true": {
 		"boolToString",
 		[]any{true},
