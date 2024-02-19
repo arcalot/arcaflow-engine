@@ -171,7 +171,7 @@ func getFloatToFormattedStringFunction() schema.CallableFunction {
 		"floatToFormattedString",
 		[]schema.Type{
 			schema.NewFloatSchema(nil, nil, nil),
-			schema.NewStringSchema(nil, nil, regexp.MustCompile(`^[beEfFgGxX]$`)),
+			schema.NewStringSchema(nil, nil, regexp.MustCompile(`^[beEfgGxX]$`)),
 			schema.NewIntSchema(nil, nil, nil),
 		},
 		// 'b' format: -ddddp±ddd
@@ -183,7 +183,7 @@ func getFloatToFormattedStringFunction() schema.CallableFunction {
 		schema.NewStringSchema(
 			nil,
 			nil,
-			regexp.MustCompile(`^-?(?:0[xX])?\d+(?:\.\d*)?(?:[pPeE][-+]/d{2,3})?$`)),
+			regexp.MustCompile(`^-?(?:0[xX])?\d+(?:\.\d*)?(?:[pPeE][-+]\d{2,3})?$`)),
 		false,
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToFormattedString"),
