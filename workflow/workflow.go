@@ -63,6 +63,17 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		return "", nil, fmt.Errorf("invalid workflow input (%w)", err)
 	}
 	reSerializedInput, err := e.input.Serialize(unserializedInput)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to reserialize workflow input (%w)", err)
+	}
+	reSerializedInputMap, ok := reSerializedInput.(map[string]any)
+	if ok {
+		for _, value := range reSerializedInputMap {
+			if value == nil {
+				return "", nil, fmt.Errorf("bug: reserialized data to nil %v", reSerializedInput)
+			}
+		}
+	}
 
 	// We use an internal cancel function to abort the workflow if something bad happens.
 	ctx, cancel := context.WithCancel(ctx)
