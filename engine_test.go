@@ -156,6 +156,7 @@ input:
       id: RootObject
       properties:
         name:
+          default: not
           type:
             type_id: string
 steps:
