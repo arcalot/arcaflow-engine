@@ -284,3 +284,79 @@ func TestDependOnNoOutputs(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `object wait_1 does not have a property named "deploy"`)
 }
+
+var namespacedScopeWorkflowDef = `---
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        wait_input_pass_through:
+          required: true
+          type:
+            type_id: ref
+            id: wait-input
+            namespace: "$.steps.wait_step.starting.input"
+steps:
+  wait_step:
+    plugin: 
+      src: "n/a"
+      deployment_type: builtin
+    step: wait
+    input: !expr $.input.wait_input_pass_through
+output:
+  result: !expr $.steps.wait_step.outputs
+`
+
+func TestNamespacedObjectsAvailable(t *testing.T) {
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, namespacedScopeWorkflowDef),
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	outputID, _, err := preparedWorkflow.Execute(ctx, map[string]any{
+		"wait_input_pass_through": map[string]any{
+			"wait_time_ms": "0",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Error while executing workflow, %e", err)
+	}
+	assert.Equals(t, outputID, "success")
+}
+
+var brokenNamespacedScopeWorkflowDef = `---
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        wait_input_pass_through:
+          required: true
+          type:
+            type_id: ref
+            id: wait-input
+            namespace: "$.steps.wait_step.starting.wrong"
+steps:
+  wait_step:
+    plugin: 
+      src: "n/a"
+      deployment_type: builtin
+    step: wait
+    input: !expr $.input.wait_input_pass_through
+output:
+  result: !expr $.steps.wait_step.outputs
+`
+
+func TestNamespacedInputWrongNamespace(t *testing.T) {
+	_, err := getTestImplPreparedWorkflow(t, brokenNamespacedScopeWorkflowDef)
+	assert.Error(t, err)
+	// Validate that the error is the expected one.
+	assert.Contains(t, err.Error(), `could not find an object with ID "wait-input"`)
+	// Validate that the correct namespace is listed
+	assert.Contains(t, err.Error(), "$.steps.wait_step.starting.input")
+}

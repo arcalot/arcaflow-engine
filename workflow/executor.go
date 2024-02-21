@@ -120,6 +120,12 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 		return nil, err
 	}
 
+	// Apply step lifecycle objects to the input scope
+	err = e.applyExternalScopes(stepLifecycles, typedInput)
+	if err != nil {
+		return nil, err
+	}
+
 	// Stage 3: Construct an internal data model for the output data model
 	// provided by the steps. This is the schema the expressions evaluate
 	// against. You can use this to do static code analysis on the expressions.
@@ -221,7 +227,7 @@ func (e *executor) processInput(workflow *Workflow) (schema.Scope, error) {
 	if !ok {
 		return nil, fmt.Errorf("bug: unserialized input is not a scope")
 	}
-	typedInput.ApplyScope(typedInput)
+	typedInput.ApplyScope(typedInput, "")
 	return typedInput, nil
 }
 
@@ -305,6 +311,48 @@ func (e *executor) processSteps(
 	}
 
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
+}
+
+func (e *executor) applyExternalScopes(
+	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
+	typedInput schema.Scope,
+) error {
+	allNamespaces := make(map[string]schema.Scope)
+	for workflowStepID, stepLifecycle := range stepLifecycles {
+		// The format will be $.steps.step_name.stage.<input|outputs.output_id>
+		// First, get the input schema and output schemas, and apply them.
+		for _, stage := range stepLifecycle.Stages {
+			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
+			// Apply inputs
+			// Example: $.steps.wait_step.starting.input
+			for inputID, inputSchema := range stage.InputSchema {
+				if inputSchema.TypeID() == schema.TypeIDScope {
+					allNamespaces[prefix+inputID] = inputSchema.Type().(schema.Scope)
+				}
+			}
+			// Apply outputs
+			// Example: $.steps.wait_step.outputs.success
+			for outputID, outputSchema := range stage.Outputs {
+				allNamespaces[prefix+outputID] = outputSchema.Schema()
+			}
+		}
+	}
+	for namespace, scope := range allNamespaces {
+		typedInput.ApplyScope(scope, namespace)
+	}
+	err := typedInput.ValidateReferences()
+	if err == nil {
+		return nil // Success
+	}
+	// Without listing the namespaces, it may be hard to debug a workflow, so add that list to the error.
+	availableObjects := ""
+	for namespace, scope := range allNamespaces {
+		availableObjects += "\n" + namespace + ":"
+		for objectID, _ := range scope.Objects() {
+			availableObjects += " " + objectID
+		}
+	}
+	return fmt.Errorf("error validating references for workflow input (%w)\nAvailable namespaces and objects:%s", err, availableObjects)
 }
 
 // connectStepDependencies connects the steps based on their expressions.
