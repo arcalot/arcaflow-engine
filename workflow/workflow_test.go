@@ -15,6 +15,7 @@ import (
 	"go.flow.arcalot.io/engine/internal/step/foreach"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	stepregistry "go.flow.arcalot.io/engine/internal/step/registry"
+	"go.flow.arcalot.io/engine/internal/util"
 	"go.flow.arcalot.io/pluginsdk/schema"
 	testimpl "go.flow.arcalot.io/testdeployer"
 	"os"
@@ -287,7 +288,7 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 	rootObject := inputSchema.Objects()[inputSchema.Root()]
 	// Inject the error detector into the object
 	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
-		schema.NewInvalidSerializationDetectorSchema(),
+		util.NewInvalidSerializationDetectorSchema(),
 		nil,
 		true,
 		nil,
