@@ -326,8 +326,16 @@ func (e *executor) applyExternalScopes(
 			// Apply inputs
 			// Example: $.steps.wait_step.starting.input
 			for inputID, inputSchema := range stage.InputSchema {
-				if inputSchema.TypeID() == schema.TypeIDScope {
+				switch inputSchema.TypeID() {
+				case schema.TypeIDScope:
 					allNamespaces[prefix+inputID] = inputSchema.Type().(schema.Scope)
+				case schema.TypeIDList:
+					// foreach is a list, for example.
+					listSchema := inputSchema.Type().(schema.UntypedList)
+					if listSchema.Items().TypeID() == schema.TypeIDScope {
+						// Apply list item type since it's a scope.
+						allNamespaces[prefix+inputID] = listSchema.Items().(schema.Scope)
+					}
 				}
 			}
 			// Apply outputs

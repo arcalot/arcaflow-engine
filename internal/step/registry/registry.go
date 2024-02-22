@@ -104,7 +104,7 @@ type stepRegistry struct {
 }
 
 func (s stepRegistry) Schema() *schema.OneOfSchema[string] {
-	return schema.NewOneOfStringSchema[any](s.providerSchemas, "kind")
+	return schema.NewOneOfStringSchema[any](s.providerSchemas, "kind", false)
 }
 
 func (s stepRegistry) SchemaByKind(kind string) (schema.Object, error) {
