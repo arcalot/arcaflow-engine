@@ -192,7 +192,8 @@ func getFloatToFormattedStringFunction() schema.CallableFunction {
 					"specified formatting directive and precision."+
 					" Param 1: the floating point value to convert\n"+
 					" Param 2: the format specifier: 'b', 'e', 'E', 'f', 'g', 'G', 'x', 'X'\n"+
-					" Param 3: the number of digits included in the fraction portion.\n"+
+					" Param 3: the number of digits included in the fraction portion; "+
+					"Specifying -1 will produce the minimum number of digits required to represent the value exactly"+
 					" (See https://pkg.go.dev/strconv@go1.22.0#FormatFloat for details.)",
 			),
 			nil,
