@@ -119,7 +119,7 @@ func getIntToStringFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
 		"intToString",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
-		schema.NewStringSchema(nil, nil, regexp.MustCompile(`^(?:0|[1-9]\d*)$`)),
+		schema.NewStringSchema(nil, nil, nil),
 		false,
 		schema.NewDisplayValue(
 			schema.PointerTo("intToString"),
@@ -164,8 +164,6 @@ func getFloatToStringFunction() schema.CallableFunction {
 	return funcSchema
 }
 
-// TODO: Webb can add a function called floatToStringAdvanced that allows other float formats
-
 func getBooleanToStringFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
 		"boolToString",
@@ -190,7 +188,7 @@ func getBooleanToStringFunction() schema.CallableFunction {
 func getStringToIntFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
 		"stringToInt",
-		[]schema.Type{schema.NewStringSchema(nil, nil, regexp.MustCompile(`^-?(?:0|[1-9]\d*)$`))},
+		[]schema.Type{schema.NewStringSchema(nil, nil, regexp.MustCompile(`^-?\d+$`))},
 		schema.NewIntSchema(nil, nil, nil),
 		true,
 		schema.NewDisplayValue(

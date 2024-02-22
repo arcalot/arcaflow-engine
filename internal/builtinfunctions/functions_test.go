@@ -181,6 +181,12 @@ var testData = map[string]struct {
 		false,
 		int64(0),
 	},
+	"string-to-int-zero-prefixed": {
+		"stringToInt",
+		[]any{"-00005"},
+		false,
+		int64(-5),
+	},
 	"string-to-int-invalid-1": {
 		"stringToInt",
 		[]any{"zero"},
