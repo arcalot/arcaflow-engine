@@ -227,7 +227,7 @@ func (e *executor) processInput(workflow *Workflow) (schema.Scope, error) {
 	if !ok {
 		return nil, fmt.Errorf("bug: unserialized input is not a scope")
 	}
-	typedInput.ApplyScope(typedInput, "")
+	typedInput.ApplyScope(typedInput, schema.DEFAULT_NAMESPACE)
 	return typedInput, nil
 }
 
