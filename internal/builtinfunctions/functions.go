@@ -124,7 +124,7 @@ func getIntToStringFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("intToString"),
 			schema.PointerTo(
-				"Returns a string whose characters represent the inputted integer in base-10.\n"+
+				"Returns a string containing the base-10 representation of the provided integer value.\n"+
 					"For example, an input of `55` will output `\"55\"`",
 			),
 			nil,
@@ -148,8 +148,8 @@ func getFloatToStringFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToString"),
 			schema.PointerTo(
-				"Returns a string whose characters represent the inputted floating-point\n"+
-					"number in base-10 without scientific notation.\n"+
+				"Returns a string containing the base-10 representation of the provided "+
+					"floating point value formatted without an exponent.\n"+
 					"For example, an input of `5000.5` will output `\"5000.5\"`",
 			),
 			nil,
