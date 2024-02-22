@@ -218,8 +218,8 @@ func getStringToFloatFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToFloat"),
 			schema.PointerTo(
-				"Returns a floating point number by interpreting the the string\n"+
-					"parameter as a 64-bit floating-point number\n\n"+
+				"Returns a floating point number by interpreting the string\n"+
+					"parameter as a 64-bit floating-point number.\n\n"+
 					"Accepts decimal and hexadecimal floating-point numbers\n"+
 					"as defined by the Go syntax for floating point literals\n"+
 					"https://go.dev/ref/spec#Floating-point_literals.\n"+
