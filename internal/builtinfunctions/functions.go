@@ -17,6 +17,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 	floatToIntFunction := getFloatToIntFunction()
 	intToStringFunction := getIntToStringFunction()
 	floatToStringFunction := getFloatToStringFunction()
+	floatToFormattedStringFunction := getFloatToFormattedStringFunction()
 	booleanToStringFunction := getBooleanToStringFunction()
 	// Parsers, that could fail
 	stringToIntFunction := getStringToIntFunction()
@@ -34,21 +35,22 @@ func GetFunctions() map[string]schema.CallableFunction {
 
 	// Combine in a map
 	allFunctions := map[string]schema.CallableFunction{
-		intToFloatFunction.ID():      intToFloatFunction,
-		floatToIntFunction.ID():      floatToIntFunction,
-		intToStringFunction.ID():     intToStringFunction,
-		floatToStringFunction.ID():   floatToStringFunction,
-		booleanToStringFunction.ID(): booleanToStringFunction,
-		stringToIntFunction.ID():     stringToIntFunction,
-		stringToFloatFunction.ID():   stringToFloatFunction,
-		stringToBoolFunction.ID():    stringToBoolFunction,
-		ceilFunction.ID():            ceilFunction,
-		floorFunction.ID():           floorFunction,
-		roundFunction.ID():           roundFunction,
-		absFunction.ID():             absFunction,
-		toLowerFunction.ID():         toLowerFunction,
-		toUpperFunction.ID():         toUpperFunction,
-		splitStringFunction.ID():     splitStringFunction,
+		intToFloatFunction.ID():             intToFloatFunction,
+		floatToIntFunction.ID():             floatToIntFunction,
+		intToStringFunction.ID():            intToStringFunction,
+		floatToStringFunction.ID():          floatToStringFunction,
+		floatToFormattedStringFunction.ID(): floatToFormattedStringFunction,
+		booleanToStringFunction.ID():        booleanToStringFunction,
+		stringToIntFunction.ID():            stringToIntFunction,
+		stringToFloatFunction.ID():          stringToFloatFunction,
+		stringToBoolFunction.ID():           stringToBoolFunction,
+		ceilFunction.ID():                   ceilFunction,
+		floorFunction.ID():                  floorFunction,
+		roundFunction.ID():                  roundFunction,
+		absFunction.ID():                    absFunction,
+		toLowerFunction.ID():                toLowerFunction,
+		toUpperFunction.ID():                toUpperFunction,
+		splitStringFunction.ID():            splitStringFunction,
 	}
 
 	return allFunctions
@@ -156,6 +158,48 @@ func getFloatToStringFunction() schema.CallableFunction {
 		),
 		func(a float64) string {
 			return strconv.FormatFloat(a, 'f', -1, 64)
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+	return funcSchema
+}
+
+func getFloatToFormattedStringFunction() schema.CallableFunction {
+	funcSchema, err := schema.NewCallableFunction(
+		"floatToFormattedString",
+		[]schema.Type{
+			schema.NewFloatSchema(nil, nil, nil),
+			schema.NewStringSchema(nil, nil, regexp.MustCompile(`^[beEfgGxX]$`)),
+			schema.NewIntSchema(nil, nil, nil),
+		},
+		// 'b' format: -ddddp±ddd
+		// 'e' format: -d.dddde±dd
+		// 'E' format: -d.ddddE±dd
+		// 'f' format: -ddd.dddd
+		// 'x' format: -0xd.ddddp±ddd
+		// 'X' format: -0Xd.ddddP±ddd
+		schema.NewStringSchema(
+			nil,
+			nil,
+			regexp.MustCompile(`^-?(?:0[xX])?\d+(?:\.\d*)?(?:[pPeE][-+]\d{2,3})?$`)),
+		false,
+		schema.NewDisplayValue(
+			schema.PointerTo("floatToFormattedString"),
+			schema.PointerTo(
+				"Converts a floating point number to a string according to the "+
+					"specified formatting directive and precision."+
+					" Param 1: the floating point value to convert\n"+
+					" Param 2: the format specifier: 'b', 'e', 'E', 'f', 'g', 'G', 'x', 'X'\n"+
+					" Param 3: the number of digits included in the fraction portion; "+
+					"Specifying -1 will produce the minimum number of digits required to represent the value exactly"+
+					" (See https://pkg.go.dev/strconv@go1.22.0#FormatFloat for details.)",
+			),
+			nil,
+		),
+		func(f float64, fmt string, precision int64) string {
+			return strconv.FormatFloat(f, fmt[0], int(precision), 64)
 		},
 	)
 	if err != nil {
