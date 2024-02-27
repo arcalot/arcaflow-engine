@@ -6,27 +6,39 @@ import (
 	"reflect"
 )
 
+// InvalidSerializationDetectorOps is a list of operations in the order that they
+// are performed by this schema.
+//
+// NOTE:  Because this list is global, it will only work properly if the test
+// uses only a single instance of this schema.
+var InvalidSerializationDetectorOps []string
+
 // NewInvalidSerializationDetectorSchema creates a new test schema type.
 func NewInvalidSerializationDetectorSchema() *InvalidSerializationDetectorSchema {
+	// Because of the use of a global variable for visibility, we can only permit
+	// a single instance of this type.
+	if len(InvalidSerializationDetectorOps) > 0 {
+		panic("Multiple instances of InvalidSerializationDetectorSchema detected")
+	}
+	InvalidSerializationDetectorOps = []string{"init"}
 	return &InvalidSerializationDetectorSchema{}
 }
 
-// InvalidSerializationDetectorSchema is a testing type that detects double serialization or double unserialization,
-// which helps prevent bugs.
-// It is backed by a string, which is set to the last operation performed. If the last operation matches the
-// current operation, then that indicates double serialization or double unserialization.
+// InvalidSerializationDetectorSchema is a testing type that detects double
+// serialization or double unserialization which could result in corrupted data.
+// The schema tracks the sequence of operations which are performed. The last
+// operation should never match the current operation.
 type InvalidSerializationDetectorSchema struct{}
 
 // Unserialize unserializes the data. In this schema that means checking for an
 // invalid state and returning "unserialized".
 func (d InvalidSerializationDetectorSchema) Unserialize(data any) (any, error) {
 	// The input is expected to always be a string.
-	// If the input is equal to "unserialized", then that means it's being unserialized a second time.
 	return d.detectInvalidValue("unserialized", data)
 }
 
 func (d InvalidSerializationDetectorSchema) detectInvalidValue(operation string, data any) (any, error) {
-	asString, isString := data.(string)
+	_, isString := data.(string)
 	if !isString {
 		return nil, &schema.ConstraintError{
 			Message: fmt.Sprintf(
@@ -35,11 +47,12 @@ func (d InvalidSerializationDetectorSchema) detectInvalidValue(operation string,
 			),
 		}
 	}
-	if asString == operation {
+	if InvalidSerializationDetectorOps[len(InvalidSerializationDetectorOps)-1] == operation {
 		return nil, &schema.ConstraintError{
 			Message: fmt.Sprintf("InvalidSerializationDetectorSchema double %s", operation),
 		}
 	}
+	InvalidSerializationDetectorOps = append(InvalidSerializationDetectorOps, operation)
 	return operation, nil
 }
 
@@ -55,7 +68,7 @@ func (d InvalidSerializationDetectorSchema) UnserializeType(data any) (string, e
 // ValidateCompatibility ensures that the input data or schema is compatible with
 // the given InvalidSerializationDetectorSchema.
 func (d InvalidSerializationDetectorSchema) ValidateCompatibility(_ any) error {
-	// Not applicable to this data type
+	// For convenience, always return "success".
 	return nil
 }
 
@@ -74,7 +87,6 @@ func (d InvalidSerializationDetectorSchema) ValidateType(data string) error {
 // invalid state, and returning "serialized".
 func (d InvalidSerializationDetectorSchema) Serialize(data any) (any, error) {
 	// The input is expected to always be a string.
-	// If the input is equal to "serialized", then that means it's being serialized a second time.
 	return d.detectInvalidValue("serialized", data)
 }
 

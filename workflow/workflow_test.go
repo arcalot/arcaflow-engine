@@ -300,6 +300,7 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "a")
+	assert.Equals(t, util.InvalidSerializationDetectorOps, []string{"init", "unserialized"})
 }
 
 var waitForSerialWorkflowDefinition = `
