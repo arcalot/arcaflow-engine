@@ -121,8 +121,8 @@ github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcY
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
-go.arcalot.io/assert v1.7.0 h1:PTLyeisNMUKpM9wXRDxResanBhuGOYO1xFK3v5b3FSw=
-go.arcalot.io/assert v1.7.0/go.mod h1:nNmWPoNUHFyrPkNrD2aASm5yPuAfiWdB/4X7Lw3ykHk=
+go.arcalot.io/assert v1.8.0 h1:hGcHMPncQXwQvjj7MbyOu2gg8VIBB00crUJZpeQOjxs=
+go.arcalot.io/assert v1.8.0/go.mod h1:nNmWPoNUHFyrPkNrD2aASm5yPuAfiWdB/4X7Lw3ykHk=
 go.arcalot.io/dgraph v1.2.0 h1:ga71Cry71QSV05bY6qg6EdEpKX0/jan4Zg+aDf89x6U=
 go.arcalot.io/dgraph v1.2.0/go.mod h1:T8h+fVbsjw9trWQtkb5uyl9fABujY8W501UY58t5Ki0=
 go.arcalot.io/exex v0.2.0 h1:u44pjwPwcH57TF8knhaqVZP/1V/KbnRe//pKzMwDpLw=
@@ -135,8 +135,8 @@ go.flow.arcalot.io/deployer v0.5.0 h1:yXYogvL3shNBEEoTx9U9CNbfxuf8777uAH5Vn3hv1Y
 go.flow.arcalot.io/deployer v0.5.0/go.mod h1:whj8wOUursCnfZCt1a7eY5hU3EyOcUG48vM4NeAe5N8=
 go.flow.arcalot.io/dockerdeployer v0.6.1 h1:oRhxXEeOHmXDQVgtYa95tUpw9qc/M//pbeLjdDYMUxc=
 go.flow.arcalot.io/dockerdeployer v0.6.1/go.mod h1:Y5Xfg/Fedw/y4LTV0eiJqnsex1mvTbhtP06LCtFkJyo=
-go.flow.arcalot.io/expressions v0.2.1 h1:TAAbDrgJJLpmgA5ASyP/KzrXWtpEaQ8JsCPHgpe5kLw=
-go.flow.arcalot.io/expressions v0.2.1/go.mod h1:Vw1ScNu4Uyw1/l87LAH8jxe0DyRWwMh+rlfB/BPYDOU=
+go.flow.arcalot.io/expressions v0.4.1 h1:WOl3DtDcWAmPKupwYxJV3bVYKPoMgAmQbECfiUgv/0s=
+go.flow.arcalot.io/expressions v0.4.1/go.mod h1:FA/50wX1+0iTgW/dFeeE1yOslZSmfBaMNR4IiMYRwxc=
 go.flow.arcalot.io/kubernetesdeployer v0.9.1 h1:AGnJFazehAENXxGMCF0Uc7aG9F0LpvuhoyQFu8deJG0=
 go.flow.arcalot.io/kubernetesdeployer v0.9.1/go.mod h1:yvxT3VwmyrlIi4422pxl02z4QeU2Gvbjg5aQB17Ye4s=
 go.flow.arcalot.io/pluginsdk v0.8.0 h1:cShsshrR17ZFLcbgi3aZvqexLttcp3JISFNqPUPuDvA=
