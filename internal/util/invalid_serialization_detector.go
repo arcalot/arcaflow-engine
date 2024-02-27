@@ -6,21 +6,8 @@ import (
 	"reflect"
 )
 
-// InvalidSerializationDetectorOps is a list of operations in the order that they
-// are performed by this schema.
-//
-// NOTE:  Because this list is global, it will only work properly if the test
-// uses only a single instance of this schema.
-var InvalidSerializationDetectorOps []string
-
 // NewInvalidSerializationDetectorSchema creates a new test schema type.
 func NewInvalidSerializationDetectorSchema() *InvalidSerializationDetectorSchema {
-	// Because of the use of a global variable for visibility, we can only permit
-	// a single instance of this type.
-	if len(InvalidSerializationDetectorOps) > 0 {
-		panic("Multiple instances of InvalidSerializationDetectorSchema detected")
-	}
-	InvalidSerializationDetectorOps = []string{"init"}
 	return &InvalidSerializationDetectorSchema{}
 }
 
@@ -28,17 +15,21 @@ func NewInvalidSerializationDetectorSchema() *InvalidSerializationDetectorSchema
 // serialization or double unserialization which could result in corrupted data.
 // The schema tracks the sequence of operations which are performed. The last
 // operation should never match the current operation.
-type InvalidSerializationDetectorSchema struct{}
+type InvalidSerializationDetectorSchema struct {
+	SerializeCnt   int
+	UnserializeCnt int
+}
 
 // Unserialize unserializes the data. In this schema that means checking for an
 // invalid state and returning "unserialized".
-func (d InvalidSerializationDetectorSchema) Unserialize(data any) (any, error) {
+func (d *InvalidSerializationDetectorSchema) Unserialize(data any) (any, error) {
 	// The input is expected to always be a string.
+	d.UnserializeCnt++
 	return d.detectInvalidValue("unserialized", data)
 }
 
-func (d InvalidSerializationDetectorSchema) detectInvalidValue(operation string, data any) (any, error) {
-	_, isString := data.(string)
+func (d *InvalidSerializationDetectorSchema) detectInvalidValue(operation string, data any) (any, error) {
+	asString, isString := data.(string)
 	if !isString {
 		return nil, &schema.ConstraintError{
 			Message: fmt.Sprintf(
@@ -47,17 +38,16 @@ func (d InvalidSerializationDetectorSchema) detectInvalidValue(operation string,
 			),
 		}
 	}
-	if InvalidSerializationDetectorOps[len(InvalidSerializationDetectorOps)-1] == operation {
+	if asString == operation {
 		return nil, &schema.ConstraintError{
 			Message: fmt.Sprintf("InvalidSerializationDetectorSchema double %s", operation),
 		}
 	}
-	InvalidSerializationDetectorOps = append(InvalidSerializationDetectorOps, operation)
 	return operation, nil
 }
 
 // UnserializeType is a string-output-typed version of Unserialize.
-func (d InvalidSerializationDetectorSchema) UnserializeType(data any) (string, error) {
+func (d *InvalidSerializationDetectorSchema) UnserializeType(data any) (string, error) {
 	unserialized, err := d.Unserialize(data)
 	if err != nil {
 		return "", err
@@ -73,25 +63,26 @@ func (d InvalidSerializationDetectorSchema) ValidateCompatibility(_ any) error {
 }
 
 // Validate ensures that the data can be serialized.
-func (d InvalidSerializationDetectorSchema) Validate(data any) error {
+func (d *InvalidSerializationDetectorSchema) Validate(data any) error {
 	_, err := d.Serialize(data)
 	return err
 }
 
 // ValidateType is a string-input typed version of Validate.
-func (d InvalidSerializationDetectorSchema) ValidateType(data string) error {
+func (d *InvalidSerializationDetectorSchema) ValidateType(data string) error {
 	return d.Validate(data)
 }
 
 // Serialize serializes the data. In this schema that means checking for an
 // invalid state, and returning "serialized".
-func (d InvalidSerializationDetectorSchema) Serialize(data any) (any, error) {
+func (d *InvalidSerializationDetectorSchema) Serialize(data any) (any, error) {
 	// The input is expected to always be a string.
+	d.SerializeCnt++
 	return d.detectInvalidValue("serialized", data)
 }
 
 // SerializeType is string-input-typed version of Serialize.
-func (d InvalidSerializationDetectorSchema) SerializeType(data string) (any, error) {
+func (d *InvalidSerializationDetectorSchema) SerializeType(data string) (any, error) {
 	return d.Serialize(data)
 }
 
