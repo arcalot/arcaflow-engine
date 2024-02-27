@@ -11,10 +11,13 @@ func NewInvalidSerializationDetectorSchema() *InvalidSerializationDetectorSchema
 	return &InvalidSerializationDetectorSchema{}
 }
 
-// InvalidSerializationDetectorSchema is a testing type that detects double
-// serialization or double unserialization which could result in corrupted data.
-// The schema tracks the sequence of operations which are performed. The last
-// operation should never match the current operation.
+// InvalidSerializationDetectorSchema is a testing type that detects double-
+// serialization or double-unserialization which could result in corrupted data.
+// The serialization and unserialization methods detect when the operation is
+// performed twice in a row on a single piece of data by examining the input
+// value; they also count the number of overall operations so that we know that
+// the data has been serialized or unserialized at least once (since, if it is
+// never operated on, then it's trivial to claim that it was never doubly done).
 type InvalidSerializationDetectorSchema struct {
 	SerializeCnt   int
 	UnserializeCnt int
