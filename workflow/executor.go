@@ -22,6 +22,7 @@ func NewExecutor(
 	logger log.Logger,
 	config *config.Config,
 	stepRegistry step.Registry,
+	callableFunctions map[string]schema.CallableFunction,
 ) (Executor, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("bug: no logger passed to NewExecutor")
@@ -29,10 +30,16 @@ func NewExecutor(
 	if stepRegistry == nil {
 		return nil, fmt.Errorf("bug: no step registry passed to NewExecutor")
 	}
+	functionSchemas := make(map[string]schema.Function, len(callableFunctions))
+	for k, v := range callableFunctions {
+		functionSchemas[k] = v
+	}
 	return &executor{
-		logger:       logger.WithLabel("source", "executor"),
-		stepRegistry: stepRegistry,
-		config:       config,
+		logger:                  logger.WithLabel("source", "executor"),
+		stepRegistry:            stepRegistry,
+		config:                  config,
+		callableFunctions:       callableFunctions,
+		callableFunctionSchemas: functionSchemas,
 	}, nil
 }
 
@@ -67,9 +74,11 @@ type ExecutableWorkflow interface {
 }
 
 type executor struct {
-	logger       log.Logger
-	config       *config.Config
-	stepRegistry step.Registry
+	logger                  log.Logger
+	config                  *config.Config
+	stepRegistry            step.Registry
+	callableFunctionSchemas map[string]schema.Function
+	callableFunctions       map[string]schema.CallableFunction
 }
 
 // Prepare goes through all workflow steps and constructs their schema and input data.
@@ -153,7 +162,14 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 			}
 			outputSchema = outputSchemaData.(*schema.StepOutputSchema)
 		}
-		outputSchema, err = infer.OutputSchema(outputData, outputID, outputSchema, internalDataModel, workflowContext)
+		outputSchema, err = infer.OutputSchema(
+			outputData,
+			outputID,
+			outputSchema,
+			internalDataModel,
+			e.callableFunctionSchemas,
+			workflowContext,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read/infer workflow output schema for output %s (%w)", outputID, err)
 		}
@@ -184,6 +200,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	return &executableWorkflow{
 		logger:            e.logger,
 		config:            e.config,
+		callableFunctions: e.callableFunctions,
 		dag:               dag,
 		input:             typedInput,
 		stepRunData:       stepRunData,
@@ -455,7 +472,7 @@ func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, 
 	if expr, ok := inputField.(expressions.Expression); ok {
 		// Is expression, so evaluate it.
 		e.logger.Debugf("Evaluating expression %s...", expr.String())
-		return expr.Type(rootSchema, workflowContext)
+		return expr.Type(rootSchema, e.callableFunctionSchemas, workflowContext)
 	}
 
 	v := reflect.ValueOf(inputField)
@@ -792,7 +809,14 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 	case reflect.Struct:
 		switch s := stepData.(type) {
 		case expressions.Expression:
-			dependencies, err := s.Dependencies(outputSchema, workflowContext)
+			// Evaluate the dependencies of the expression on the main data structure.
+			pathUnpackRequirements := expressions.UnpackRequirements{
+				ExcludeDataRootPaths:     false,
+				ExcludeFunctionRootPaths: true, // We don't need to setup DAG connections for them.
+				StopAtTerminals:          true, // We do not need the extra info. We just need the connection.
+				IncludeKeys:              false,
+			}
+			dependencies, err := s.Dependencies(outputSchema, e.callableFunctionSchemas, workflowContext, pathUnpackRequirements)
 			if err != nil {
 				return fmt.Errorf(
 					"failed to evaluate dependencies of the expression %s (%w)",

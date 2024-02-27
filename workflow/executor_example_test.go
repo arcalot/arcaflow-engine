@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 
 	"go.arcalot.io/lang"
 	"go.arcalot.io/log/v2"
@@ -38,7 +39,7 @@ func ExampleExecutor() {
 		dummy.New(),
 	))
 
-	executor, err := workflow.NewExecutor(logger, &config.Config{}, stepRegistry)
+	executor, err := workflow.NewExecutor(logger, &config.Config{}, stepRegistry, builtinfunctions.GetFunctions())
 	if err != nil {
 		panic(err)
 	}

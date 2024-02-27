@@ -10,11 +10,13 @@ import (
 	"go.flow.arcalot.io/deployer"
 	deployerregistry "go.flow.arcalot.io/deployer/registry"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/foreach"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	stepregistry "go.flow.arcalot.io/engine/internal/step/registry"
 	testimpl "go.flow.arcalot.io/testdeployer"
+	"os"
 	"testing"
 	"time"
 
@@ -329,6 +331,7 @@ func TestWaitForSerial(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForSerialWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
@@ -410,6 +413,7 @@ func TestWaitForStarted(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForStartedWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
@@ -516,6 +520,7 @@ func TestWaitForSerial_Foreach(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForSerialForeachWf)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
@@ -621,6 +626,7 @@ func TestWaitForStarted_Foreach(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(waitForStartedForeachWf)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
@@ -650,7 +656,7 @@ func (f *workflowFactory) createWorkflow(logger log.Logger) (workflow.Executor, 
 	if stepR == nil {
 		return nil, fmt.Errorf("YAML converter not available yet, please call the factory function after the engine has initialized")
 	}
-	return workflow.NewExecutor(logger, f.config, stepR)
+	return workflow.NewExecutor(logger, f.config, stepR, builtinfunctions.GetFunctions())
 }
 
 var missingInputsFailedDeploymentWorkflowDefinition = `
@@ -782,6 +788,7 @@ func TestEarlyContextCancellation(t *testing.T) {
 		logger,
 		cfg,
 		stepRegistry,
+		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(fiveSecWaitWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
@@ -796,5 +803,116 @@ func TestEarlyContextCancellation(t *testing.T) {
 	t.Logf("Test execution time: %s", duration)
 	if duration >= 1000*time.Millisecond {
 		t.Fatalf("Test execution time is greater than 1000 milliseconds; Is the workflow properly cancelling?")
+	}
+}
+
+var justMathWorkflowDefinition = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        a:
+         type:
+           type_id: integer
+        b:
+         type:
+           type_id: integer
+steps:
+  no_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+outputs:
+  success:
+    result: !expr intToString($.input.a + $.input.b) + " and " + $.steps.no_wait.outputs.success.message
+`
+
+func TestWorkflowWithMathAndFunctions(t *testing.T) {
+	// For this test, we run the minimum amount of steps, and resolve the output with math and functions.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(justMathWorkflowDefinition)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"a": int64(2),
+		"b": int64(2),
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"result": "4 and Plugin slept for 0 ms.",
+	})
+}
+
+func TestWorkflowWithEscapedCharacters(t *testing.T) {
+	// For this test, we have escapable characters in the input and in the expressions
+	// to make sure they are handled properly.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	fileData, err := os.ReadFile("./test_workflows/escaped_characters_workflow.yaml")
+	assert.NoError(t, err)
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML(fileData))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"a": `\\\\`, // Start with four. There should still be four in the output.
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	expectedString := `"\\\\" and "\\" and "'"'" and "	" \t Plugin slept for 0 ms.`
+	expectedOutput := map[any]any{
+		"result_raw_inlined":              expectedString,
+		"result_raw_flow_scalar":          expectedString,
+		"result_inlined_single_quote":     expectedString,
+		"result_inlined_double_quote":     expectedString,
+		"result_flow_scalar_single_quote": expectedString,
+		"result_flow_scalar_double_quote": expectedString,
+	}
+	outputAsMap := outputData.(map[any]any)
+	for expectedKey, expectedValue := range expectedOutput {
+		value, outputHasExpectedKey := outputAsMap[expectedKey]
+		if !outputHasExpectedKey {
+			t.Errorf("output missing expected key %q", expectedKey)
+		} else if value != expectedValue {
+			t.Errorf("case %q failed; expected (%s), got (%s)", expectedKey, expectedValue, value)
+		}
+
 	}
 }
