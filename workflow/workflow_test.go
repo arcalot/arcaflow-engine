@@ -15,6 +15,8 @@ import (
 	"go.flow.arcalot.io/engine/internal/step/foreach"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	stepregistry "go.flow.arcalot.io/engine/internal/step/registry"
+	"go.flow.arcalot.io/engine/internal/util"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	testimpl "go.flow.arcalot.io/testdeployer"
 	"os"
 	"testing"
@@ -274,6 +276,36 @@ func TestSimpleValidWaitWorkflow(t *testing.T) {
 	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "a")
+}
+
+func TestWithDoubleSerializationDetection(t *testing.T) {
+	// Just a single wait
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowDefinition),
+	)
+	// First, get the root object
+	inputSchema := preparedWorkflow.Input()
+	rootObject := inputSchema.Objects()[inputSchema.Root()]
+	errorDetect := util.NewInvalidSerializationDetectorSchema()
+	// Inject the error detector into the object
+	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
+		errorDetect,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"error_detector": "original input",
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "a")
+	// Confirm that, while we did no double-unserializations or double-serializations,
+	// we did do at least one single one.
+	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
 }
 
 var waitForSerialWorkflowDefinition = `
