@@ -364,7 +364,40 @@ func Test_DoubleSerializationDetection_Default(t *testing.T) {
 	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
 
 	// again, but override the default by supplying input
+	// reset error detector
+	errorDetect = util.NewInvalidSerializationDetectorSchema()
 	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"error_detector": "original input",
+		"wait_time_def":  2,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "a")
+	// Confirm that, while we did no double-unserializations or double-serializations,
+	// we did do at least one single one.
+	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
+}
+
+func Test_DoubleSerializationDetection_DefaultOverwrite(t *testing.T) {
+	// Just a single wait
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowWithDefaults),
+	)
+	// First, get the root object
+	inputSchema := preparedWorkflow.Input()
+	rootObject := inputSchema.Objects()[inputSchema.Root()]
+	errorDetect := util.NewInvalidSerializationDetectorSchema()
+	// Inject the error detector into the object
+	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
+		errorDetect,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"error_detector": "original input",
 		"wait_time_def":  2,
 	})
