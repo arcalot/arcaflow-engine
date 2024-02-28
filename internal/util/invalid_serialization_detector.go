@@ -11,21 +11,27 @@ func NewInvalidSerializationDetectorSchema() *InvalidSerializationDetectorSchema
 	return &InvalidSerializationDetectorSchema{}
 }
 
-// InvalidSerializationDetectorSchema is a testing type that detects double serialization or double unserialization,
-// which helps prevent bugs.
-// It is backed by a string, which is set to the last operation performed. If the last operation matches the
-// current operation, then that indicates double serialization or double unserialization.
-type InvalidSerializationDetectorSchema struct{}
+// InvalidSerializationDetectorSchema is a testing type that detects double-
+// serialization or double-unserialization which could result in corrupted data.
+// The serialization and unserialization methods detect when the operation is
+// performed twice in a row on a single piece of data by examining the input
+// value; they also count the number of overall operations so that we know that
+// the data has been serialized or unserialized at least once (since, if it is
+// never operated on, then it's trivial to claim that it was never doubly done).
+type InvalidSerializationDetectorSchema struct {
+	SerializeCnt   int
+	UnserializeCnt int
+}
 
 // Unserialize unserializes the data. In this schema that means checking for an
 // invalid state and returning "unserialized".
-func (d InvalidSerializationDetectorSchema) Unserialize(data any) (any, error) {
+func (d *InvalidSerializationDetectorSchema) Unserialize(data any) (any, error) {
 	// The input is expected to always be a string.
-	// If the input is equal to "unserialized", then that means it's being unserialized a second time.
+	d.UnserializeCnt++
 	return d.detectInvalidValue("unserialized", data)
 }
 
-func (d InvalidSerializationDetectorSchema) detectInvalidValue(operation string, data any) (any, error) {
+func (d *InvalidSerializationDetectorSchema) detectInvalidValue(operation string, data any) (any, error) {
 	asString, isString := data.(string)
 	if !isString {
 		return nil, &schema.ConstraintError{
@@ -44,7 +50,7 @@ func (d InvalidSerializationDetectorSchema) detectInvalidValue(operation string,
 }
 
 // UnserializeType is a string-output-typed version of Unserialize.
-func (d InvalidSerializationDetectorSchema) UnserializeType(data any) (string, error) {
+func (d *InvalidSerializationDetectorSchema) UnserializeType(data any) (string, error) {
 	unserialized, err := d.Unserialize(data)
 	if err != nil {
 		return "", err
@@ -55,31 +61,31 @@ func (d InvalidSerializationDetectorSchema) UnserializeType(data any) (string, e
 // ValidateCompatibility ensures that the input data or schema is compatible with
 // the given InvalidSerializationDetectorSchema.
 func (d InvalidSerializationDetectorSchema) ValidateCompatibility(_ any) error {
-	// Not applicable to this data type
+	// For convenience, always return "success".
 	return nil
 }
 
 // Validate ensures that the data can be serialized.
-func (d InvalidSerializationDetectorSchema) Validate(data any) error {
+func (d *InvalidSerializationDetectorSchema) Validate(data any) error {
 	_, err := d.Serialize(data)
 	return err
 }
 
 // ValidateType is a string-input typed version of Validate.
-func (d InvalidSerializationDetectorSchema) ValidateType(data string) error {
+func (d *InvalidSerializationDetectorSchema) ValidateType(data string) error {
 	return d.Validate(data)
 }
 
 // Serialize serializes the data. In this schema that means checking for an
 // invalid state, and returning "serialized".
-func (d InvalidSerializationDetectorSchema) Serialize(data any) (any, error) {
+func (d *InvalidSerializationDetectorSchema) Serialize(data any) (any, error) {
 	// The input is expected to always be a string.
-	// If the input is equal to "serialized", then that means it's being serialized a second time.
+	d.SerializeCnt++
 	return d.detectInvalidValue("serialized", data)
 }
 
 // SerializeType is string-input-typed version of Serialize.
-func (d InvalidSerializationDetectorSchema) SerializeType(data string) (any, error) {
+func (d *InvalidSerializationDetectorSchema) SerializeType(data string) (any, error) {
 	return d.Serialize(data)
 }
 

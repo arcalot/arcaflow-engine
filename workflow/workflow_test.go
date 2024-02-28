@@ -286,9 +286,10 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 	// First, get the root object
 	inputSchema := preparedWorkflow.Input()
 	rootObject := inputSchema.Objects()[inputSchema.Root()]
+	errorDetect := util.NewInvalidSerializationDetectorSchema()
 	// Inject the error detector into the object
 	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
-		util.NewInvalidSerializationDetectorSchema(),
+		errorDetect,
 		nil,
 		true,
 		nil,
@@ -302,6 +303,9 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "a")
+	// Confirm that, while we did no double-unserializations or double-serializations,
+	// we did do at least one single one.
+	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
 }
 
 var waitForSerialWorkflowDefinition = `
