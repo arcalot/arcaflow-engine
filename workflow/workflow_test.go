@@ -309,7 +309,6 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 
 	// again, but with a default value for the error detector
 	errorDetect = util.NewInvalidSerializationDetectorSchema()
-	// Inject the error detector into the object
 	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
 		errorDetect,
 		nil,
@@ -320,18 +319,13 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 		schema.PointerTo[string]("default"),
 		nil,
 	)
-	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
-		//"error_detector": "original input",
-	})
+	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "a")
-	// Confirm that, while we did no double-unserializations or double-serializations,
-	// we did do at least one single one.
 	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
 
-	// again, override error detector default with input
+	// again, but override error detector default with input
 	errorDetect = util.NewInvalidSerializationDetectorSchema()
-	// Inject the error detector into the object
 	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
 		errorDetect,
 		nil,
@@ -347,69 +341,6 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "a")
-	// Confirm that, while we did no double-unserializations or double-serializations,
-	// we did do at least one single one.
-	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
-}
-
-func Test_DoubleSerializationDetection_Default(t *testing.T) {
-	// Just a single wait
-	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
-		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowDefinition),
-	)
-	// First, get the root object
-	inputSchema := preparedWorkflow.Input()
-	rootObject := inputSchema.Objects()[inputSchema.Root()]
-	errorDetect := util.NewInvalidSerializationDetectorSchema()
-	// Inject the error detector into the object
-	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
-		errorDetect,
-		nil,
-		true,
-		nil,
-		nil,
-		nil,
-		schema.PointerTo[string]("default"),
-		nil,
-	)
-	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
-		//"error_detector": "original input",
-	})
-	assert.NoError(t, err)
-	assert.Equals(t, outputID, "a")
-	// Confirm that, while we did no double-unserializations or double-serializations,
-	// we did do at least one single one.
-	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
-
-}
-
-func Test_DoubleSerializationDetection_DefaultOverwrite(t *testing.T) {
-	// Just a single wait
-	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
-		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowDefinition),
-	)
-	// First, get the root object
-	inputSchema := preparedWorkflow.Input()
-	rootObject := inputSchema.Objects()[inputSchema.Root()]
-	errorDetect := util.NewInvalidSerializationDetectorSchema()
-	// Inject the error detector into the object
-	rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
-		errorDetect,
-		nil,
-		true,
-		nil,
-		nil,
-		nil,
-		schema.PointerTo[string]("default"),
-		nil,
-	)
-	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
-		"error_detector": "original input",
-	})
-	assert.NoError(t, err)
-	assert.Equals(t, outputID, "a")
-	// Confirm that, while we did no double-unserializations or double-serializations,
-	// we did do at least one single one.
 	assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
 }
 
