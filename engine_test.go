@@ -156,6 +156,7 @@ input:
       id: RootObject
       properties:
         name:
+          default: not
           type:
             type_id: string
 steps:
@@ -215,6 +216,45 @@ outputs:
 	assert.Equals(t, outputError, false)
 	assert.Equals(t, outputID, "success")
 	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, Arca Lot!"})
+}
+
+func TestE2EWorkflowDefaultInput(t *testing.T) {
+	content := map[string][]byte{
+		"workflow.yaml": []byte(`version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        name:
+          type:
+            type_id: string
+          default: not
+          required: false
+steps:
+  example:
+    plugin: 
+      src: quay.io/arcalot/arcaflow-plugin-template-python:0.2.1
+      deployment_type: image
+    step: hello-world
+    input:
+      name: !expr $.input.name
+outputs:
+  success:
+    message: !expr $.steps.example.outputs.success.message`),
+	}
+	fileCache := loadfile.NewFileCache("", content)
+	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
+		context.Background(),
+		[]byte(`{}`),
+		fileCache,
+		"",
+	)
+	assert.NoError(t, err)
+	assert.Equals(t, outputError, false)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{"message": "Hello, not!"})
 }
 
 // Test_CacheSubworkflows tests that every sub-workflow filename

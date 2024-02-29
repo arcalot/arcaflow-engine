@@ -59,9 +59,13 @@ func (e *executableWorkflow) DAG() dgraph.DirectedGraph[*DAGItem] {
 func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (outputID string, outputData any, err error) { //nolint:gocognit
 	// First, we unserialize the input. This makes sure we didn't get garbage data.
 
-	_, err = e.input.Unserialize(serializedInput)
+	unserializedInput, err := e.input.Unserialize(serializedInput)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid workflow input (%w)", err)
+	}
+	reSerializedInput, err := e.input.Serialize(unserializedInput)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to reserialize workflow input (%w)", err)
 	}
 
 	// We use an internal cancel function to abort the workflow if something bad happens.
@@ -73,7 +77,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		config: e.config,
 		lock:   &sync.Mutex{},
 		data: map[string]any{
-			WorkflowInputKey: serializedInput,
+			WorkflowInputKey: reSerializedInput,
 			WorkflowStepsKey: map[string]any{},
 		},
 		callableFunctions: e.callableFunctions,
