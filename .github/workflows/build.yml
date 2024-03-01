@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.go_version }}
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3
+        uses: golangci/golangci-lint-action@v3 # Note:  Renovate should change this to v4
         with:
           version: v1.55.2
   test:
@@ -28,14 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.go_version }}
       - name: Set up gotestfmt
         uses: GoTestTools/gotestfmt-action@v2
-      - uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -57,7 +57,7 @@ jobs:
           go tool cover -func /tmp/coverage.out
           echo "::endgroup::"
       - name: Upload test log
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
@@ -71,12 +71,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.go_version }}
-      - uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -96,22 +96,22 @@ jobs:
       - generate
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.go_version }}
       - name: Login to Quay.io
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3
+        uses: docker/login-action@v3
         if: startsWith(github.event.ref, 'refs/tags/')
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
       - name: Build and release
-        uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5
+        uses: goreleaser/goreleaser-action@v5
         if: startsWith(github.event.ref, 'refs/tags/')
         with:
           distribution: goreleaser
@@ -122,7 +122,7 @@ jobs:
           GOPROXY: direct
           GOSUMDB: off
       - name: Build
-        uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5
+        uses: goreleaser/goreleaser-action@v5
         if: ${{ !startsWith(github.event.ref, 'refs/tags/') }}
         with:
           distribution: goreleaser
@@ -132,7 +132,7 @@ jobs:
           GOPROXY: direct
           GOSUMDB: off
       - name: Upload artifacts
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
+        uses: actions/upload-artifact@v4
         with:
           name: binaries
           path: dist
@@ -152,13 +152,13 @@ jobs:
           [[ -z $OK ]] && echo "[ERR] wrong version format: $VERSION" && exit 1
           echo $OK
       - name: Check out code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
-      - uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: binaries
           path: python/artifacts
       - name: Install Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
           architecture: 'x64'
