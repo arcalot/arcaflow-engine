@@ -35,7 +35,7 @@ jobs:
           go-version: ${{ env.go_version }}
       - name: Set up gotestfmt
         uses: GoTestTools/gotestfmt-action@v2
-      - uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
+      - uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -76,7 +76,7 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
           go-version: ${{ env.go_version }}
-      - uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
+      - uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -153,7 +153,7 @@ jobs:
           echo $OK
       - name: Check out code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
-      - uses: actions/download-artifact@eaceaf801fd36c7dee90939fad912460b18a1ffe # v4
+      - uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4
         with:
           name: binaries
           path: python/artifacts
