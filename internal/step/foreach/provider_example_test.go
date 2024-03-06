@@ -43,7 +43,7 @@ outputs:
   success:
     messages: !expr $.steps.greet.outputs.success.data
   failed:
-    error: !expr $.steps.greet.failed.error
+   error: !expr $.steps.greet.failed.error
 `
 
 var subworkflow = `
