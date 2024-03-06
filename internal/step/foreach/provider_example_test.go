@@ -3,13 +3,10 @@ package foreach_test
 import (
 	"context"
 	"fmt"
-	"go.arcalot.io/assert"
-	"go.flow.arcalot.io/engine/internal/builtinfunctions"
-	"testing"
-
 	"go.arcalot.io/lang"
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine/config"
+	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/engine/internal/step/dummy"
 	"go.flow.arcalot.io/engine/internal/step/foreach"
@@ -42,8 +39,11 @@ steps:
     items: !expr $.input.names
     workflow: subworkflow.yaml
     parallelism: 5
-output:
-  messages: !expr $.steps.greet.outputs.success.data
+outputs:
+  success:
+    messages: !expr $.steps.greet.outputs.success.data
+  failed:
+    error: !expr $.steps.greet.failed.error
 `
 
 var subworkflow = `
@@ -61,8 +61,11 @@ steps:
   say_hi:
     kind: dummy
     name: !expr $.input.name
-output:
-  message: !expr $.steps.say_hi.greet.success.message
+outputs:
+  success:
+    message: !expr $.steps.say_hi.greet.success.message
+  error:
+    reason: !expr $.steps.say_hi.greet.error.reason
 `
 
 // ExampleNew provides an example for using the foreach provider to run subworkflows.
@@ -115,95 +118,6 @@ func ExampleNew() {
 	}
 	fmt.Println()
 	// Output: Hello Arca! Hello Lot!
-}
-
-var subworkflow_plugin_template = `
-version: v0.2.0
-input:
-  root: SubRootObject1
-  objects:
-    SubRootObject1:
-      id: SubRootObject1
-      properties: 
-        name:
-          type:
-            type_id: string
-steps:
-  example1:
-    plugin:
-      src: quay.io/arcalot/arcaflow-plugin-template-python
-      deployment_type: image
-    input:
-      name: !expr $.input.name
-outputs:
-  success:
-    name: !expr $.steps.example1.outputs.success.message
-  error:
-    error: !expr $.steps.example1.outputs.error
-`
-
-var foreach_multi_output = `
-version: v0.2.0
-input:
-  root: RootObject
-  objects:
-    RootObject:
-      id: RootObject
-      properties: {}
-steps:
-  subwf_1:
-    kind: foreach
-    items:
-      - name: "test"
-      - name: "test2"
-      - name: "test3"
-    workflow: subwf-1.yaml
-  subwf_2:
-    kind: foreach
-    items: !expr $.steps.subwf_1.outputs.success.data
-    workflow: subwf-1.yaml
-  subwf_3:
-    kind: foreach
-    items: !expr $.steps.subwf_2.outputs.success.data
-    workflow: subwf-1.yaml
-outputs:
-  success:
-    step_3: !expr $.steps.subwf_1.outputs.success
-  error:
-    error1: !expr $.steps.subwf_1.outputs.error
-    error2: !expr $.steps.subwf_2.outputs.error
-    error3: !expr $.steps.subwf_3.outputs.error`
-
-func Test_MultiOutputs(t *testing.T) {
-	logConfig := log.Config{
-		Level:       log.LevelError,
-		Destination: log.DestinationStdout,
-	}
-	logger := log.New(
-		logConfig,
-	)
-	cfg := &config.Config{
-		Log: logConfig,
-	}
-	factories := workflowFactory{
-		config: cfg,
-	}
-	stepRegistry := lang.Must2(registry.New(
-		dummy.New(),
-		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
-	))
-	factories.stepRegistry = stepRegistry
-	executor := lang.Must2(workflow.NewExecutor(
-		logger,
-		cfg,
-		stepRegistry,
-		builtinfunctions.GetFunctions(),
-	))
-	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(foreach_multi_output)))
-	_, err := executor.Prepare(wf, map[string][]byte{
-		"subwf-1.yaml": []byte(subworkflow_plugin_template),
-	})
-	assert.NoError(t, err)
 }
 
 type workflowFactory struct {

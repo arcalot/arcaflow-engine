@@ -170,6 +170,9 @@ func (l *forEachProvider) LoadSchema(inputs map[string]any, workflowContext map[
 	if _, ok := outputSchema["success"]; !ok {
 		return nil, fmt.Errorf("the referenced workflow must contain an output named 'success'")
 	}
+	//if len(outputSchema) > 1 {
+	//	return nil, fmt.Errorf("the referenced workflow may only contain a 'success' output")
+	//}
 
 	return &runnableStep{
 		workflow:    preparedWorkflow,
