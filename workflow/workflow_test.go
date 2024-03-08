@@ -969,7 +969,7 @@ func TestWorkflowWithEscapedCharacters(t *testing.T) {
 	}
 }
 
-var workflowWithOutputSchemaBad = `
+var workflowWithOutputSchemaMalformed = `
 version: v0.2.0
 input:
   root: RootObject
@@ -997,15 +997,15 @@ outputSchema:
           id: RootObjectOut
           properties: {}`
 
-func TestWorkflow_Excute_Error_OutputSchema(t *testing.T) {
-	pwf := testPreparedWorkflow(t, workflowWithOutputSchemaBad, map[string][]byte{})
-	_, _, err := pwf.Execute(context.Background(), map[string]any{})
+func TestWorkflow_Execute_Error_MalformedOutputSchema(t *testing.T) {
+	pwf, err := testPreparedWorkflow(t, workflowWithOutputSchemaMalformed, map[string][]byte{})
+	assert.NoError(t, err)
+	_, _, err = pwf.Execute(context.Background(), map[string]any{})
 	assert.Error(t, err)
-	fmt.Printf("%v\n", err.Error())
-	assert.Contains(t, err.Error(), "bug: output schema")
+	assert.Contains(t, err.Error(), "bug: output schema cannot unserialize")
 }
 
-func testPreparedWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) workflow.ExecutableWorkflow {
+func testPreparedWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
 		Level:       log.LevelDebug,
 		Destination: log.DestinationStdout,
@@ -1017,5 +1017,5 @@ func testPreparedWorkflow(t *testing.T, workflowStr string, workflowCtx map[stri
 		builtinfunctions.GetFunctions(),
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(workflowStr)))
-	return lang.Must2(executor.Prepare(wf, workflowCtx))
+	return executor.Prepare(wf, workflowCtx)
 }
