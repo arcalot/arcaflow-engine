@@ -167,7 +167,8 @@ steps:
     input:
       name: !expr $.input.name
 output:
-  message: !expr $.steps.example.outputs.success.message`),
+  message: !expr $.steps.example.outputs.success.message
+`),
 	}
 	fileCache := loadfile.NewFileCache("", content)
 	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
@@ -203,7 +204,18 @@ steps:
       name: !expr $.input.name
 outputs:
   success:
-    message: !expr $.steps.example.outputs.success.message`),
+    message: !expr $.steps.example.outputs.success.message
+outputSchema:
+  success:
+    schema:
+      root: RootObjectOut
+      objects: 
+        RootObjectOut: 
+          id: RootObjectOut
+          properties:
+            message:
+              type:
+                type_id: string`),
 	}
 	fileCache := loadfile.NewFileCache("", content)
 	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
