@@ -140,7 +140,6 @@ func getSchema() *schema.TypedScopeSchema[*Workflow] {
 							regexp.MustCompile("^[$@a-zA-Z0-9-_]+$"),
 						),
 						schema.DescribeStepOutput(),
-						//schema.NewAnySchema(),
 						schema.PointerTo[int64](1),
 						nil,
 					),
