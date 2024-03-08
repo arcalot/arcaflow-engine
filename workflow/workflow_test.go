@@ -968,3 +968,54 @@ func TestWorkflowWithEscapedCharacters(t *testing.T) {
 
 	}
 }
+
+var workflowWithOutputSchemaBad = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 1
+outputs:
+  success:
+    first_step_output: !expr $.steps.long_wait.outputs
+outputSchema:
+  success:
+    schema:
+      root: RootObjectOut
+      objects: 
+        RootObjectOut: 
+          id: RootObjectOut
+          properties: {}`
+
+func TestWorkflow_Excute_Error_OutputSchema(t *testing.T) {
+	pwf := testPreparedWorkflow(t, workflowWithOutputSchemaBad, map[string][]byte{})
+	_, _, err := pwf.Execute(context.Background(), map[string]any{})
+	assert.Error(t, err)
+	fmt.Printf("%v\n", err.Error())
+	assert.Contains(t, err.Error(), "bug: output schema")
+}
+
+func testPreparedWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) workflow.ExecutableWorkflow {
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(logConfig)
+	cfg := &config.Config{Log: logConfig}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+	executor := lang.Must2(workflow.NewExecutor(logger, cfg, stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(workflowStr)))
+	return lang.Must2(executor.Prepare(wf, workflowCtx))
+}
