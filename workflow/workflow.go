@@ -192,7 +192,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		outputSchema, ok := e.outputSchema[outputID]
 		if !ok {
 			return "", nil, fmt.Errorf(
-				"bug: no output named %q found in output schema",
+				"bug: no output named '%s' found in output schema",
 				outputID,
 			)
 		}
