@@ -203,18 +203,7 @@ steps:
       name: !expr $.input.name
 outputs:
   success:
-    message: !expr $.steps.example.outputs.success.message
-outputSchema:
-  success:
-    schema:
-      root: RootObjectOut
-      objects: 
-        RootObjectOut: 
-          id: RootObjectOut
-          properties:
-            message:
-              type:
-                type_id: string`),
+    message: !expr $.steps.example.outputs.success.message`),
 	}
 	fileCache := loadfile.NewFileCache("", content)
 	outputID, outputData, outputError, err := createTestEngine(t).RunWorkflow(
