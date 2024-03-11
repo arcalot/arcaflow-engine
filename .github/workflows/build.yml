@@ -20,7 +20,7 @@ jobs:
         with:
           go-version: ${{ env.go_version }}
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3 # Note:  Renovate should change this to v4
+        uses: golangci/golangci-lint-action@v4 # Note:  Renovate should change this to v4
         with:
           version: v1.55.2
   test:
