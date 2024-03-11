@@ -998,14 +998,14 @@ outputSchema:
           properties: {}`
 
 func TestWorkflow_Execute_Error_MalformedOutputSchema(t *testing.T) {
-	pwf, err := testPreparedWorkflow(t, workflowWithOutputSchemaMalformed, map[string][]byte{})
+	pwf, err := createTestExecutableWorkflow(t, workflowWithOutputSchemaMalformed, map[string][]byte{})
 	assert.NoError(t, err)
 	_, _, err = pwf.Execute(context.Background(), map[string]any{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "bug: output schema cannot unserialize")
 }
 
-func testPreparedWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
+func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
 		Level:       log.LevelDebug,
 		Destination: log.DestinationStdout,

@@ -317,7 +317,7 @@ outputSchema:
                 type_id: string`
 
 func TestWorkflow_Execute_Error_OutputSchema_OutputKey(t *testing.T) {
-	_, err := testPreparedWorkflow(t, workflowWithOutputSchema, map[string][]byte{})
+	_, err := createTestExecutableWorkflow(t, workflowWithOutputSchema, map[string][]byte{})
 	assert.Error(t, err)
 	mismatchedOutputID := "success"
 	errorStr := fmt.Sprintf("could not find output id %q in output schema", mismatchedOutputID)
