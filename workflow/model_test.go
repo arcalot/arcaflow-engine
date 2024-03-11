@@ -29,7 +29,6 @@ var outputID = "success"
 var outputsExp = map[string]any{
 	outputID: "!expr $.steps.long_wait.outputs",
 }
-
 var outputSchemaRootID = "RootObjectOut"
 var stepOutputSchemaInput = map[string]any{
 	"schema": map[string]any{
@@ -80,7 +79,6 @@ func Test_SchemaWorkflow_UnserializeType(t *testing.T) {
 	workflowModelSchema := workflow.GetSchema()
 	wf, err := workflowModelSchema.UnserializeType(workflowSchemaInput)
 	assert.NoError(t, err)
-
 	wfExp := &workflow.Workflow{
 		Version:      versionExp,
 		Input:        inputExp,
@@ -88,6 +86,5 @@ func Test_SchemaWorkflow_UnserializeType(t *testing.T) {
 		Outputs:      outputsExp,
 		OutputSchema: workflowOutputSchema,
 	}
-
 	assert.Equals(t, wf, wfExp)
 }
