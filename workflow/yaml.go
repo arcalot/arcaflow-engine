@@ -41,7 +41,7 @@ func (y yamlConverter) FromYAML(data []byte) (*Workflow, error) {
 		return nil, &ErrInvalidWorkflow{err}
 	}
 
-	workflowSchema := getSchema()
+	workflowSchema := GetSchema()
 	workflow, err := workflowSchema.UnserializeType(rawWorkflow)
 	if err != nil {
 		return nil, &ErrInvalidWorkflow{err}

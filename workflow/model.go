@@ -35,8 +35,8 @@ type Workflow struct {
 	Output any `json:"output"`
 }
 
-// getSchema returns the entire workflow schema.
-func getSchema() *schema.TypedScopeSchema[*Workflow] {
+// GetSchema returns the entire workflow schema.
+func GetSchema() *schema.TypedScopeSchema[*Workflow] {
 	return schema.NewTypedScopeSchema[*Workflow](
 		schema.NewStructMappedObjectSchema[*Workflow](
 			"Workflow",
