@@ -3,7 +3,6 @@ package workflow_test
 import (
 	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/workflow"
-	"go.flow.arcalot.io/pluginsdk/schema"
 	"testing"
 )
 
@@ -51,18 +50,6 @@ var workflowSchemaInput = map[string]any{
 	"steps":        stepsExp,
 	"outputs":      outputsExp,
 	"outputSchema": outputSchemaInput,
-}
-
-var outputSchemaProperties = map[string]*schema.PropertySchema{
-	"message": schema.NewPropertySchema(
-		schema.NewStringSchema(nil, nil, nil),
-		nil, false, nil, nil,
-		nil, nil, nil)}
-var rootObjectOut = schema.NewObjectSchema(outputSchemaRootID, outputSchemaProperties)
-var stepOutputSchema = schema.NewStepOutputSchema(schema.NewScopeSchema(
-	rootObjectOut), nil, false)
-var workflowOutputSchema = map[string]*schema.StepOutputSchema{
-	outputID: stepOutputSchema,
 }
 
 // Test_SchemaWorkflow tests the workflow model schema's ability
