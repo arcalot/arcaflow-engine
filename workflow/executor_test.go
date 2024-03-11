@@ -284,3 +284,42 @@ func TestDependOnNoOutputs(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `object wait_1 does not have a property named "deploy"`)
 }
+
+var workflowWithOutputSchema = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 1
+outputs:
+  success:
+    first_step_output: !expr $.steps.long_wait.outputs
+outputSchema:
+  missingno:
+    schema:
+      root: RootObjectOut
+      objects: 
+        RootObjectOut: 
+          id: RootObjectOut
+          properties:
+            message:
+              type:
+                type_id: string`
+
+func TestWorkflow_Execute_Error_OutputSchema_OutputKey(t *testing.T) {
+	_, err := createTestExecutableWorkflow(t, workflowWithOutputSchema, map[string][]byte{})
+	assert.Error(t, err)
+	mismatchedOutputID := "success"
+	errorStr := fmt.Sprintf("could not find output id %q in output schema", mismatchedOutputID)
+	assert.Contains(t, err.Error(), errorStr)
+}
