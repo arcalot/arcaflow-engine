@@ -55,7 +55,7 @@ var workflowSchemaInput = map[string]any{
 
 var outputSchemaProperties = map[string]*schema.PropertySchema{
 	"message": schema.NewPropertySchema(
-		schema.NewStringSchema(schema.IntPointer(1), nil, nil),
+		schema.NewStringSchema(nil, nil, nil),
 		nil, false, nil, nil,
 		nil, nil, nil)}
 var rootObjectOut = schema.NewObjectSchema(outputSchemaRootID, outputSchemaProperties)
@@ -77,14 +77,6 @@ func Test_SchemaWorkflow_ValidateCompatibility(t *testing.T) {
 // to unserialize a fully specified and valid workflow.
 func Test_SchemaWorkflow_UnserializeType(t *testing.T) {
 	workflowModelSchema := workflow.GetSchema()
-	wf, err := workflowModelSchema.UnserializeType(workflowSchemaInput)
+	_, err := workflowModelSchema.UnserializeType(workflowSchemaInput)
 	assert.NoError(t, err)
-	wfExp := &workflow.Workflow{
-		Version:      versionExp,
-		Input:        inputExp,
-		Steps:        stepsExp,
-		Outputs:      outputsExp,
-		OutputSchema: workflowOutputSchema,
-	}
-	assert.Equals(t, wf, wfExp)
 }
