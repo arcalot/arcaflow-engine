@@ -10,7 +10,6 @@ import (
 // to validate the compatibility of a fully specified and valid
 // workflow.
 func Test_SchemaWorkflow(t *testing.T) {
-	outputIDExp := "success"
 	stepOutputSchemaExp := map[string]any{
 		"schema": map[string]any{
 			"root": "RootObjectOut",
@@ -43,10 +42,10 @@ func Test_SchemaWorkflow(t *testing.T) {
 					"wait_time_ms": 1}},
 		},
 		"outputs": map[string]any{
-			outputIDExp: "!expr $.steps.long_wait.outputs",
+			"success": "!expr $.steps.long_wait.outputs",
 		},
 		"outputSchema": map[string]any{
-			outputIDExp: stepOutputSchemaExp,
+			"success": stepOutputSchemaExp,
 		},
 	}
 	workflowModelSchema := workflow.GetSchema()
