@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// Test_SchemaWorkflow tests the workflow schema's ability
-// validate the compatibility of a fully specified and valid
+// Test_SchemaWorkflow tests the workflow model schema's ability
+// to validate the compatibility of a fully specified and valid
 // workflow.
 func Test_SchemaWorkflow(t *testing.T) {
 	outputIDExp := "success"
