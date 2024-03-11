@@ -49,5 +49,8 @@ func Test_SchemaWorkflow(t *testing.T) {
 			outputIDExp: stepOutputSchemaExp,
 		},
 	}
-	assert.NoError(t, workflow.GetSchema().ValidateCompatibility(workflowSchemaInput))
+	workflowModelSchema := workflow.GetSchema()
+	assert.NoError(t, workflowModelSchema.ValidateCompatibility(workflowSchemaInput))
+	_, err := workflowModelSchema.UnserializeType(workflowSchemaInput)
+	assert.NoError(t, err)
 }
