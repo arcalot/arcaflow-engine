@@ -1,6 +1,8 @@
 package builtinfunctions_test
 
 import (
+	"fmt"
+	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"math"
 	"reflect"
@@ -180,6 +182,12 @@ var testData = map[string]struct {
 		[]any{"0"},
 		false,
 		int64(0),
+	},
+	"string-to-int-zero-prefixed": {
+		"stringToInt",
+		[]any{"-00005"},
+		false,
+		int64(-5),
 	},
 	"string-to-int-invalid-1": {
 		"stringToInt",
@@ -596,5 +604,206 @@ func TestFunctionsBulk(t *testing.T) {
 				t.Fatalf("mismatch for test %q, expected: %v, got: %v", name, testCase.expectedResult, output)
 			}
 		})
+	}
+}
+
+// Test_floatToFormattedString_success tests the success cases for the builtin
+// floatToFormattedString() function.
+func Test_floatToFormattedString_success(t *testing.T) {
+	// The floatToFormattedString() function supports 8 formats, specified by a
+	// single-character string; for each format, we test four different precision
+	// values; for each combination of format and precision, we test ten different
+	// input values, for a total of 290 cases ('b' format ignores the precision,
+	// so we test only one set of values for those cases).  We iterate over each
+	// of the formats, each of the precisions, and each of the input values and
+	// check the output against the expected value.  The expected output values
+	// are the innermost lists in the nested map; the input values (which don't
+	// change with the format and precision) are held in a separate list:  a small
+	// exact (integral) value, a large integral value, a small decimal fraction,
+	// an exact fraction (a negative power of two), an inexact fraction (a
+	// "repeating decimal"), positive and negative infinity, positive and negative
+	// zero, and not-a-number.
+	inputs := []float64{
+		123, 12300, 0.000123, 1.0 / 8.0, 2.0 / 3.0,
+		math.Inf(1), math.Inf(-1), math.NaN(),
+		math.Copysign(0.0, 1.0), math.Copysign(0.0, -1.0),
+	}
+	results := map[string]map[int64][]string{
+		"b": {
+			// The 'b' format ignores the precision, so test only one precision value
+			0: {
+				"8655355533852672p-46", "6761996510822400p-39", "4537899042132550p-65",
+				"4503599627370496p-55", "6004799503160661p-53", "+Inf", "-Inf", "NaN",
+				"0p-1074", "-0p-1074",
+			},
+		},
+		"e": {
+			0: {
+				"1e+02", "1e+04", "1e-04", "1e-01", "7e-01", "+Inf", "-Inf", "NaN",
+				"0e+00", "-0e+00",
+			},
+			1: {
+				"1.2e+02", "1.2e+04", "1.2e-04", "1.2e-01", "6.7e-01", "+Inf", "-Inf",
+				"NaN", "0.0e+00", "-0.0e+00",
+			},
+			-1: {
+				"1.23e+02", "1.23e+04", "1.23e-04", "1.25e-01", "6.666666666666666e-01",
+				"+Inf", "-Inf", "NaN", "0e+00", "-0e+00",
+			},
+			15: {
+				"1.230000000000000e+02", "1.230000000000000e+04", "1.230000000000000e-04",
+				"1.250000000000000e-01", "6.666666666666666e-01", "+Inf", "-Inf", "NaN",
+				"0.000000000000000e+00", "-0.000000000000000e+00",
+			},
+		},
+		"E": {
+			0: {
+				"1E+02", "1E+04", "1E-04", "1E-01", "7E-01", "+Inf", "-Inf", "NaN",
+				"0E+00", "-0E+00",
+			},
+			1: {
+				"1.2E+02", "1.2E+04", "1.2E-04", "1.2E-01", "6.7E-01", "+Inf", "-Inf",
+				"NaN", "0.0E+00", "-0.0E+00",
+			},
+			-1: {
+				"1.23E+02", "1.23E+04", "1.23E-04", "1.25E-01", "6.666666666666666E-01",
+				"+Inf", "-Inf", "NaN", "0E+00", "-0E+00",
+			},
+			15: {
+				"1.230000000000000E+02", "1.230000000000000E+04", "1.230000000000000E-04",
+				"1.250000000000000E-01", "6.666666666666666E-01", "+Inf", "-Inf", "NaN",
+				"0.000000000000000E+00", "-0.000000000000000E+00",
+			},
+		},
+		"f": {
+			0: {"123", "12300", "0", "0", "1", "+Inf", "-Inf", "NaN", "0", "-0"},
+			1: {
+				"123.0", "12300.0", "0.0", "0.1", "0.7", "+Inf", "-Inf", "NaN", "0.0",
+				"-0.0",
+			},
+			-1: {
+				"123", "12300", "0.000123", "0.125", "0.6666666666666666", "+Inf",
+				"-Inf", "NaN", "0", "-0",
+			},
+			15: {
+				"123.000000000000000", "12300.000000000000000", "0.000123000000000",
+				"0.125000000000000", "0.666666666666667", "+Inf", "-Inf", "NaN",
+				"0.000000000000000", "-0.000000000000000",
+			},
+		},
+		"g": {
+			// Uses 'f' format unless the exponent is less than -4, or if the
+			// exponent is greater than 5 and the precision is too small to
+			// represent all the digits, in which case it uses 'e' format; however,
+			// unlike 'e' format, the precision limits the total number of digits
+			// rather than the number of digits to the right of the decimal point.
+			// Also, trailing zeros are removed.
+			0: {
+				"1e+02", "1e+04", "0.0001", "0.1", "0.7", "+Inf", "-Inf", "NaN",
+				"0", "-0",
+			},
+			1: {
+				"1e+02", "1e+04", "0.0001", "0.1", "0.7", "+Inf", "-Inf", "NaN",
+				"0", "-0",
+			},
+			-1: {
+				"123", "12300", "0.000123", "0.125", "0.6666666666666666", "+Inf",
+				"-Inf", "NaN", "0", "-0",
+			},
+			15: {
+				"123", "12300", "0.000123", "0.125", "0.666666666666667", "+Inf",
+				"-Inf", "NaN", "0", "-0",
+			},
+		},
+		"G": {
+			// See note for 'g' format.
+			0: {
+				"1E+02", "1E+04", "0.0001", "0.1", "0.7", "+Inf", "-Inf", "NaN",
+				"0", "-0",
+			},
+			1: {
+				"1E+02", "1E+04", "0.0001", "0.1", "0.7", "+Inf", "-Inf", "NaN",
+				"0", "-0",
+			},
+			-1: {
+				"123", "12300", "0.000123", "0.125", "0.6666666666666666", "+Inf",
+				"-Inf", "NaN", "0", "-0",
+			},
+			15: {
+				"123", "12300", "0.000123", "0.125", "0.666666666666667", "+Inf",
+				"-Inf", "NaN", "0", "-0",
+			},
+		},
+		"x": {
+			0: {
+				"0x1p+07", "0x1p+14", "0x1p-13", "0x1p-03", "0x1p-01", "+Inf",
+				"-Inf", "NaN", "0x0p+00", "-0x0p+00",
+			},
+			1: {
+				"0x1.fp+06", "0x1.8p+13", "0x1.0p-13", "0x1.0p-03", "0x1.5p-01",
+				"+Inf", "-Inf", "NaN", "0x0.0p+00", "-0x0.0p+00",
+			},
+			-1: {
+				"0x1.ecp+06", "0x1.806p+13", "0x1.01f31f46ed246p-13", "0x1p-03",
+				"0x1.5555555555555p-01", "+Inf", "-Inf", "NaN", "0x0p+00", "-0x0p+00",
+			},
+			15: {
+				"0x1.ec0000000000000p+06", "0x1.806000000000000p+13",
+				"0x1.01f31f46ed24600p-13", "0x1.000000000000000p-03",
+				"0x1.555555555555500p-01", "+Inf", "-Inf", "NaN",
+				"0x0.000000000000000p+00", "-0x0.000000000000000p+00",
+			},
+		},
+		"X": {
+			0: {
+				"0X1P+07", "0X1P+14", "0X1P-13", "0X1P-03", "0X1P-01", "+Inf",
+				"-Inf", "NaN", "0X0P+00", "-0X0P+00",
+			},
+			1: {
+				"0X1.FP+06", "0X1.8P+13", "0X1.0P-13", "0X1.0P-03", "0X1.5P-01",
+				"+Inf", "-Inf", "NaN", "0X0.0P+00", "-0X0.0P+00",
+			},
+			-1: {
+				"0X1.ECP+06", "0X1.806P+13", "0X1.01F31F46ED246P-13", "0X1P-03",
+				"0X1.5555555555555P-01", "+Inf", "-Inf", "NaN", "0X0P+00", "-0X0P+00",
+			},
+			15: {
+				"0X1.EC0000000000000P+06", "0X1.806000000000000P+13",
+				"0X1.01F31F46ED24600P-13", "0X1.000000000000000P-03",
+				"0X1.555555555555500P-01", "+Inf", "-Inf", "NaN",
+				"0X0.000000000000000P+00", "-0X0.000000000000000P+00",
+			},
+		},
+	}
+	functionToTest, funcFound :=
+		builtinfunctions.GetFunctions()["floatToFormattedString"]
+	if !funcFound {
+		t.Fatalf("Function \"floatToFormattedString\" not found.")
+	}
+	for f, precisions := range results {
+		for p, expectedValues := range precisions {
+			// Make sure the test provides the same number of inputs and outputs
+			assert.Equals(t, len(expectedValues), len(inputs))
+			for i, expected := range expectedValues {
+				v := inputs[i]
+				name := fmt.Sprintf("floatToFormattedString:%s:%d:%f", f, p, v)
+				rawArguments := []any{v, f, p}
+				expectedValue := expected // Capture loop index in local scope
+				t.Run(name, func(t *testing.T) {
+					output, err := functionToTest.Call(rawArguments)
+					if err != nil {
+						t.Fatalf(
+							"unexpected error in test case %q (%s)",
+							name, err.Error(),
+						)
+					}
+					if value, OK := output.(string); OK {
+						assert.Equals[string](t, value, expectedValue)
+					} else {
+						t.Fatalf("output is not a string: %v", output)
+					}
+				})
+			}
+		}
 	}
 }

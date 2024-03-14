@@ -161,12 +161,12 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	outputsSchema := map[string]*schema.StepOutputSchema{}
 	for outputID, outputData := range workflow.Outputs {
 		var outputSchema *schema.StepOutputSchema
-		if workflow.OutputSchema != nil && workflow.OutputSchema[outputID] != nil {
-			outputSchemaData, err := schema.DescribeStepOutput().Unserialize(workflow.OutputSchema[outputID])
-			if err != nil {
-				return nil, fmt.Errorf("unable to decode workflow output schema %s (%w)", outputID, err)
+		if workflow.OutputSchema != nil {
+			outputSchemaData, ok := workflow.OutputSchema[outputID]
+			if !ok {
+				return nil, fmt.Errorf("could not find output id %q in output schema", outputID)
 			}
-			outputSchema = outputSchemaData.(*schema.StepOutputSchema)
+			outputSchema = outputSchemaData
 		}
 		outputSchema, err = infer.OutputSchema(
 			outputData,

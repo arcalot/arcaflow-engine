@@ -15,6 +15,8 @@ import (
 	"go.flow.arcalot.io/engine/internal/step/foreach"
 	"go.flow.arcalot.io/engine/internal/step/plugin"
 	stepregistry "go.flow.arcalot.io/engine/internal/step/registry"
+	"go.flow.arcalot.io/engine/internal/util"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	testimpl "go.flow.arcalot.io/testdeployer"
 	"os"
 	"testing"
@@ -274,6 +276,56 @@ func TestSimpleValidWaitWorkflow(t *testing.T) {
 	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "a")
+}
+
+func TestWithDoubleSerializationDetection(t *testing.T) {
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowDefinition),
+	)
+	// First, get the root object
+	inputSchema := preparedWorkflow.Input()
+	rootObject := inputSchema.Objects()[inputSchema.Root()]
+	type testIterType struct {
+		defaultSpec *string
+		input       map[string]any
+	}
+	testIter := []testIterType{
+		// No default specified; input provided
+		{
+			nil,
+			map[string]any{"error_detector": "original input"},
+		},
+		// Default specified; input provided (overrides default)
+		{
+			schema.PointerTo[string]("default"),
+			map[string]any{"error_detector": "original input"},
+		},
+		// Default specified; input omitted (default value used)
+		{
+			schema.PointerTo[string]("default"),
+			map[string]any{},
+		},
+	}
+	for _, i := range testIter {
+		errorDetect := util.NewInvalidSerializationDetectorSchema()
+		// Inject the error detector into the object
+		rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
+			errorDetect,
+			nil,
+			true,
+			nil,
+			nil,
+			nil,
+			i.defaultSpec,
+			nil,
+		)
+		outputID, _, err := preparedWorkflow.Execute(context.Background(), i.input)
+		assert.NoError(t, err)
+		assert.Equals(t, outputID, "a")
+		// Confirm that, while we did no double-unserializations or double-serializations,
+		// we did do at least one single one.
+		assert.Equals(t, errorDetect.SerializeCnt+errorDetect.UnserializeCnt > 0, true)
+	}
 }
 
 var waitForSerialWorkflowDefinition = `
@@ -915,4 +967,55 @@ func TestWorkflowWithEscapedCharacters(t *testing.T) {
 		}
 
 	}
+}
+
+var workflowWithOutputSchemaMalformed = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 1
+outputs:
+  success:
+    first_step_output: !expr $.steps.long_wait.outputs
+outputSchema:
+  success:
+    schema:
+      root: RootObjectOut
+      objects: 
+        RootObjectOut: 
+          id: RootObjectOut
+          properties: {}`
+
+func TestWorkflow_Execute_Error_MalformedOutputSchema(t *testing.T) {
+	pwf, err := createTestExecutableWorkflow(t, workflowWithOutputSchemaMalformed, map[string][]byte{})
+	assert.NoError(t, err)
+	_, _, err = pwf.Execute(context.Background(), map[string]any{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bug: output schema cannot unserialize")
+}
+
+func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(logConfig)
+	cfg := &config.Config{Log: logConfig}
+	stepRegistry := NewTestImplStepRegistry(logger, t)
+	executor := lang.Must2(workflow.NewExecutor(logger, cfg, stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(workflowStr)))
+	return executor.Prepare(wf, workflowCtx)
 }

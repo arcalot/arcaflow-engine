@@ -17,6 +17,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 	floatToIntFunction := getFloatToIntFunction()
 	intToStringFunction := getIntToStringFunction()
 	floatToStringFunction := getFloatToStringFunction()
+	floatToFormattedStringFunction := getFloatToFormattedStringFunction()
 	booleanToStringFunction := getBooleanToStringFunction()
 	// Parsers, that could fail
 	stringToIntFunction := getStringToIntFunction()
@@ -34,21 +35,22 @@ func GetFunctions() map[string]schema.CallableFunction {
 
 	// Combine in a map
 	allFunctions := map[string]schema.CallableFunction{
-		intToFloatFunction.ID():      intToFloatFunction,
-		floatToIntFunction.ID():      floatToIntFunction,
-		intToStringFunction.ID():     intToStringFunction,
-		floatToStringFunction.ID():   floatToStringFunction,
-		booleanToStringFunction.ID(): booleanToStringFunction,
-		stringToIntFunction.ID():     stringToIntFunction,
-		stringToFloatFunction.ID():   stringToFloatFunction,
-		stringToBoolFunction.ID():    stringToBoolFunction,
-		ceilFunction.ID():            ceilFunction,
-		floorFunction.ID():           floorFunction,
-		roundFunction.ID():           roundFunction,
-		absFunction.ID():             absFunction,
-		toLowerFunction.ID():         toLowerFunction,
-		toUpperFunction.ID():         toUpperFunction,
-		splitStringFunction.ID():     splitStringFunction,
+		intToFloatFunction.ID():             intToFloatFunction,
+		floatToIntFunction.ID():             floatToIntFunction,
+		intToStringFunction.ID():            intToStringFunction,
+		floatToStringFunction.ID():          floatToStringFunction,
+		floatToFormattedStringFunction.ID(): floatToFormattedStringFunction,
+		booleanToStringFunction.ID():        booleanToStringFunction,
+		stringToIntFunction.ID():            stringToIntFunction,
+		stringToFloatFunction.ID():          stringToFloatFunction,
+		stringToBoolFunction.ID():           stringToBoolFunction,
+		ceilFunction.ID():                   ceilFunction,
+		floorFunction.ID():                  floorFunction,
+		roundFunction.ID():                  roundFunction,
+		absFunction.ID():                    absFunction,
+		toLowerFunction.ID():                toLowerFunction,
+		toUpperFunction.ID():                toUpperFunction,
+		splitStringFunction.ID():            splitStringFunction,
 	}
 
 	return allFunctions
@@ -62,7 +64,7 @@ func getIntToFloatFunction() schema.CallableFunction {
 		false,
 		schema.NewDisplayValue(
 			schema.PointerTo("intToFloat"),
-			schema.PointerTo("Returns a floating-point representation of the inputted integer."),
+			schema.PointerTo("Returns a floating-point representation of the integer parameter."),
 			nil,
 		),
 		func(a int64) float64 {
@@ -84,7 +86,7 @@ func getFloatToIntFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToInt"),
 			schema.PointerTo(
-				"Returns an integer representation of the inputted floating-point number.\n"+
+				"Returns an integer representation of the floating-point parameter.\n"+
 					" It does this by discarding the the fraction.\n"+
 					" In other words, it is rounded to the nearest integer towards zero.\n"+
 					"Special cases:\n"+
@@ -119,12 +121,12 @@ func getIntToStringFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
 		"intToString",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
-		schema.NewStringSchema(nil, nil, regexp.MustCompile(`^(?:0|[1-9]\d*)$`)),
+		schema.NewStringSchema(nil, nil, nil),
 		false,
 		schema.NewDisplayValue(
 			schema.PointerTo("intToString"),
 			schema.PointerTo(
-				"Returns a string whose characters represent the inputted integer in base-10.\n"+
+				"Returns a string containing the base-10 representation of the provided integer value.\n"+
 					"For example, an input of `55` will output `\"55\"`",
 			),
 			nil,
@@ -148,8 +150,8 @@ func getFloatToStringFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("floatToString"),
 			schema.PointerTo(
-				"Returns a string whose characters represent the inputted floating-point\n"+
-					"number in base-10 without scientific notation.\n"+
+				"Returns a string containing the base-10 representation of the provided "+
+					"floating point value formatted without an exponent.\n"+
 					"For example, an input of `5000.5` will output `\"5000.5\"`",
 			),
 			nil,
@@ -164,7 +166,47 @@ func getFloatToStringFunction() schema.CallableFunction {
 	return funcSchema
 }
 
-// TODO: Webb can add a function called floatToStringAdvanced that allows other float formats
+func getFloatToFormattedStringFunction() schema.CallableFunction {
+	funcSchema, err := schema.NewCallableFunction(
+		"floatToFormattedString",
+		[]schema.Type{
+			schema.NewFloatSchema(nil, nil, nil),
+			schema.NewStringSchema(nil, nil, regexp.MustCompile(`^[beEfgGxX]$`)),
+			schema.NewIntSchema(nil, nil, nil),
+		},
+		// 'b' format: -ddddp±ddd
+		// 'e' format: -d.dddde±dd
+		// 'E' format: -d.ddddE±dd
+		// 'f' format: -ddd.dddd
+		// 'x' format: -0xd.ddddp±ddd
+		// 'X' format: -0Xd.ddddP±ddd
+		schema.NewStringSchema(
+			nil,
+			nil,
+			regexp.MustCompile(`^-?(?:0[xX])?\d+(?:\.\d*)?(?:[pPeE][-+]\d{2,3})?$`)),
+		false,
+		schema.NewDisplayValue(
+			schema.PointerTo("floatToFormattedString"),
+			schema.PointerTo(
+				"Converts a floating point number to a string according to the "+
+					"specified formatting directive and precision."+
+					" Param 1: the floating point value to convert\n"+
+					" Param 2: the format specifier: 'b', 'e', 'E', 'f', 'g', 'G', 'x', 'X'\n"+
+					" Param 3: the number of digits included in the fraction portion; "+
+					"Specifying -1 will produce the minimum number of digits required to represent the value exactly"+
+					" (See https://pkg.go.dev/strconv@go1.22.0#FormatFloat for details.)",
+			),
+			nil,
+		),
+		func(f float64, fmt string, precision int64) string {
+			return strconv.FormatFloat(f, fmt[0], int(precision), 64)
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+	return funcSchema
+}
 
 func getBooleanToStringFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
@@ -190,13 +232,13 @@ func getBooleanToStringFunction() schema.CallableFunction {
 func getStringToIntFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
 		"stringToInt",
-		[]schema.Type{schema.NewStringSchema(nil, nil, regexp.MustCompile(`^-?(?:0|[1-9]\d*)$`))},
+		[]schema.Type{schema.NewStringSchema(nil, nil, regexp.MustCompile(`^-?\d+$`))},
 		schema.NewIntSchema(nil, nil, nil),
 		true,
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToInt"),
 			schema.PointerTo(
-				"Returns an integer by interpreting the inputted string as\n"+
+				"Returns an integer by interpreting the string parameter as\n"+
 					"a base-10 integer. Will fail if the input is not a valid integer.",
 			),
 			nil,
@@ -220,8 +262,8 @@ func getStringToFloatFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToFloat"),
 			schema.PointerTo(
-				"Returns a floating point number by interpreting the the input\n"+
-					"string as a 64-bit floating-point number\n\n"+
+				"Returns a floating point number by interpreting the string\n"+
+					"parameter as a 64-bit floating-point number.\n\n"+
 					"Accepts decimal and hexadecimal floating-point numbers\n"+
 					"as defined by the Go syntax for floating point literals\n"+
 					"https://go.dev/ref/spec#Floating-point_literals.\n"+
@@ -256,7 +298,7 @@ func getStringToBoolFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("stringToBool"),
 			schema.PointerTo(
-				"Returns a boolean by interpreting the input.\n"+
+				"Returns a boolean by interpreting the string parameter.\n"+
 					" Accepts `\"1\"`, `\"t\"`, and `\"true\"` for `true`.\n"+
 					" Accepts `\"0\"`, '\"f\"', and '\"false\"' for `false`.\n"+
 					"Returns an error for any other input.\n"+

@@ -27,7 +27,7 @@ type Workflow struct {
 	// OutputSchema is an optional override for the automatically inferred output schema from the Outputs data and
 	// expressions. The keys must be the output IDs from Outputs and the values must be a StepOutputSchema object as
 	// per the Arcaflow schema.
-	OutputSchema map[string]any `json:"outputSchema"`
+	OutputSchema map[string]*schema.StepOutputSchema `json:"outputSchema"`
 	// Output is the legacy way to define a single output. It conflicts the "outputs" field and if filled, will create a
 	// "success" output.
 	//
@@ -35,8 +35,8 @@ type Workflow struct {
 	Output any `json:"output"`
 }
 
-// getSchema returns the entire workflow schema.
-func getSchema() *schema.TypedScopeSchema[*Workflow] {
+// GetSchema returns the entire workflow schema.
+func GetSchema() *schema.TypedScopeSchema[*Workflow] {
 	return schema.NewTypedScopeSchema[*Workflow](
 		schema.NewStructMappedObjectSchema[*Workflow](
 			"Workflow",
