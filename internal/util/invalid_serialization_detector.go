@@ -60,7 +60,7 @@ func (d *InvalidSerializationDetectorSchema) UnserializeType(data any) (string, 
 
 // ValidateCompatibility ensures that the input data or schema is compatible with
 // the given InvalidSerializationDetectorSchema.
-func (d InvalidSerializationDetectorSchema) ValidateCompatibility(_ any) error {
+func (d *InvalidSerializationDetectorSchema) ValidateCompatibility(_ any) error {
 	// For convenience, always return "success".
 	return nil
 }
@@ -90,15 +90,19 @@ func (d *InvalidSerializationDetectorSchema) SerializeType(data string) (any, er
 }
 
 // ApplyScope is for applying a scope to the references. Does not apply to this object.
-func (d InvalidSerializationDetectorSchema) ApplyScope(_ schema.Scope) {}
+func (d *InvalidSerializationDetectorSchema) ApplyScope(_ schema.Scope, _ string) {}
+
+func (d *InvalidSerializationDetectorSchema) ValidateReferences() error {
+	return nil
+}
 
 // TypeID returns the category of type this type is. Returns string because
 // the valid states of this type include all strings.
-func (d InvalidSerializationDetectorSchema) TypeID() schema.TypeID {
+func (d *InvalidSerializationDetectorSchema) TypeID() schema.TypeID {
 	return schema.TypeIDString // This is a subset of a string schema.
 }
 
 // ReflectedType returns the reflect.Type for a string.
-func (d InvalidSerializationDetectorSchema) ReflectedType() reflect.Type {
+func (d *InvalidSerializationDetectorSchema) ReflectedType() reflect.Type {
 	return reflect.TypeOf("")
 }
