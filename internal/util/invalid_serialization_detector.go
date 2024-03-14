@@ -92,6 +92,8 @@ func (d *InvalidSerializationDetectorSchema) SerializeType(data string) (any, er
 // ApplyScope is for applying a scope to the references. Does not apply to this object.
 func (d *InvalidSerializationDetectorSchema) ApplyScope(_ schema.Scope, _ string) {}
 
+// ValidateReferences validates that all necessary references from scopes have been applied.
+// Does not apply to this object.
 func (d *InvalidSerializationDetectorSchema) ValidateReferences() error {
 	return nil
 }

@@ -356,7 +356,7 @@ func (e *executor) applyExternalScopes(
 	availableObjects := ""
 	for namespace, scope := range allNamespaces {
 		availableObjects += "\n" + namespace + ":"
-		for objectID, _ := range scope.Objects() {
+		for objectID := range scope.Objects() {
 			availableObjects += " " + objectID
 		}
 	}
