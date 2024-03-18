@@ -515,7 +515,7 @@ func getReadFileFunction() schema.CallableFunction {
 			if err != nil {
 				return "", err
 			}
-			fileData, err := os.ReadFile(absPath) //nolint:gosec potential file inclusion is handled because filepath.Abs() calls filepath.Clean()
+			fileData, err := os.ReadFile(absPath) //nolint:gosec // potential file inclusion is handled because filepath.Abs() calls filepath.Clean()
 			if err != nil {
 				return "", err
 			}
