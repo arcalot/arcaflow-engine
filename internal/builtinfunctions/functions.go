@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go.flow.arcalot.io/pluginsdk/schema"
 	"math"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -484,6 +486,39 @@ func getSplitStringFunction() schema.CallableFunction {
 			nil,
 		),
 		strings.Split,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return funcSchema
+}
+
+func getLoadFileFunction() schema.CallableFunction {
+	funcSchema, err := schema.NewCallableFunction(
+		"loadFile",
+		[]schema.Type{
+			schema.NewStringSchema(nil, nil, nil),
+		},
+		schema.NewListSchema(schema.NewStringSchema(nil, nil, nil), nil, nil),
+		false,
+		schema.NewDisplayValue(
+			schema.PointerTo("loadFile"),
+			schema.PointerTo(
+				"Return a file as a string.\n"+
+					"Param 1: The filepath to load into memory."),
+			nil,
+		),
+		func(filePath string) (string, error) {
+			absPath, err := filepath.Abs(filePath)
+			if err != nil {
+				return "", err
+			}
+			fileData, err := os.ReadFile(absPath)
+			if err != nil {
+				return "", err
+			}
+			return string(fileData), nil
+		},
 	)
 	if err != nil {
 		panic(err)
