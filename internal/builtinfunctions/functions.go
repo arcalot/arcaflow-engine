@@ -34,6 +34,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 	toLowerFunction := getToLowerFunction()
 	toUpperFunction := getToUpperFunction()
 	splitStringFunction := getSplitStringFunction()
+	loadFileFunction := getReadFileFunction()
 
 	// Combine in a map
 	allFunctions := map[string]schema.CallableFunction{
@@ -53,6 +54,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 		toLowerFunction.ID():                toLowerFunction,
 		toUpperFunction.ID():                toUpperFunction,
 		splitStringFunction.ID():            splitStringFunction,
+		loadFileFunction.ID():               loadFileFunction,
 	}
 
 	return allFunctions
@@ -493,19 +495,19 @@ func getSplitStringFunction() schema.CallableFunction {
 	return funcSchema
 }
 
-func getLoadFileFunction() schema.CallableFunction {
+func getReadFileFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
-		"loadFile",
+		"readFile",
 		[]schema.Type{
 			schema.NewStringSchema(nil, nil, nil),
 		},
-		schema.NewListSchema(schema.NewStringSchema(nil, nil, nil), nil, nil),
-		false,
+		schema.NewStringSchema(nil, nil, nil),
+		true,
 		schema.NewDisplayValue(
-			schema.PointerTo("loadFile"),
+			schema.PointerTo("readFile"),
 			schema.PointerTo(
 				"Return a file as a string.\n"+
-					"Param 1: The filepath to load into memory."),
+					"Param 1: The filepath to read into memory."),
 			nil,
 		),
 		func(filePath string) (string, error) {
