@@ -583,7 +583,7 @@ var testData = map[string]struct {
 		"readFile",
 		[]any{"../../fixtures/test-readFile/hello-world.yaml"},
 		false,
-		"hello-world",
+		"hello: world\n",
 	},
 	"readFile_nonexistent-file": {
 		"readFile",

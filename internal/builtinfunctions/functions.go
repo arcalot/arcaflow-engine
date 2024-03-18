@@ -498,9 +498,7 @@ func getSplitStringFunction() schema.CallableFunction {
 func getReadFileFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
 		"readFile",
-		[]schema.Type{
-			schema.NewStringSchema(nil, nil, nil),
-		},
+		[]schema.Type{schema.NewStringSchema(nil, nil, nil)},
 		schema.NewStringSchema(nil, nil, nil),
 		true,
 		schema.NewDisplayValue(
