@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go.flow.arcalot.io/pluginsdk/schema"
 	"math"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,6 +34,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 	toLowerFunction := getToLowerFunction()
 	toUpperFunction := getToUpperFunction()
 	splitStringFunction := getSplitStringFunction()
+	loadFileFunction := getReadFileFunction()
 
 	// Combine in a map
 	allFunctions := map[string]schema.CallableFunction{
@@ -51,6 +54,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 		toLowerFunction.ID():                toLowerFunction,
 		toUpperFunction.ID():                toUpperFunction,
 		splitStringFunction.ID():            splitStringFunction,
+		loadFileFunction.ID():               loadFileFunction,
 	}
 
 	return allFunctions
@@ -484,6 +488,37 @@ func getSplitStringFunction() schema.CallableFunction {
 			nil,
 		),
 		strings.Split,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return funcSchema
+}
+
+func getReadFileFunction() schema.CallableFunction {
+	funcSchema, err := schema.NewCallableFunction(
+		"readFile",
+		[]schema.Type{schema.NewStringSchema(nil, nil, nil)},
+		schema.NewStringSchema(nil, nil, nil),
+		true,
+		schema.NewDisplayValue(
+			schema.PointerTo("readFile"),
+			schema.PointerTo(
+				"Return a file as a string.\n"+
+					"Param 1: The filepath to read into memory."),
+			nil,
+		),
+		func(filePath string) (string, error) {
+			absPath, err := filepath.Abs(filePath)
+			if err != nil {
+				return "", err
+			}
+			fileData, err := os.ReadFile(absPath) //nolint:gosec // potential file inclusion is handled because filepath.Abs() calls filepath.Clean()
+			if err != nil {
+				return "", err
+			}
+			return string(fileData), nil
+		},
 	)
 	if err != nil {
 		panic(err)

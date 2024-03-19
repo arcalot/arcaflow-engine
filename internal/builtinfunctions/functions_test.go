@@ -579,6 +579,18 @@ var testData = map[string]struct {
 		false,
 		[]string{"1", "", "2", ""},
 	},
+	"readFile": {
+		"readFile",
+		[]any{"../../fixtures/test-readFile/hello-world.yaml"},
+		false,
+		"hello: world\n",
+	},
+	"readFile_nonexistent-file": {
+		"readFile",
+		[]any{"../../fixtures/test-readFile/nonexistent-file.yaml"},
+		true,
+		nil,
+	},
 }
 
 func TestFunctionsBulk(t *testing.T) {
