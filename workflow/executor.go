@@ -325,30 +325,22 @@ func (e *executor) applyExternalScopes(
 			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
 			// Apply inputs
 			// Example: $.steps.wait_step.starting.input
-			for inputID, inputSchema := range stage.InputSchema {
-				switch inputSchema.TypeID() {
-				case schema.TypeIDScope:
-					allNamespaces[prefix+inputID] = inputSchema.Type().(schema.Scope)
-				case schema.TypeIDList:
-					// foreach is a list, for example.
-					listSchema := inputSchema.Type().(schema.UntypedList)
-					if listSchema.Items().TypeID() == schema.TypeIDScope {
-						// Apply list item type since it's a scope.
-						allNamespaces[prefix+inputID] = listSchema.Items().(schema.Scope)
-					}
-				}
-			}
+			addInputNamespacedScopes(allNamespaces, stage, prefix)
 			// Apply outputs
 			// Example: $.steps.wait_step.outputs.success
-			for outputID, outputSchema := range stage.Outputs {
-				allNamespaces[prefix+outputID] = outputSchema.Schema()
-			}
+			addOutputNamespacedScopes(allNamespaces, stage, prefix)
 		}
 	}
+	return ApplyAllNamespaces(allNamespaces, typedInput)
+}
+
+func ApplyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo schema.Scope) error {
+	// Just apply all scopes
 	for namespace, scope := range allNamespaces {
-		typedInput.ApplyScope(scope, namespace)
+		scopeToApplyTo.ApplyScope(scope, namespace)
 	}
-	err := typedInput.ValidateReferences()
+	// Validate references. If that fails, provide a useful error message to the user.
+	err := scopeToApplyTo.ValidateReferences()
 	if err == nil {
 		return nil // Success
 	}
@@ -361,6 +353,28 @@ func (e *executor) applyExternalScopes(
 		}
 	}
 	return fmt.Errorf("error validating references for workflow input (%w)\nAvailable namespaces and objects:%s", err, availableObjects)
+}
+
+func addOutputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
+	for outputID, outputSchema := range stage.Outputs {
+		allNamespaces[prefix+outputID] = outputSchema.Schema()
+	}
+}
+
+func addInputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
+	for inputID, inputSchema := range stage.InputSchema {
+		switch inputSchema.TypeID() {
+		case schema.TypeIDScope:
+			allNamespaces[prefix+inputID] = inputSchema.Type().(schema.Scope)
+		case schema.TypeIDList:
+			// foreach is a list, for example.
+			listSchema := inputSchema.Type().(schema.UntypedList)
+			if listSchema.Items().TypeID() == schema.TypeIDScope {
+				// Apply list item type since it's a scope.
+				allNamespaces[prefix+inputID] = listSchema.Items().(schema.Scope)
+			}
+		}
+	}
 }
 
 // connectStepDependencies connects the steps based on their expressions.
