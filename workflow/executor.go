@@ -121,7 +121,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	}
 
 	// Apply step lifecycle objects to the input scope
-	err = e.applyExternalScopes(stepLifecycles, typedInput)
+	err = applyLifecycleScopes(stepLifecycles, typedInput)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (e *executor) processSteps(
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
 }
 
-func (e *executor) applyExternalScopes(
+func applyLifecycleScopes(
 	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
 	typedInput schema.Scope,
 ) error {
@@ -325,16 +325,16 @@ func (e *executor) applyExternalScopes(
 			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
 			// Apply inputs
 			// Example: $.steps.wait_step.starting.input
-			addInputNamespacedScopes(allNamespaces, stage, prefix)
+			addInputNamespacedScopes(allNamespaces, stage, prefix+"input.")
 			// Apply outputs
 			// Example: $.steps.wait_step.outputs.success
-			addOutputNamespacedScopes(allNamespaces, stage, prefix)
+			addOutputNamespacedScopes(allNamespaces, stage, prefix+"output.")
 		}
 	}
-	return ApplyAllNamespaces(allNamespaces, typedInput)
+	return applyAllNamespaces(allNamespaces, typedInput)
 }
 
-func ApplyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo schema.Scope) error {
+func applyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo schema.Scope) error {
 	// Just apply all scopes
 	for namespace, scope := range allNamespaces {
 		scopeToApplyTo.ApplyScope(scope, namespace)
