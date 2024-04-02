@@ -103,6 +103,8 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.0 h1:8SG7/vwALn54lVB/0yZ/MMwhFrPYtpEHQb2IpWsCzug=
 github.com/opencontainers/image-spec v1.1.0/go.mod h1:W4s4sFTMaBeK1BQLXbG4AdM2szdn85PY75RI83NrTrM=
+github.com/opencontainers/selinux v1.11.0 h1:+5Zbo97w3Lbmb3PeqQtpmTkMwsW5nRI3YaLpt7tQ7oU=
+github.com/opencontainers/selinux v1.11.0/go.mod h1:E5dMC3VPuVvVHDYmi78qvhJp8+M586T4DlDRYpFkyec=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
@@ -143,8 +145,8 @@ go.flow.arcalot.io/kubernetesdeployer v0.9.1 h1:AGnJFazehAENXxGMCF0Uc7aG9F0Lpvuh
 go.flow.arcalot.io/kubernetesdeployer v0.9.1/go.mod h1:yvxT3VwmyrlIi4422pxl02z4QeU2Gvbjg5aQB17Ye4s=
 go.flow.arcalot.io/pluginsdk v0.9.0-beta1 h1:tJwEp92vRJldHMff29Q8vfQB5a7FHe/nn6vyFTC1sik=
 go.flow.arcalot.io/pluginsdk v0.9.0-beta1/go.mod h1:7HafTRTFTYRbJ4sS/Vn0CFrHlaBpEoyOX4oNf612XJM=
-go.flow.arcalot.io/podmandeployer v0.8.1 h1:40UDjR1XOn3zOhkwfxvG1AvY+di+MKpGGyd1O6jyzWk=
-go.flow.arcalot.io/podmandeployer v0.8.1/go.mod h1:eC6FVbEQXwArSV+U5NePJ5tNbay1+2ZJDamwvcT4Ef8=
+go.flow.arcalot.io/podmandeployer v0.9.0 h1:BSN/s8BeEUIIqOQm6/I5LOzAUzYFrVO1/3p1hcbWD4g=
+go.flow.arcalot.io/podmandeployer v0.9.0/go.mod h1:FWwelCoH0jfQEYQAJ5mzLElZIXlRfyLP4osjcuQ6n30=
 go.flow.arcalot.io/pythondeployer v0.6.0 h1:ptAurEJ2u2U127nK6Kk7zTelbkk6ipPqZcwnTmqB9vo=
 go.flow.arcalot.io/pythondeployer v0.6.0/go.mod h1:xEYh4M97V2wcuAvnNq2vtWnw1scaN+36deqb1FS7BmA=
 go.flow.arcalot.io/testdeployer v0.6.0 h1:IHJpWctKru0kfNEuux4lbK6jKXkN6hQGd96Zipb6Dec=
