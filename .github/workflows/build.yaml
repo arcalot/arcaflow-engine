@@ -1,0 +1,48 @@
+name: Build
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  pull_request:
+jobs:
+  lint_and_test:
+    name: lint and test
+    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_lint_and_test.yaml@main
+  generate:
+    name: go generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ vars.ARCALOT_GO_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-test-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-generate-
+      - name: Run go generate
+        run: ./.github/scripts/gogenerate.sh
+  release:
+    name: release
+    permissions:
+      contents: write
+    needs:
+      - lint_and_test
+      - generate
+    with:
+      for_release: ${{ startsWith(github.event.ref, 'refs/tags/') }}
+    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_release.yaml@main
+  build_python_wheel:
+    name: build python wheel
+    needs:
+      - release
+    secrets:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/python_release.yaml@main
