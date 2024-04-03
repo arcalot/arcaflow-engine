@@ -1,0 +1,23 @@
+version: v0.2.0
+input:
+  root: ParentWorkflow1Input
+  objects:
+    ParentWorkflow1Input:
+      id: ParentWorkflow1Input
+      properties:
+        sub_workflow_input:
+          type:
+            type_id: list
+            items:
+              type_id: ref
+              id: SubWorkflowInput
+              namespace: $.steps.sub_workflow_loop.execute.inputs.items
+steps:
+  sub_workflow_loop:
+    kind: foreach
+    items: !expr $.input.sub_workflow_input
+    workflow: child_workflow_namespaced_scopes.yaml
+    parallelism: 1
+outputs:
+  success:
+    sub_workflow_result: !expr $.steps.sub_workflow_loop.outputs.success

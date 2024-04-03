@@ -319,7 +319,7 @@ func TestApplyLifecycleScopes_Basic(t *testing.T) {
 	}
 	ref1Schema := schema.NewNamespacedRefSchema(
 		"scopeTestObjectB",
-		"$.steps.exampleStepID.exampleStageID.input.exampleField",
+		"$.steps.exampleStepID.exampleStageID.inputs.exampleField",
 		nil,
 	)
 	ref1Property := schema.NewPropertySchema(
@@ -334,7 +334,7 @@ func TestApplyLifecycleScopes_Basic(t *testing.T) {
 	)
 	ref2Schema := schema.NewNamespacedRefSchema(
 		"successObject",
-		"$.steps.exampleStepID.exampleStageID.output.success",
+		"$.steps.exampleStepID.exampleStageID.outputs.success",
 		nil,
 	)
 	ref2Property := schema.NewPropertySchema(

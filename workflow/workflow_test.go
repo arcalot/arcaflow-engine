@@ -1005,6 +1005,79 @@ func TestWorkflow_Execute_Error_MalformedOutputSchema(t *testing.T) {
 	assert.Contains(t, err.Error(), "bug: output schema cannot unserialize")
 }
 
+func TestWorkflowWithNamespacedScopes(t *testing.T) {
+	// Run a workflow where the input uses a reference to one of the workflow's steps.
+	fileData, err := os.ReadFile("./test_workflows/child_workflow_namespaced_scopes.yaml")
+	assert.NoError(t, err)
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, string(fileData)),
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"wait_input": map[string]any{"wait_time_ms": 0},
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+}
+
+func TestNestedWorkflowWithNamespacedScopes(t *testing.T) {
+	// Combine namespaced scopes with foreach. Manually create the registry to allow this.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	parentWorkflowData, err := os.ReadFile("./test_workflows/parent_workflow_namespaced_scopes_1.yaml")
+	subWorkflowData, err := os.ReadFile("./test_workflows/child_workflow_namespaced_scopes.yaml")
+	assert.NoError(t, err)
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML(parentWorkflowData))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"child_workflow_namespaced_scopes.yaml": subWorkflowData,
+	}))
+	subWorkflowInput := map[string]any{
+		"wait_input": map[string]any{"wait_time_ms": 0},
+	}
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"sub_workflow_input": []map[string]any{
+			subWorkflowInput,
+		},
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+}
+
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
 		Level:       log.LevelDebug,
