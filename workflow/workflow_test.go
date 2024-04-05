@@ -1005,19 +1005,103 @@ func TestWorkflow_Execute_Error_MalformedOutputSchema(t *testing.T) {
 	assert.Contains(t, err.Error(), "bug: output schema cannot unserialize")
 }
 
+var childNamespacedScopesWorkflow = `
+version: v0.2.0
+input:
+  root: SubWorkflowInput
+  objects:
+    SubWorkflowInput:
+      id: SubWorkflowInput
+      properties:
+        wait_input_property:
+          type:
+            type_id: ref
+            id: wait-input
+            namespace: $.steps.simple_wait.starting.inputs.input
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input: !expr $.input.wait_input_property
+outputs:
+  success:
+    simple_wait_output: !expr $.steps.simple_wait.outputs.success
+`
+
 func TestWorkflowWithNamespacedScopes(t *testing.T) {
 	// Run a workflow where the input uses a reference to one of the workflow's steps.
-	fileData, err := os.ReadFile("./test_workflows/child_workflow_namespaced_scopes.yaml")
-	assert.NoError(t, err)
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
-		getTestImplPreparedWorkflow(t, string(fileData)),
+		getTestImplPreparedWorkflow(t, childNamespacedScopesWorkflow),
 	)
 	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
-		"wait_input": map[string]any{"wait_time_ms": 0},
+		"wait_input_property": map[string]any{"wait_time_ms": 0},
 	})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "success")
 }
+
+var parentNestedNamespacedScopesWorkflow1 = `
+version: v0.2.0
+input:
+  root: ParentWorkflow1Input
+  objects:
+    ParentWorkflow1Input:
+      id: ParentWorkflow1Input
+      properties:
+        sub_workflow_input:
+          type:
+            type_id: list
+            items:
+              # References the input of the sub-workflow.
+              type_id: ref
+              id: SubWorkflowInput
+              namespace: $.steps.sub_workflow_loop.execute.inputs.items
+steps:
+  sub_workflow_loop:
+    kind: foreach
+    items: !expr $.input.sub_workflow_input
+    workflow: child_workflow_namespaced_scopes.yaml
+    parallelism: 1
+outputs:
+  success:
+    sub_workflow_result: !expr $.steps.sub_workflow_loop.outputs.success
+`
+
+var parentNestedNamespacedScopesWorkflow2 = `
+version: v0.2.0
+input:
+  root: ParentWorkflow1Input
+  objects:
+    ParentWorkflow1Input:
+      id: ParentWorkflow1Input
+      properties:
+        sub_workflow_input:
+          type:
+            type_id: list
+            items:
+              type_id: ref
+              id: SubWorkflowInput
+    SubWorkflowInput:
+      # Re-constructs the object from the sub-workflow, but references the step object used.
+      id: SubWorkflowInput
+      properties:
+        wait_input_property:
+          type:
+            type_id: ref
+            id: wait-input
+            namespace: $.steps.sub_workflow_loop.execute.inputs.items.wait_input_property
+steps:
+  sub_workflow_loop:
+    kind: foreach
+    items: !expr $.input.sub_workflow_input
+    workflow: child_workflow_namespaced_scopes.yaml
+    parallelism: 1
+outputs:
+  success:
+    sub_workflow_result: !expr $.steps.sub_workflow_loop.outputs.success
+`
 
 func TestNestedWorkflowWithNamespacedScopes(t *testing.T) {
 	// Combine namespaced scopes with foreach. Manually create the registry to allow this.
@@ -1059,23 +1143,23 @@ func TestNestedWorkflowWithNamespacedScopes(t *testing.T) {
 		stepRegistry,
 		builtinfunctions.GetFunctions(),
 	))
-	parentWorkflowData, err := os.ReadFile("./test_workflows/parent_workflow_namespaced_scopes_1.yaml")
-	subWorkflowData, err := os.ReadFile("./test_workflows/child_workflow_namespaced_scopes.yaml")
-	assert.NoError(t, err)
-	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML(parentWorkflowData))
-	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
-		"child_workflow_namespaced_scopes.yaml": subWorkflowData,
-	}))
-	subWorkflowInput := map[string]any{
-		"wait_input": map[string]any{"wait_time_ms": 0},
+	for workflowIndex, parentWorkflow := range []string{parentNestedNamespacedScopesWorkflow1, parentNestedNamespacedScopesWorkflow2} {
+		t.Logf("running parent workflow %d", workflowIndex)
+		wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(parentWorkflow)))
+		preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+			"child_workflow_namespaced_scopes.yaml": []byte(childNamespacedScopesWorkflow),
+		}))
+		subWorkflowInput := map[string]any{
+			"wait_input_property": map[string]any{"wait_time_ms": 0},
+		}
+		outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+			"sub_workflow_input": []map[string]any{
+				subWorkflowInput,
+			},
+		})
+		assert.NoError(t, err)
+		assert.Equals(t, outputID, "success")
 	}
-	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
-		"sub_workflow_input": []map[string]any{
-			subWorkflowInput,
-		},
-	})
-	assert.NoError(t, err)
-	assert.Equals(t, outputID, "success")
 }
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {

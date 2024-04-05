@@ -86,6 +86,79 @@ func TestAddInputNamespacedScopes(t *testing.T) {
 	}
 }
 
+func TestAddScopesWithReferences(t *testing.T) {
+	// Test that the scope itself and the resolved references are added.
+	allNamespaces := make(map[string]schema.Scope)
+	internalRef := schema.NewRefSchema("scopeTestObjectA", nil)
+	internalRefProperty := schema.NewPropertySchema(
+		internalRef,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	externalRef1 := schema.NewNamespacedRefSchema("scopeTestObjectB", "test-namespace-1", nil)
+	appliedExternalRefProperty := schema.NewPropertySchema(
+		externalRef1,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	externalRef2 := schema.NewNamespacedRefSchema("scopeTestObjectB", "$.test-namespace-2", nil)
+	rootPrefixAppliedExternalRefProperty := schema.NewPropertySchema(
+		externalRef2,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	externalRef3 := schema.NewNamespacedRefSchema("scopeTestObjectC", "test-namespace-3", nil)
+	notAppliedExternalRefProperty := schema.NewPropertySchema(
+		externalRef3,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	testScope := schema.NewScopeSchema(
+		schema.NewObjectSchema(
+			"scopeTestObjectA",
+			map[string]*schema.PropertySchema{
+				"internalRef":                  internalRefProperty,
+				"appliedExternalRef":           appliedExternalRefProperty,
+				"rootPrefixAppliedExternalRef": rootPrefixAppliedExternalRefProperty,
+				"notAppliedExternalRef":        notAppliedExternalRefProperty,
+			},
+		),
+	)
+	scopeToApply := schema.NewScopeSchema(
+		schema.NewObjectSchema(
+			"scopeTestObjectB", map[string]*schema.PropertySchema{},
+		),
+	)
+	testScope.ApplyScope(scopeToApply, "test-namespace-1")
+	testScope.ApplyScope(scopeToApply, "$.test-namespace-2")
+	testScope.ApplyScope(testScope, schema.DEFAULT_NAMESPACE)
+	addScopesWithReferences(allNamespaces, testScope, "$")
+	assert.Equals(t, len(allNamespaces), 3)
+	assert.MapContainsKey(t, "$", allNamespaces)
+	assert.MapContainsKey(t, "$.appliedExternalRef", allNamespaces)
+	assert.MapContainsKey(t, "$.rootPrefixAppliedExternalRef", allNamespaces)
+}
+
 func TestApplyAllNamespaces_Pass(t *testing.T) {
 	// In this test, we will call applyAllNamespaces and validate that the two namespaces were applied.
 	ref1Schema := schema.NewNamespacedRefSchema("scopeTestObjectB", "test-namespace-1", nil)

@@ -357,7 +357,7 @@ func applyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo sc
 
 func addOutputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
 	for outputID, outputSchema := range stage.Outputs {
-		allNamespaces[prefix+outputID] = outputSchema.Schema()
+		addScopesWithReferences(allNamespaces, outputSchema.Schema(), prefix+outputID)
 	}
 }
 
@@ -365,13 +365,33 @@ func addInputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.
 	for inputID, inputSchema := range stage.InputSchema {
 		switch inputSchema.TypeID() {
 		case schema.TypeIDScope:
-			allNamespaces[prefix+inputID] = inputSchema.Type().(schema.Scope)
+			addScopesWithReferences(allNamespaces, inputSchema.Type().(schema.Scope), prefix+inputID)
 		case schema.TypeIDList:
 			// foreach is a list, for example.
 			listSchema := inputSchema.Type().(schema.UntypedList)
 			if listSchema.Items().TypeID() == schema.TypeIDScope {
 				// Apply list item type since it's a scope.
-				allNamespaces[prefix+inputID] = listSchema.Items().(schema.Scope)
+				itemScope := listSchema.Items().(schema.Scope)
+				addScopesWithReferences(allNamespaces, itemScope, prefix+inputID)
+			}
+		}
+	}
+}
+
+// Adds the scope to the namespace map, as well as all resolved references from external namespaces.
+func addScopesWithReferences(allNamespaces map[string]schema.Scope, scope schema.Scope, prefix string) {
+	// First, just adds the scope
+	allNamespaces[prefix] = scope
+	// Next, checks all properties for resolved references that reference objects outside of this scope.
+	rootObject := scope.Objects()[scope.Root()]
+	for propertyID, property := range rootObject.Properties() {
+		if property.Type().TypeID() == schema.TypeIDRef {
+			refProperty := property.Type().(schema.Ref)
+			if refProperty.Namespace() != schema.DEFAULT_NAMESPACE && refProperty.ObjectReady() {
+				// Found a resolved reference with an object that is not included in the scope. Add it to the map.
+				var referencedObject any = refProperty.GetObject()
+				refObjectSchema := referencedObject.(*schema.ObjectSchema)
+				allNamespaces[prefix+"."+propertyID] = schema.NewScopeSchema(refObjectSchema)
 			}
 		}
 	}
