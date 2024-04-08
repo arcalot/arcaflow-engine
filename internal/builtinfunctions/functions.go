@@ -35,6 +35,8 @@ func GetFunctions() map[string]schema.CallableFunction {
 	toUpperFunction := getToUpperFunction()
 	splitStringFunction := getSplitStringFunction()
 	loadFileFunction := getReadFileFunction()
+	// Data transformation functions
+	bindConstantsFunction := getBindConstantsFunction()
 
 	// Combine in a map
 	allFunctions := map[string]schema.CallableFunction{
@@ -55,6 +57,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 		toUpperFunction.ID():                toUpperFunction,
 		splitStringFunction.ID():            splitStringFunction,
 		loadFileFunction.ID():               loadFileFunction,
+		bindConstantsFunction.ID():          bindConstantsFunction,
 	}
 
 	return allFunctions
@@ -510,6 +513,39 @@ func getReadFileFunction() schema.CallableFunction {
 		),
 		func(filePath string) (string, error) {
 			absPath, err := filepath.Abs(filePath)
+			if err != nil {
+				return "", err
+			}
+			fileData, err := os.ReadFile(absPath) //nolint:gosec // potential file inclusion is handled because filepath.Abs() calls filepath.Clean()
+			if err != nil {
+				return "", err
+			}
+			return string(fileData), nil
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+	return funcSchema
+}
+
+func getBindConstantsFunction() schema.CallableFunction {
+	funcSchema, err := schema.NewCallableFunction(
+		"bindConstants",
+		[]schema.Type{schema.NewStringSchema(nil, nil, nil)},
+		schema.NewStringSchema(nil, nil, nil),
+		true,
+		schema.NewDisplayValue(
+			schema.PointerTo("bindConstants"),
+			schema.PointerTo(
+				"Return a file as a string.\n"+
+					"Param 1: Subworkflow root object ID\n+"+
+					"Param 2: Items \n"+
+					"Param 3: Repeated Inputs\n"),
+			nil,
+		),
+		func(rootID string, items []any, columnValues any) (string, error) {
+			absPath, err := filepath.Abs(rootID)
 			if err != nil {
 				return "", err
 			}
