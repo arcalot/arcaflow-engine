@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/internal/builtinfunctions"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	"math"
 	"reflect"
 	"testing"
@@ -818,4 +819,51 @@ func Test_floatToFormattedString_success(t *testing.T) {
 			}
 		}
 	}
+}
+
+func Test_bindConstants(t *testing.T) {
+	repeatedValues := schema.NewObjectSchema(
+		"RepeatedValues",
+		map[string]*schema.PropertySchema{
+			"a": schema.NewPropertySchema(schema.NewStringSchema(nil, nil, nil),
+				nil, false, nil, nil,
+				nil, nil, nil),
+			"b": schema.NewPropertySchema(schema.NewStringSchema(nil, nil, nil),
+				nil, false, nil, nil,
+				nil, nil, nil),
+		})
+	parentWorkflowRoot := schema.NewObjectSchema(
+		"ParentWorkflowRoot",
+		map[string]*schema.PropertySchema{
+			"repeated_inputs": schema.NewPropertySchema(
+				schema.NewRefSchema("RepeatedValues", nil),
+				nil, false, nil, nil,
+				nil, nil, nil),
+			"items": schema.NewPropertySchema(
+				// add more complex items object
+				schema.NewTypedListSchema[int64](
+					schema.NewIntSchema(
+						nil,
+						nil,
+						nil,
+					),
+					nil,
+					nil),
+				nil, false, nil, nil,
+				nil, nil, nil),
+		})
+
+	subWorkflowRoot := schema.NewObjectSchema(
+		"ParentWorkflowRoot",
+		map[string]*schema.PropertySchema{
+			"constants": schema.NewPropertySchema(schema.NewRefSchema("RepeatedValues", nil),
+				nil, false, nil, nil,
+				nil, nil, nil),
+			"item": schema.NewPropertySchema(schema.NewIntSchema(nil, nil, nil),
+				nil, false, nil, nil,
+				nil, nil, nil),
+		})
+
+	scopeWf := schema.NewScopeSchema(parentWorkflowRoot, repeatedValues)
+	scopeSubWf := schema.NewScopeSchema(subWorkflowRoot, parentWorkflowRoot, repeatedValues)
 }
