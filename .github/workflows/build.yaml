@@ -10,6 +10,8 @@ jobs:
   lint_and_test:
     name: lint and test
     uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_lint_and_test.yaml@main
+    with:
+      go_version: ${{ vars.ARCALOT_GO_VERSION }}
   generate:
     name: go generate
     runs-on: ubuntu-latest
@@ -36,13 +38,19 @@ jobs:
     needs:
       - lint_and_test
       - generate
-    with:
-      for_release: ${{ startsWith(github.event.ref, 'refs/tags/') }}
     uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_release.yaml@main
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+    with:
+      go_version: ${{ vars.ARCALOT_GO_VERSION }}
+      for_release: ${{ startsWith(github.event.ref, 'refs/tags/') }}
   build_python_wheel:
     name: build python wheel
     needs:
       - release
+    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/python_release.yaml@main
     secrets:
       PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/python_release.yaml@main
+    with:
+      python_version: ${{ vars.ARCALOT_PYTHON_VERSION }}
