@@ -544,16 +544,21 @@ func getBindConstantsFunction() schema.CallableFunction {
 					"Param 3: Repeated Inputs\n"),
 			nil,
 		),
-		func(rootID string, items []any, columnValues any) (string, error) {
-			absPath, err := filepath.Abs(rootID)
+		func(rootID string, items []any, columnValues any) (schema.CallableFunction, error) {
+			identityFunc, err := schema.NewDynamicCallableFunction(
+				"identity",
+				[]schema.Type{schema.NewAnySchema()},
+				nil,
+				func(a any) (any, error) { return a, nil },
+				func(inputType []schema.Type) (schema.Type, error) {
+					return inputType[0], nil
+				},
+			)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
-			fileData, err := os.ReadFile(absPath) //nolint:gosec // potential file inclusion is handled because filepath.Abs() calls filepath.Clean()
-			if err != nil {
-				return "", err
-			}
-			return string(fileData), nil
+			return identityFunc, nil
+
 		},
 	)
 	if err != nil {
