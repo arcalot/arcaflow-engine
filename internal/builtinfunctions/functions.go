@@ -530,37 +530,39 @@ func getReadFileFunction() schema.CallableFunction {
 }
 
 func getBindConstantsFunction() schema.CallableFunction {
-	funcSchema, err := schema.NewCallableFunction(
-		"bindConstants",
-		[]schema.Type{schema.NewStringSchema(nil, nil, nil)},
-		schema.NewStringSchema(nil, nil, nil),
-		true,
-		schema.NewDisplayValue(
-			schema.PointerTo("bindConstants"),
-			schema.PointerTo(
-				"Return a file as a string.\n"+
-					"Param 1: Subworkflow root object ID\n+"+
-					"Param 2: Items \n"+
-					"Param 3: Repeated Inputs\n"),
-			nil,
-		),
-		func(rootID string, items []any, columnValues any) (schema.CallableFunction, error) {
-			identityFunc, err := schema.NewDynamicCallableFunction(
-				"identity",
-				[]schema.Type{schema.NewAnySchema()},
-				nil,
-				func(a any) (any, error) { return a, nil },
-				func(inputType []schema.Type) (schema.Type, error) {
-					return inputType[0], nil
-				},
-			)
-			if err != nil {
-				return nil, err
-			}
-			return identityFunc, nil
+	//repeatedValuesName := "repeated_values"
 
+	funcSchema, err := schema.NewDynamicCallableFunction(
+		"bindConstants",
+		[]schema.Type{
+			schema.NewListSchema(schema.NewAnySchema(), nil, nil),
+			schema.NewAnySchema()},
+		schema.NewDisplayValue(
+			schema.PointerTo("Bind Constants"),
+			schema.PointerTo(
+				"Creates a list of objects with ID `CombinedObject`. "+
+					"Each object has two properties `item` and `constant`.\n"+
+					"Param 1: Value(s) to be included in the `item` field \n"+
+					"Param 2: Value(s) to populate the field `constant` with every output item\n"),
+			nil),
+		func(items []any, columnValues any) (any, error) {
+			combinedItems := make([]any, len(items))
+			for k := range items {
+				combinedItems[k] = map[string]any{
+					"item":     items[k],
+					"constant": columnValues,
+				}
+			}
+			return combinedItems, nil
 		},
-	)
+		func(inputType []schema.Type) (schema.Type, error) {
+			return schema.NewObjectSchema(
+				"CombinedObject",
+				map[string]*schema.PropertySchema{
+					"item":     schema.NewPropertySchema(inputType[0], nil, false, nil, nil, nil, nil, nil),
+					"constant": schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
+				}), nil
+		})
 	if err != nil {
 		panic(err)
 	}
