@@ -322,10 +322,10 @@ func applyLifecycleScopes(
 		for _, stage := range stepLifecycle.Stages {
 			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
 			// Apply inputs
-			// Example: $.steps.wait_step.starting.inputs.
+			// Example with stage starting: $.steps.wait_step.starting.inputs.
 			addInputNamespacedScopes(allNamespaces, stage, prefix+"inputs.")
 			// Apply outputs
-			// Example: $.steps.wait_step.outputs.outputs.success
+			// Example with stage outputs: $.steps.wait_step.outputs.outputs.success
 			addOutputNamespacedScopes(allNamespaces, stage, prefix+"outputs.")
 		}
 	}
