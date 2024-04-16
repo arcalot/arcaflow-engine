@@ -319,40 +319,44 @@ func applyLifecycleScopes(
 ) error {
 	allNamespaces := make(map[string]schema.Scope)
 	for workflowStepID, stepLifecycle := range stepLifecycles {
-		// The format will be $.steps.step_name.stage.<input|outputs.output_id>
-		// First, get the input schema and output schemas, and apply them.
 		for _, stage := range stepLifecycle.Stages {
 			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
 			// Apply inputs
-			// Example: $.steps.wait_step.starting.input
+			// Example: $.steps.wait_step.starting.inputs.
 			addInputNamespacedScopes(allNamespaces, stage, prefix+"inputs.")
 			// Apply outputs
-			// Example: $.steps.wait_step.outputs.success
+			// Example: $.steps.wait_step.outputs.outputs.success
 			addOutputNamespacedScopes(allNamespaces, stage, prefix+"outputs.")
 		}
 	}
 	return applyAllNamespaces(allNamespaces, typedInput)
 }
 
+// applyAllNamespaces applies all namespaces to the given scope.
+// This function also validates references, and lists the namespaces
+// and their objects in the event of a reference failure.
 func applyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo schema.Scope) error {
-	// Just apply all scopes
 	for namespace, scope := range allNamespaces {
 		scopeToApplyTo.ApplyScope(scope, namespace)
 	}
-	// Validate references. If that fails, provide a useful error message to the user.
 	err := scopeToApplyTo.ValidateReferences()
 	if err == nil {
 		return nil // Success
 	}
-	// Without listing the namespaces, it may be hard to debug a workflow, so add that list to the error.
+	// Now on the error path. Provide useful debug info.
 	availableObjects := ""
 	for namespace, scope := range allNamespaces {
-		availableObjects += "\n" + namespace + ":"
+		availableObjects += "\n\t" + namespace + ":"
 		for objectID := range scope.Objects() {
 			availableObjects += " " + objectID
 		}
 	}
-	return fmt.Errorf("error validating references for workflow input (%w)\nAvailable namespaces and objects:%s", err, availableObjects)
+	availableObjects += "\n" // Since this is a multi-line error message, ending with a newline is clearer.
+	return fmt.Errorf(
+		"error validating references for workflow input (%w)\nAvailable namespaces and objects:%s",
+		err,
+		availableObjects,
+	)
 }
 
 func addOutputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
@@ -362,18 +366,14 @@ func addOutputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step
 }
 
 func addInputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
-	for inputID, inputSchema := range stage.InputSchema {
-		switch inputSchema.TypeID() {
-		case schema.TypeIDScope:
-			addScopesWithReferences(allNamespaces, inputSchema.Type().(schema.Scope), prefix+inputID)
-		case schema.TypeIDList:
-			// foreach is a list, for example.
-			listSchema := inputSchema.Type().(schema.UntypedList)
-			if listSchema.Items().TypeID() == schema.TypeIDScope {
-				// Apply list item type since it's a scope.
-				itemScope := listSchema.Items().(schema.Scope)
-				addScopesWithReferences(allNamespaces, itemScope, prefix+inputID)
-			}
+	for inputID, inputSchemaProperty := range stage.InputSchema {
+		var inputSchemaType = inputSchemaProperty.Type()
+		// Extract item values from lists (like for ForEach)
+		if inputSchemaType.TypeID() == schema.TypeIDList {
+			inputSchemaType = inputSchemaType.(schema.UntypedList).Items()
+		}
+		if inputSchemaType.TypeID() == schema.TypeIDScope {
+			addScopesWithReferences(allNamespaces, inputSchemaType.(schema.Scope), prefix+inputID)
 		}
 	}
 }

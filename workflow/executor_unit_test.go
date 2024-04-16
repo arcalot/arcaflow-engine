@@ -60,10 +60,9 @@ var testLifecycleStage = step.LifecycleStageWithSchema{
 
 func TestAddOutputNamespacedScopes(t *testing.T) {
 	allNamespaces := make(map[string]schema.Scope)
-	expectedPrefix := "TEST_PREFIX_"
-	addOutputNamespacedScopes(allNamespaces, testLifecycleStage, expectedPrefix)
-	expectedOutput := "outputC"
-	expectedNamespace := expectedPrefix + expectedOutput
+	namespacePrefix := "TEST_PREFIX_"
+	addOutputNamespacedScopes(allNamespaces, testLifecycleStage, namespacePrefix)
+	expectedNamespace := namespacePrefix + "outputC"
 	assert.Equals(t, len(allNamespaces), 1)
 	assert.MapContainsKey(t, expectedNamespace, allNamespaces)
 	assert.Equals(t, "testObjectC", allNamespaces[expectedNamespace].Root())
@@ -71,16 +70,16 @@ func TestAddOutputNamespacedScopes(t *testing.T) {
 
 func TestAddInputNamespacedScopes(t *testing.T) {
 	allNamespaces := make(map[string]schema.Scope)
-	expectedPrefix := "TEST_PREFIX_"
+	namespacePrefix := "TEST_PREFIX_"
 	expectedInputs := map[string]string{
 		"scopeA": "testObjectA",
 		"listA":  "testObjectB",
 	}
 
-	addInputNamespacedScopes(allNamespaces, testLifecycleStage, expectedPrefix)
+	addInputNamespacedScopes(allNamespaces, testLifecycleStage, namespacePrefix)
 	assert.Equals(t, len(allNamespaces), 2)
 	for expectedInput, expectedObject := range expectedInputs {
-		expectedNamespace := expectedPrefix + expectedInput
+		expectedNamespace := namespacePrefix + expectedInput
 		assert.MapContainsKey(t, expectedNamespace, allNamespaces)
 		assert.Equals(t, expectedObject, allNamespaces[expectedNamespace].Root())
 	}
