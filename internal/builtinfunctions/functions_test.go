@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/internal/builtinfunctions"
+	"maps"
 	"math"
 	"reflect"
 	"testing"
@@ -866,10 +867,36 @@ func Test_bindConstants(t *testing.T) {
 	//	},
 	//	"items": []any{1, 2, 3},
 	//}
+	repeated_input_name := "constant"
+	item_name := "item"
+	items := []any{
+		map[string]any{"loop_id": 1},
+		map[string]any{"loop_id": 2},
+		map[string]any{"loop_id": 3},
+	}
+	repeated_inputs := map[string]any{
+		"a": "A", "b": "B",
+	}
+
 	functionToTest, _ := builtinfunctions.GetFunctions()["bindConstants"]
-	output, err := functionToTest.Call([]any{
-		//"SubWorkflowRoot",
-		[]any{1, 2, 3}, map[string]any{"a": "A", "b": "B"}})
+	output, err := functionToTest.Call([]any{items, repeated_inputs})
 	assert.NoError(t, err)
 	fmt.Printf("%v\n", output)
+	outputExp := []any{
+		map[string]any{item_name: items[0], repeated_input_name: repeated_inputs},
+		map[string]any{item_name: items[1], repeated_input_name: repeated_inputs},
+		map[string]any{item_name: items[2], repeated_input_name: repeated_inputs},
+	}
+	//assert.Equals(t, output.([]any), outputExp)
+
+	for _, outExp := range outputExp {
+		match := false
+		for _, out := range output.([]any) {
+			if maps.Equal[map[string]any](outExp, out) {
+				match = true
+			}
+		}
+		assert.Equals(t, match, true)
+	}
+
 }
