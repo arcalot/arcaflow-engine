@@ -322,10 +322,10 @@ func applyLifecycleScopes(
 		for _, stage := range stepLifecycle.Stages {
 			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
 			// Apply inputs
-			// Example with stage starting: $.steps.wait_step.starting.inputs.
+			// Example with stage "starting": $.steps.wait_step.starting.inputs.
 			addInputNamespacedScopes(allNamespaces, stage, prefix+"inputs.")
 			// Apply outputs
-			// Example with stage outputs: $.steps.wait_step.outputs.outputs.success
+			// Example with stage "outputs": $.steps.wait_step.outputs.outputs.
 			addOutputNamespacedScopes(allNamespaces, stage, prefix+"outputs.")
 		}
 	}
@@ -387,8 +387,8 @@ func addScopesWithReferences(allNamespaces map[string]schema.Scope, scope schema
 	for propertyID, property := range rootObject.Properties() {
 		if property.Type().TypeID() == schema.TypeIDRef {
 			refProperty := property.Type().(schema.Ref)
-			if refProperty.Namespace() != schema.DEFAULT_NAMESPACE && refProperty.ObjectReady() {
-				// Found a resolved reference with an object that is not included in the scope. Add it to the map.
+			if refProperty.Namespace() != schema.DEFAULT_NAMESPACE {
+				// Found a reference to an object that is not included in the scope. Add it to the map.
 				var referencedObject any = refProperty.GetObject()
 				refObjectSchema := referencedObject.(*schema.ObjectSchema)
 				allNamespaces[prefix+"."+propertyID] = schema.NewScopeSchema(refObjectSchema)

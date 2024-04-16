@@ -85,6 +85,36 @@ func TestAddInputNamespacedScopes(t *testing.T) {
 	}
 }
 
+func TestAddScopesWithMissingCache(t *testing.T) {
+	allNamespaces := make(map[string]schema.Scope)
+	externalRef3 := schema.NewNamespacedRefSchema("scopeTestObjectC", "not-applied-namespace", nil)
+	notAppliedExternalRefProperty := schema.NewPropertySchema(
+		externalRef3,
+		nil,
+		true,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	testScope := schema.NewScopeSchema(
+		schema.NewObjectSchema(
+			"scopeTestObjectA",
+			map[string]*schema.PropertySchema{
+				"notAppliedExternalRef": notAppliedExternalRefProperty,
+			},
+		),
+	)
+	assert.PanicsContains(
+		t,
+		func() {
+			addScopesWithReferences(allNamespaces, testScope, "$")
+		},
+		"scope with namespace \"not-applied-namespace\" was not applied successfully",
+	)
+}
+
 func TestAddScopesWithReferences(t *testing.T) {
 	// Test that the scope itself and the resolved references are added.
 	allNamespaces := make(map[string]schema.Scope)
@@ -121,9 +151,9 @@ func TestAddScopesWithReferences(t *testing.T) {
 		nil,
 		nil,
 	)
-	externalRef3 := schema.NewNamespacedRefSchema("scopeTestObjectC", "test-namespace-3", nil)
-	notAppliedExternalRefProperty := schema.NewPropertySchema(
-		externalRef3,
+	// This one shouldn't add a namespace.
+	nonRefProperty := schema.NewPropertySchema(
+		schema.NewStringSchema(nil, nil, nil),
 		nil,
 		true,
 		nil,
@@ -139,7 +169,7 @@ func TestAddScopesWithReferences(t *testing.T) {
 				"internalRef":                  internalRefProperty,
 				"appliedExternalRef":           appliedExternalRefProperty,
 				"rootPrefixAppliedExternalRef": rootPrefixAppliedExternalRefProperty,
-				"notAppliedExternalRef":        notAppliedExternalRefProperty,
+				"nonRefProperty":               nonRefProperty,
 			},
 		),
 	)
