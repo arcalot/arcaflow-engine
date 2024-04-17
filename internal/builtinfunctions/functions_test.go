@@ -917,8 +917,10 @@ func Test_bindConstants(t *testing.T) {
 	//	assert.Equals(t, match, true)
 	//}
 
-	_, _, err = functionToTest.Output([]schema.Type{itemsObj, constObj})
+	outputType, errOut, err := functionToTest.Output([]schema.Type{itemsObj, constObj})
 	assert.NoError(t, err)
-	//fmt.Printf("%v\n", outputType)
+	assert.Equals(t, errOut, true)
+	fmt.Printf("outputType: %v\n", outputType)
+
 	//assert.NoError(t, outputType.Validate(outputExp[0]))
 }
