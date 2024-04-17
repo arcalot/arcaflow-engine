@@ -890,6 +890,7 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDStarting
 	inputRecievedEarly := false
+	r.atpClient = atp.NewClientWithLogger(container, r.logger)
 
 	var runInput any
 	select {
@@ -940,7 +941,6 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 			return fmt.Errorf("step closed while waiting for run configuration")
 		}
 	}
-	r.atpClient = atp.NewClientWithLogger(container, r.logger)
 
 	inputSchema, err := r.atpClient.ReadSchema()
 	if err != nil {
