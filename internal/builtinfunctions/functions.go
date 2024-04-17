@@ -556,12 +556,35 @@ func getBindConstantsFunction() schema.CallableFunction {
 			return combinedItems, nil
 		},
 		func(inputType []schema.Type) (schema.Type, error) {
-			return schema.NewObjectSchema(
-				"CombinedObject",
-				map[string]*schema.PropertySchema{
-					"item":     schema.NewPropertySchema(inputType[0], nil, false, nil, nil, nil, nil, nil),
-					"constant": schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
-				}), nil
+			itemsType, isList := inputType[0].(*schema.ListSchema)
+			if !isList {
+				return nil, fmt.Errorf("expected a list schema")
+			}
+			itemType := itemsType.ItemsValue
+			var combinedObjectName string
+			objItemType, combinedObjIsObject := itemType.(*schema.ObjectSchema)
+
+			constantsType, constantsIsObject := inputType[1].(*schema.ObjectSchema)
+
+			if combinedObjIsObject {
+				combinedObjectName = objItemType.ID()
+			} else {
+				combinedObjectName = string(objItemType.TypeID())
+			}
+			if constantsIsObject {
+				combinedObjectName += "_" + constantsType.ID()
+			} else {
+				combinedObjectName += "With" + string(constantsType.TypeID())
+			}
+
+			return schema.NewListSchema(
+				schema.NewObjectSchema(
+					combinedObjectName,
+					map[string]*schema.PropertySchema{
+						"item":     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
+						"constant": schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
+					}),
+				nil, nil), nil
 		})
 	if err != nil {
 		panic(err)
