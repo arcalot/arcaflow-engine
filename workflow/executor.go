@@ -120,6 +120,12 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 		return nil, err
 	}
 
+	// Apply step lifecycle objects to the input scope
+	err = applyLifecycleScopes(stepLifecycles, typedInput)
+	if err != nil {
+		return nil, err
+	}
+
 	// Stage 3: Construct an internal data model for the output data model
 	// provided by the steps. This is the schema the expressions evaluate
 	// against. You can use this to do static code analysis on the expressions.
@@ -221,7 +227,7 @@ func (e *executor) processInput(workflow *Workflow) (schema.Scope, error) {
 	if !ok {
 		return nil, fmt.Errorf("bug: unserialized input is not a scope")
 	}
-	typedInput.ApplyScope(typedInput)
+	typedInput.ApplyScope(typedInput, schema.DEFAULT_NAMESPACE)
 	return typedInput, nil
 }
 
@@ -305,6 +311,90 @@ func (e *executor) processSteps(
 	}
 
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
+}
+
+func applyLifecycleScopes(
+	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
+	typedInput schema.Scope,
+) error {
+	allNamespaces := make(map[string]schema.Scope)
+	for workflowStepID, stepLifecycle := range stepLifecycles {
+		for _, stage := range stepLifecycle.Stages {
+			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
+			// Apply inputs
+			// Example with stage "starting": $.steps.wait_step.starting.inputs.
+			addInputNamespacedScopes(allNamespaces, stage, prefix+"inputs.")
+			// Apply outputs
+			// Example with stage "outputs": $.steps.wait_step.outputs.outputs.
+			addOutputNamespacedScopes(allNamespaces, stage, prefix+"outputs.")
+		}
+	}
+	return applyAllNamespaces(allNamespaces, typedInput)
+}
+
+// applyAllNamespaces applies all namespaces to the given scope.
+// This function also validates references, and lists the namespaces
+// and their objects in the event of a reference failure.
+func applyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo schema.Scope) error {
+	for namespace, scope := range allNamespaces {
+		scopeToApplyTo.ApplyScope(scope, namespace)
+	}
+	err := scopeToApplyTo.ValidateReferences()
+	if err == nil {
+		return nil // Success
+	}
+	// Now on the error path. Provide useful debug info.
+	availableObjects := ""
+	for namespace, scope := range allNamespaces {
+		availableObjects += "\n\t" + namespace + ":"
+		for objectID := range scope.Objects() {
+			availableObjects += " " + objectID
+		}
+	}
+	availableObjects += "\n" // Since this is a multi-line error message, ending with a newline is clearer.
+	return fmt.Errorf(
+		"error validating references for workflow input (%w)\nAvailable namespaces and objects:%s",
+		err,
+		availableObjects,
+	)
+}
+
+func addOutputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
+	for outputID, outputSchema := range stage.Outputs {
+		addScopesWithReferences(allNamespaces, outputSchema.Schema(), prefix+outputID)
+	}
+}
+
+func addInputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
+	for inputID, inputSchemaProperty := range stage.InputSchema {
+		var inputSchemaType = inputSchemaProperty.Type()
+		// Extract item values from lists (like for ForEach)
+		if inputSchemaType.TypeID() == schema.TypeIDList {
+			inputSchemaType = inputSchemaType.(schema.UntypedList).Items()
+		}
+		if inputSchemaType.TypeID() == schema.TypeIDScope {
+			addScopesWithReferences(allNamespaces, inputSchemaType.(schema.Scope), prefix+inputID)
+		}
+	}
+}
+
+// Adds the scope to the namespace map, as well as all resolved references from external namespaces.
+func addScopesWithReferences(allNamespaces map[string]schema.Scope, scope schema.Scope, prefix string) {
+	// First, just adds the scope
+	allNamespaces[prefix] = scope
+	// Next, checks all properties for resolved references that reference objects outside of this scope.
+	rootObject := scope.Objects()[scope.Root()]
+	for propertyID, property := range rootObject.Properties() {
+		if property.Type().TypeID() == schema.TypeIDRef {
+			refProperty := property.Type().(schema.Ref)
+			if refProperty.Namespace() != schema.DEFAULT_NAMESPACE {
+				// Found a reference to an object that is not included in the scope. Add it to the map.
+				var referencedObject any = refProperty.GetObject()
+				refObjectSchema := referencedObject.(*schema.ObjectSchema)
+				allNamespaces[prefix+"."+propertyID] = schema.NewScopeSchema(refObjectSchema)
+			}
+		}
+	}
 }
 
 // connectStepDependencies connects the steps based on their expressions.

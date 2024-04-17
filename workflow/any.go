@@ -46,8 +46,12 @@ func (a *anySchemaWithExpressions) Serialize(data any) (any, error) {
 	return a.checkAndConvert(data)
 }
 
-func (a *anySchemaWithExpressions) ApplyScope(scope schema.Scope) {
-	a.anySchema.ApplyScope(scope)
+func (a *anySchemaWithExpressions) ApplyScope(scope schema.Scope, namespace string) {
+	a.anySchema.ApplyScope(scope, namespace)
+}
+
+func (a *anySchemaWithExpressions) ValidateReferences() error {
+	return a.anySchema.ValidateReferences()
 }
 
 func (a *anySchemaWithExpressions) TypeID() schema.TypeID {
