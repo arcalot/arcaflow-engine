@@ -562,9 +562,8 @@ func getBindConstantsFunction() schema.CallableFunction {
 			}
 			itemType := itemsType.ItemsValue
 			var combinedObjectName string
-			objItemType, combinedObjIsObject := itemType.(*schema.ObjectSchema)
-
-			constantsType, constantsIsObject := inputType[1].(*schema.ObjectSchema)
+			objItemType, combinedObjIsObject := schema.ConvertToObjectSchema(itemType)
+			constantsType, constantsIsObject := schema.ConvertToObjectSchema(inputType[1])
 
 			if combinedObjIsObject {
 				combinedObjectName = objItemType.ID()
