@@ -529,6 +529,10 @@ func getReadFileFunction() schema.CallableFunction {
 	return funcSchema
 }
 
+const CombinedObjPropertyConstantName = "constant"
+const CombinedObjPropertyItemName = "item"
+const CombinedObjIDDelimiter = "__"
+
 func getBindConstantsFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewDynamicCallableFunction(
 		"bindConstants",
@@ -547,8 +551,8 @@ func getBindConstantsFunction() schema.CallableFunction {
 			combinedItems := make([]any, len(items))
 			for k := range items {
 				combinedItems[k] = map[string]any{
-					"item":     items[k],
-					"constant": columnValues,
+					CombinedObjPropertyItemName:     items[k],
+					CombinedObjPropertyConstantName: columnValues,
 				}
 			}
 			return combinedItems, nil
@@ -577,17 +581,17 @@ func HandleTypeSchemaZip(inputType []schema.Type) (schema.Type, error) {
 		combinedObjectName = string(inputType[0].TypeID())
 	}
 	if constantsIsObject {
-		combinedObjectName += "__" + constantsType.ID()
+		combinedObjectName += CombinedObjIDDelimiter + constantsType.ID()
 	} else {
-		combinedObjectName += "__" + string(inputType[1].TypeID())
+		combinedObjectName += CombinedObjIDDelimiter + string(inputType[1].TypeID())
 	}
 
 	return schema.NewListSchema(
 		schema.NewObjectSchema(
 			combinedObjectName,
 			map[string]*schema.PropertySchema{
-				"item":     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
-				"constant": schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
+				CombinedObjPropertyItemName:     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
+				CombinedObjPropertyConstantName: schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
 			}),
 		nil, nil), nil
 }
