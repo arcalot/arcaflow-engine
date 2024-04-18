@@ -530,8 +530,6 @@ func getReadFileFunction() schema.CallableFunction {
 }
 
 func getBindConstantsFunction() schema.CallableFunction {
-	//repeatedValuesName := "repeated_values"
-
 	funcSchema, err := schema.NewDynamicCallableFunction(
 		"bindConstants",
 		[]schema.Type{
