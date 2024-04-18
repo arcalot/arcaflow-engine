@@ -7,6 +7,7 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -927,10 +928,14 @@ func Test_bindConstants(t *testing.T) {
 	//assert.NoError(t, outputType.Validate(outputExp[0]))
 }
 
+func defaultPropertySchema(t schema.Type) *schema.PropertySchema {
+	return schema.NewPropertySchema(t, nil, false, nil, nil, nil, nil, nil)
+}
+
 func TestHandleTypeSchemaZip(t *testing.T) {
 	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
 	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
-	listSchema1 := schema.NewListSchema(basicStringSchema, nil, nil)
+	listSchema1 := schema.NewListSchema(basicIntSchema, nil, nil)
 
 	_, err := builtinfunctions.HandleTypeSchemaZip(
 		[]schema.Type{basicStringSchema, basicIntSchema})
@@ -942,4 +947,39 @@ func TestHandleTypeSchemaZip(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "expected exactly two types")
 
+	//myFirstObj := schema.NewObjectSchema(
+	//	"First",
+	//	map[string]*schema.PropertySchema{
+	//		"list": defaultPropertySchema(listSchema1),
+	//	})
+
+	constantsObj := schema.NewObjectSchema(
+		"Constants",
+		map[string]*schema.PropertySchema{
+			"p_str": defaultPropertySchema(basicStringSchema),
+			"p_int": defaultPropertySchema(basicIntSchema),
+		})
+
+	testInputs := map[string]struct {
+		typeArgs       []schema.Type
+		expectedResult string
+		returnError    bool
+	}{
+		strings.Join([]string{"integer", "Constants"}, builtinfunctions.CombinedObjIDDelimiter): {
+			typeArgs:       []schema.Type{listSchema1, constantsObj},
+			expectedResult: strings.Join([]string{"integer", "Constants"}, builtinfunctions.CombinedObjIDDelimiter),
+		},
+	}
+
+	for testName, input := range testInputs {
+		t.Run(testName, func(t *testing.T) {
+			outputType, err := builtinfunctions.HandleTypeSchemaZip(input.typeArgs)
+			if !input.returnError {
+				assert.NoError(t, err)
+				listItemObj, isObj := schema.ConvertToObjectSchema(outputType.(*schema.ListSchema).ItemsValue)
+				assert.Equals(t, isObj, true)
+				assert.Equals(t, listItemObj.ID(), input.expectedResult)
+			}
+		})
+	}
 }
