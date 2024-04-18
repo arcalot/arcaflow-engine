@@ -555,38 +555,41 @@ func getBindConstantsFunction() schema.CallableFunction {
 			}
 			return combinedItems, nil
 		},
-		func(inputType []schema.Type) (schema.Type, error) {
-			itemsType, isList := inputType[0].(*schema.ListSchema)
-			if !isList {
-				return nil, fmt.Errorf("expected a list schema")
-			}
-			itemType := itemsType.ItemsValue
-			var combinedObjectName string
-			objItemType, combinedObjIsObject := schema.ConvertToObjectSchema(itemType)
-			constantsType, constantsIsObject := schema.ConvertToObjectSchema(inputType[1])
-
-			if combinedObjIsObject {
-				combinedObjectName = objItemType.ID()
-			} else {
-				combinedObjectName = string(objItemType.TypeID())
-			}
-			if constantsIsObject {
-				combinedObjectName += "_" + constantsType.ID()
-			} else {
-				combinedObjectName += "With" + string(constantsType.TypeID())
-			}
-
-			return schema.NewListSchema(
-				schema.NewObjectSchema(
-					combinedObjectName,
-					map[string]*schema.PropertySchema{
-						"item":     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
-						"constant": schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
-					}),
-				nil, nil), nil
-		})
+		HandleTypeSchemaZip,
+	)
 	if err != nil {
 		panic(err)
 	}
 	return funcSchema
+}
+
+func HandleTypeSchemaZip(inputType []schema.Type) (schema.Type, error) {
+	itemsType, isList := inputType[0].(*schema.ListSchema)
+	if !isList {
+		return nil, fmt.Errorf("expected a list schema")
+	}
+	itemType := itemsType.ItemsValue
+	objItemType, itemIsObject := schema.ConvertToObjectSchema(itemType)
+	constantsType, constantsIsObject := schema.ConvertToObjectSchema(inputType[1])
+
+	var combinedObjectName string
+	if itemIsObject {
+		combinedObjectName = objItemType.ID()
+	} else {
+		combinedObjectName = string(inputType[0].TypeID())
+	}
+	if constantsIsObject {
+		combinedObjectName += "__" + constantsType.ID()
+	} else {
+		combinedObjectName += "__" + string(inputType[1].TypeID())
+	}
+
+	return schema.NewListSchema(
+		schema.NewObjectSchema(
+			combinedObjectName,
+			map[string]*schema.PropertySchema{
+				"item":     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
+				"constant": schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
+			}),
+		nil, nil), nil
 }

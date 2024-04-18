@@ -885,8 +885,6 @@ func Test_bindConstants(t *testing.T) {
 	//	"items": []any{1, 2, 3},
 	//}
 
-	//repeated_input_name := "constant"
-	//item_name := "item"
 	items := []any{
 		map[string]any{"loop_id": 1},
 		map[string]any{"loop_id": 2},
@@ -896,15 +894,19 @@ func Test_bindConstants(t *testing.T) {
 		"a": "A", "b": "B",
 	}
 
-	functionToTest, _ := builtinfunctions.GetFunctions()["bindConstants"]
-	output, err := functionToTest.Call([]any{items, repeated_inputs})
-	assert.NoError(t, err)
-	fmt.Printf("%v\n", output)
+	//repeated_input_name := "constant"
+	//item_name := "item"
 	//outputExp := []any{
 	//	map[string]any{item_name: items[0], repeated_input_name: repeated_inputs},
 	//	map[string]any{item_name: items[1], repeated_input_name: repeated_inputs},
 	//	map[string]any{item_name: items[2], repeated_input_name: repeated_inputs},
 	//}
+
+	functionToTest, _ := builtinfunctions.GetFunctions()["bindConstants"]
+	output, err := functionToTest.Call([]any{items, repeated_inputs})
+	assert.NoError(t, err)
+	fmt.Printf("%v\n", output)
+
 	//assert.Equals(t, output.([]any), outputExp)
 
 	//for _, outExp := range outputExp {
