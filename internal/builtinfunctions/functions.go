@@ -568,8 +568,12 @@ func getBindConstantsFunction() schema.CallableFunction {
 func HandleTypeSchemaZip(inputType []schema.Type) (schema.Type, error) {
 	itemsType, isList := inputType[0].(*schema.ListSchema)
 	if !isList {
-		return nil, fmt.Errorf("expected a list schema")
+		return nil, fmt.Errorf("expected first type to be a list schema")
 	}
+	if len(inputType) != 2 {
+		return nil, fmt.Errorf("expected exactly two types")
+	}
+
 	itemType := itemsType.ItemsValue
 	objItemType, itemIsObject := schema.ConvertToObjectSchema(itemType)
 	constantsType, constantsIsObject := schema.ConvertToObjectSchema(inputType[1])

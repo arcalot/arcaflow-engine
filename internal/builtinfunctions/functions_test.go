@@ -926,3 +926,20 @@ func Test_bindConstants(t *testing.T) {
 
 	//assert.NoError(t, outputType.Validate(outputExp[0]))
 }
+
+func TestHandleTypeSchemaZip(t *testing.T) {
+	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
+	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
+	listSchema1 := schema.NewListSchema(basicStringSchema, nil, nil)
+
+	_, err := builtinfunctions.HandleTypeSchemaZip(
+		[]schema.Type{basicStringSchema, basicIntSchema})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "expected first type to be a list schema")
+
+	_, err = builtinfunctions.HandleTypeSchemaZip(
+		[]schema.Type{listSchema1})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "expected exactly two types")
+
+}
