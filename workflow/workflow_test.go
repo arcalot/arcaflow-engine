@@ -1162,6 +1162,48 @@ func TestNestedWorkflowWithNamespacedScopes(t *testing.T) {
 	}
 }
 
+var inputCancelledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_cancelled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    deploy:
+      deployer_name: "test-impl"
+      # Set the deploy time long enough for there to not be a race between this exiting and the cancellation.
+      # There is no dependency on stop_if, so we need to enforce order with this.
+      deploy_time: 50 # ms
+    input:
+      wait_time_ms: 20
+    stop_if: $.input.step_cancelled
+outputs:
+  success:
+    simple_wait_output: !expr $.steps.simple_wait.outputs.success
+`
+
+func TestInputCancelledStepWorkflow(t *testing.T) {
+	// Run a workflow where the step is disabled by a value in the input.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, inputCancelledStepWorkflow),
+	)
+	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_cancelled": true,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot construct any output")
+}
+
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
 		Level:       log.LevelDebug,

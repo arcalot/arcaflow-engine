@@ -810,6 +810,7 @@ func (r *runningStep) run() {
 			r.logger.Warningf("failed to remove deployed container for step %s/%s", r.runID, r.pluginStepID)
 		}
 		r.lock.Unlock()
+		r.transitionToCancelled()
 		return
 	default:
 		r.container = container
@@ -1019,6 +1020,14 @@ func (r *runningStep) deployFailed(err error) {
 		Error: err.Error(),
 	})
 	r.completeStep(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
+}
+
+func (r *runningStep) transitionToCancelled() {
+	r.logger.Infof("Step %s/%s cancelled", r.runID, r.pluginStepID)
+	// Follow the convention of transitioning to running then finished.
+	r.transitionStage(StageIDCancelled, step.RunningStepStateRunning)
+	// Cancelled currently has no output.
+	r.transitionStage(StageIDCancelled, step.RunningStepStateFinished)
 }
 
 func (r *runningStep) startFailed(err error) {
