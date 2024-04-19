@@ -582,7 +582,7 @@ func HandleTypeSchemaZip(inputType []schema.Type) (schema.Type, error) {
 	if itemIsObject {
 		combinedObjectName = objItemType.ID()
 	} else {
-		combinedObjectName = string(inputType[0].TypeID())
+		combinedObjectName = string(itemType.TypeID())
 	}
 	if constantsIsObject {
 		combinedObjectName += CombinedObjIDDelimiter + constantsType.ID()

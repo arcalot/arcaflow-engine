@@ -932,6 +932,10 @@ func defaultPropertySchema(t schema.Type) *schema.PropertySchema {
 	return schema.NewPropertySchema(t, nil, false, nil, nil, nil, nil, nil)
 }
 
+func joinStrs(s1, s2 string) string {
+	return strings.Join([]string{s1, s2}, builtinfunctions.CombinedObjIDDelimiter)
+}
+
 func TestHandleTypeSchemaZip(t *testing.T) {
 	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
 	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
@@ -960,26 +964,24 @@ func TestHandleTypeSchemaZip(t *testing.T) {
 			"p_int": defaultPropertySchema(basicIntSchema),
 		})
 
-	testInputs := map[string]struct {
+	type testInput struct {
 		typeArgs       []schema.Type
 		expectedResult string
-		returnError    bool
-	}{
-		strings.Join([]string{"integer", "Constants"}, builtinfunctions.CombinedObjIDDelimiter): {
+	}
+	testInputs := []testInput{
+		{
 			typeArgs:       []schema.Type{listSchema1, constantsObj},
-			expectedResult: strings.Join([]string{"integer", "Constants"}, builtinfunctions.CombinedObjIDDelimiter),
+			expectedResult: joinStrs("integer", "Constants"),
 		},
 	}
 
-	for testName, input := range testInputs {
-		t.Run(testName, func(t *testing.T) {
+	for _, input := range testInputs {
+		t.Run(input.expectedResult, func(t *testing.T) {
 			outputType, err := builtinfunctions.HandleTypeSchemaZip(input.typeArgs)
-			if !input.returnError {
-				assert.NoError(t, err)
-				listItemObj, isObj := schema.ConvertToObjectSchema(outputType.(*schema.ListSchema).ItemsValue)
-				assert.Equals(t, isObj, true)
-				assert.Equals(t, listItemObj.ID(), input.expectedResult)
-			}
+			assert.NoError(t, err)
+			listItemObj, isObj := schema.ConvertToObjectSchema(outputType.(*schema.ListSchema).ItemsValue)
+			assert.Equals(t, isObj, true)
+			assert.Equals(t, listItemObj.ID(), input.expectedResult)
 		})
 	}
 }
