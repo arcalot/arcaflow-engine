@@ -1193,7 +1193,10 @@ outputs:
 `
 
 func TestInputCancelledStepWorkflow(t *testing.T) {
-	// Run a workflow where the step is disabled by a value in the input.
+	// Run a workflow where the step is cancelled by a value in the input.
+	// This causes a cancellation during deployment. This is also unique
+	// because that cancelled step is the only step, so its cancellation
+	// must be handled properly to prevent a deadlock.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, inputCancelledStepWorkflow),
 	)
