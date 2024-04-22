@@ -852,18 +852,14 @@ func Test_bindConstants(t *testing.T) {
 
 	itemObj := schema.NewObjectSchema("Item",
 		map[string]*schema.PropertySchema{
-			"loop_id": schema.NewPropertySchema(
-				schema.NewIntSchema(nil, nil, nil),
-				nil, false, nil, nil, nil, nil, nil),
+			"loop_id": defaultPropertySchema(schema.NewIntSchema(nil, nil, nil)),
 		})
 	itemsObj := schema.NewListSchema(itemObj, nil, nil)
 
 	constObj := schema.NewObjectSchema("Constant",
 		map[string]*schema.PropertySchema{
-			"a": schema.NewPropertySchema(schema.NewStringSchema(nil, nil, nil), nil, false, nil, nil,
-				nil, nil, nil),
-			"b": schema.NewPropertySchema(schema.NewStringSchema(nil, nil, nil), nil, false, nil, nil,
-				nil, nil, nil),
+			"a": defaultPropertySchema(schema.NewStringSchema(nil, nil, nil)),
+			"b": defaultPropertySchema(schema.NewStringSchema(nil, nil, nil)),
 		})
 
 	//combinedObject := schema.NewObjectSchema(
@@ -919,6 +915,15 @@ func Test_bindConstants(t *testing.T) {
 	//	}
 	//	assert.Equals(t, match, true)
 	//}
+
+	//basicStringSchema := schema.NewStringSchema(nil, nil, nil)
+	//basicIntSchema := schema.NewIntSchema(nil, nil, nil)
+	//constantsObj := schema.NewObjectSchema(
+	//	"Constants",
+	//	map[string]*schema.PropertySchema{
+	//		"p_str": defaultPropertySchema(basicStringSchema),
+	//		"p_int": defaultPropertySchema(basicIntSchema),
+	//	})
 
 	outputType, errOut, err := functionToTest.Output([]schema.Type{itemsObj, constObj})
 	assert.NoError(t, err)
