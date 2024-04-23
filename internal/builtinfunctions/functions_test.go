@@ -823,65 +823,6 @@ func Test_floatToFormattedString_success(t *testing.T) {
 }
 
 func Test_bindConstants(t *testing.T) {
-	//repeatedValues := schema.NewObjectSchema(
-	//	"RepeatedValues",
-	//	map[string]*schema.PropertySchema{
-	//		"a": schema.NewPropertySchema(schema.NewStringSchema(nil, nil, nil),
-	//			nil, false, nil, nil,
-	//			nil, nil, nil),
-	//		"b": schema.NewPropertySchema(schema.NewStringSchema(nil, nil, nil),
-	//			nil, false, nil, nil,
-	//			nil, nil, nil),
-	//	})
-	//
-	//parentWorkflowRoot := schema.NewObjectSchema(
-	//	"ParentWorkflowRoot",
-	//	map[string]*schema.PropertySchema{
-	//		"repeated_inputs": schema.NewPropertySchema(
-	//			schema.NewRefSchema("RepeatedValues", nil),
-	//			nil, false, nil, nil,
-	//			nil, nil, nil),
-	//		"items": schema.NewPropertySchema(
-	//			// add more complex items object
-	//			schema.NewTypedListSchema[int64](
-	//				schema.NewIntSchema(nil, nil, nil), nil, nil),
-	//			nil, false, nil, nil,
-	//			nil, nil, nil),
-	//	})
-	//
-
-	itemObj := schema.NewObjectSchema("Item",
-		map[string]*schema.PropertySchema{
-			"loop_id": defaultPropertySchema(schema.NewIntSchema(nil, nil, nil)),
-		})
-	itemsObj := schema.NewListSchema(itemObj, nil, nil)
-
-	constObj := schema.NewObjectSchema("Constant",
-		map[string]*schema.PropertySchema{
-			"a": defaultPropertySchema(schema.NewStringSchema(nil, nil, nil)),
-			"b": defaultPropertySchema(schema.NewStringSchema(nil, nil, nil)),
-		})
-
-	//combinedObject := schema.NewObjectSchema(
-	//	"CombinedObject",
-	//	map[string]*schema.PropertySchema{
-	//		"constants": schema.NewPropertySchema(constObj,
-	//			nil, false, nil, nil,
-	//			nil, nil, nil),
-	//		"item": schema.NewPropertySchema(itemObj,
-	//			nil, false, nil, nil,
-	//			nil, nil, nil),
-	//	})
-
-	//scopeWf := schema.NewScopeSchema(parentWorkflowRoot, repeatedValues)
-	//scopeSubWf := schema.NewScopeSchema(subWorkflowRoot, parentWorkflowRoot, repeatedValues)
-	//inputData := map[string]any{
-	//	"repeated_inputs": map[string]any{
-	//		"a": "A", "b": "B",
-	//	},
-	//	"items": []any{1, 2, 3},
-	//}
-
 	items := []any{
 		map[string]any{"loop_id": 1},
 		map[string]any{"loop_id": 2},
@@ -890,47 +831,18 @@ func Test_bindConstants(t *testing.T) {
 	repeated_inputs := map[string]any{
 		"a": "A", "b": "B",
 	}
-
-	//repeated_input_name := "constant"
-	//item_name := "item"
-	//outputExp := []any{
-	//	map[string]any{item_name: items[0], repeated_input_name: repeated_inputs},
-	//	map[string]any{item_name: items[1], repeated_input_name: repeated_inputs},
-	//	map[string]any{item_name: items[2], repeated_input_name: repeated_inputs},
-	//}
+	repeated_input_name := "constant"
+	item_name := "item"
+	outputExp := []any{
+		map[string]any{item_name: items[0], repeated_input_name: repeated_inputs},
+		map[string]any{item_name: items[1], repeated_input_name: repeated_inputs},
+		map[string]any{item_name: items[2], repeated_input_name: repeated_inputs},
+	}
 
 	functionToTest, _ := builtinfunctions.GetFunctions()["bindConstants"]
 	output, err := functionToTest.Call([]any{items, repeated_inputs})
 	assert.NoError(t, err)
-	fmt.Printf("%v\n", output)
-
-	//assert.Equals(t, output.([]any), outputExp)
-
-	//for _, outExp := range outputExp {
-	//	match := false
-	//	for _, out := range output.([]any) {
-	//		if maps.Equal[map[string]any](outExp, out) {
-	//			match = true
-	//		}
-	//	}
-	//	assert.Equals(t, match, true)
-	//}
-
-	//basicStringSchema := schema.NewStringSchema(nil, nil, nil)
-	//basicIntSchema := schema.NewIntSchema(nil, nil, nil)
-	//constantsObj := schema.NewObjectSchema(
-	//	"Constants",
-	//	map[string]*schema.PropertySchema{
-	//		"p_str": defaultPropertySchema(basicStringSchema),
-	//		"p_int": defaultPropertySchema(basicIntSchema),
-	//	})
-
-	outputType, errOut, err := functionToTest.Output([]schema.Type{itemsObj, constObj})
-	assert.NoError(t, err)
-	assert.Equals(t, errOut, true)
-	fmt.Printf("outputType: %v\n", outputType)
-
-	//assert.NoError(t, outputType.Validate(outputExp[0]))
+	assert.Equals(t, output.([]any), outputExp)
 }
 
 func defaultPropertySchema(t schema.Type) *schema.PropertySchema {
@@ -997,12 +909,13 @@ func TestHandleTypeSchemaZip(t *testing.T) {
 	}
 
 	for _, input := range testInputs {
-		t.Run(input.expectedResult, func(t *testing.T) {
-			outputType, err := builtinfunctions.HandleTypeSchemaZip(input.typeArgs)
+		lclInput := input
+		t.Run(lclInput.expectedResult, func(t *testing.T) {
+			outputType, err := builtinfunctions.HandleTypeSchemaZip(lclInput.typeArgs)
 			assert.NoError(t, err)
 			listItemObj, isObj := schema.ConvertToObjectSchema(outputType.(*schema.ListSchema).ItemsValue)
 			assert.Equals(t, isObj, true)
-			assert.Equals(t, listItemObj.ID(), input.expectedResult)
+			assert.Equals(t, listItemObj.ID(), lclInput.expectedResult)
 		})
 	}
 }
