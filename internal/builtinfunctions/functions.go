@@ -547,7 +547,7 @@ func getBindConstantsFunction() schema.CallableFunction {
 					"Param 1: Value(s) to be included in the `item` field \n"+
 					"Param 2: Value(s) to populate the field `constant` with every output item\n"),
 			nil),
-		func(items []any, columnValues any) (any, error) {
+		func(items []any, columnValues map[string]any) (any, error) {
 			combinedItems := make([]any, len(items))
 			for k := range items {
 				combinedItems[k] = map[string]any{
