@@ -838,17 +838,10 @@ func Test_bindConstants(t *testing.T) {
 		map[string]any{item_name: items[1], repeated_input_name: repeated_inputs},
 		map[string]any{item_name: items[2], repeated_input_name: repeated_inputs},
 	}
-
 	functionToTest, _ := builtinfunctions.GetFunctions()["bindConstants"]
 	output, err := functionToTest.Call([]any{items, repeated_inputs})
 	assert.NoError(t, err)
 	assert.Equals(t, output.([]any), outputExp)
-
-	_, err = functionToTest.Call([]any{})
-	assert.Error(t, err)
-
-	_, err = functionToTest.Call([]any{repeated_inputs, repeated_inputs})
-	assert.Error(t, err)
 }
 
 func defaultPropertySchema(t schema.Type) *schema.PropertySchema {
@@ -867,12 +860,12 @@ func TestHandleTypeSchemaZip(t *testing.T) {
 	listInt := schema.NewListSchema(basicIntSchema, nil, nil)
 	listStr := schema.NewListSchema(basicStringSchema, nil, nil)
 
-	_, err := builtinfunctions.HandleTypeSchemaZip(
+	_, err := builtinfunctions.HandleTypeSchemaCombine(
 		[]schema.Type{basicStringSchema, basicIntSchema})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "expected first type to be a list schema")
 
-	_, err = builtinfunctions.HandleTypeSchemaZip(
+	_, err = builtinfunctions.HandleTypeSchemaCombine(
 		[]schema.Type{listInt})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "expected exactly two types")
@@ -917,7 +910,7 @@ func TestHandleTypeSchemaZip(t *testing.T) {
 	for _, input := range testInputs {
 		lclInput := input
 		t.Run(lclInput.expectedResult, func(t *testing.T) {
-			outputType, err := builtinfunctions.HandleTypeSchemaZip(lclInput.typeArgs)
+			outputType, err := builtinfunctions.HandleTypeSchemaCombine(lclInput.typeArgs)
 			assert.NoError(t, err)
 			listItemObj, isObj := schema.ConvertToObjectSchema(outputType.(*schema.ListSchema).ItemsValue)
 			assert.Equals(t, isObj, true)

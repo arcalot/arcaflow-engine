@@ -547,7 +547,7 @@ func getBindConstantsFunction() schema.CallableFunction {
 					"Param 1: Value(s) to be included in the `item` field \n"+
 					"Param 2: Value(s) to populate the field `constant` with every output item\n"),
 			nil),
-		func(items []any, columnValues map[string]any) (any, error) {
+		func(items []any, columnValues any) (any, error) {
 			combinedItems := make([]any, len(items))
 			for k := range items {
 				combinedItems[k] = map[string]any{
@@ -557,7 +557,7 @@ func getBindConstantsFunction() schema.CallableFunction {
 			}
 			return combinedItems, nil
 		},
-		HandleTypeSchemaZip,
+		HandleTypeSchemaCombine,
 	)
 	if err != nil {
 		panic(err)
@@ -565,7 +565,7 @@ func getBindConstantsFunction() schema.CallableFunction {
 	return funcSchema
 }
 
-func HandleTypeSchemaZip(inputType []schema.Type) (schema.Type, error) {
+func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 	itemsType, isList := inputType[0].(*schema.ListSchema)
 	if !isList {
 		return nil, fmt.Errorf("expected first type to be a list schema")
