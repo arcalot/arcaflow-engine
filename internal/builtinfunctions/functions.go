@@ -529,8 +529,13 @@ func getReadFileFunction() schema.CallableFunction {
 	return funcSchema
 }
 
+// CombinedObjPropertyConstantName is the identifier string key that points to the container of constant or repeated values.
 const CombinedObjPropertyConstantName = "constant"
+
+// CombinedObjPropertyItemName is the identifier string key that points to the container of a list of objects.
 const CombinedObjPropertyItemName = "item"
+
+// CombinedObjIDDelimiter is the delimiter for joining Object ID strings and/or TypeID strings.
 const CombinedObjIDDelimiter = "__"
 
 func getBindConstantsFunction() schema.CallableFunction {
@@ -565,6 +570,9 @@ func getBindConstantsFunction() schema.CallableFunction {
 	return funcSchema
 }
 
+// HandleTypeSchemaCombine returns the type that is output by the 'bindConstants' function.
+// Its parameter list requires a ListSchema, and at least one other schema of any type.
+// A new ListSchema of ObjectSchemas is created from the two given types.
 func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 	itemsType, isList := inputType[0].(*schema.ListSchema)
 	if !isList {

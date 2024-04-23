@@ -828,18 +828,18 @@ func Test_bindConstants(t *testing.T) {
 		map[string]any{"loop_id": 2},
 		map[string]any{"loop_id": 3},
 	}
-	repeated_inputs := map[string]any{
+	repeatedInputs := map[string]any{
 		"a": "A", "b": "B",
 	}
-	repeated_input_name := "constant"
-	item_name := "item"
+	repeatedInputName := builtinfunctions.CombinedObjPropertyConstantName
+	itemName := builtinfunctions.CombinedObjPropertyItemName
 	outputExp := []any{
-		map[string]any{item_name: items[0], repeated_input_name: repeated_inputs},
-		map[string]any{item_name: items[1], repeated_input_name: repeated_inputs},
-		map[string]any{item_name: items[2], repeated_input_name: repeated_inputs},
+		map[string]any{itemName: items[0], repeatedInputName: repeatedInputs},
+		map[string]any{itemName: items[1], repeatedInputName: repeatedInputs},
+		map[string]any{itemName: items[2], repeatedInputName: repeatedInputs},
 	}
-	functionToTest, _ := builtinfunctions.GetFunctions()["bindConstants"]
-	output, err := functionToTest.Call([]any{items, repeated_inputs})
+	functionToTest := builtinfunctions.GetFunctions()["bindConstants"]
+	output, err := functionToTest.Call([]any{items, repeatedInputs})
 	assert.NoError(t, err)
 	assert.Equals(t, output.([]any), outputExp)
 }
