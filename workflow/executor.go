@@ -383,7 +383,7 @@ func addScopesWithReferences(allNamespaces map[string]schema.Scope, scope schema
 	// First, just adds the scope
 	allNamespaces[prefix] = scope
 	// Next, checks all properties for resolved references that reference objects outside of this scope.
-	rootObject := scope.Objects()[scope.Root()]
+	rootObject := scope.RootObject()
 	for propertyID, property := range rootObject.Properties() {
 		if property.Type().TypeID() == schema.TypeIDRef {
 			refProperty := property.Type().(schema.Ref)

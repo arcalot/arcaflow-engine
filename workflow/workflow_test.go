@@ -284,7 +284,7 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 	)
 	// First, get the root object
 	inputSchema := preparedWorkflow.Input()
-	rootObject := inputSchema.Objects()[inputSchema.Root()]
+	rootObject := inputSchema.RootObject()
 	type testIterType struct {
 		defaultSpec *string
 		input       map[string]any
