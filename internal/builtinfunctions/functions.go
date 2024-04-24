@@ -584,7 +584,9 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 
 	itemType := itemsType.ItemsValue
 	objItemType, itemIsObject := schema.ConvertToObjectSchema(itemType)
-	constantsType, constantsIsObject := schema.ConvertToObjectSchema(inputType[1])
+
+	constantsTypeArg := inputType[1]
+	constantsType, constantsIsObject := schema.ConvertToObjectSchema(constantsTypeArg)
 
 	var combinedObjectName string
 	if itemIsObject {
@@ -595,7 +597,7 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 	if constantsIsObject {
 		combinedObjectName += CombinedObjIDDelimiter + constantsType.ID()
 	} else {
-		combinedObjectName += CombinedObjIDDelimiter + string(inputType[1].TypeID())
+		combinedObjectName += CombinedObjIDDelimiter + string(constantsTypeArg.TypeID())
 	}
 
 	return schema.NewListSchema(
@@ -603,7 +605,7 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 			combinedObjectName,
 			map[string]*schema.PropertySchema{
 				CombinedObjPropertyItemName:     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
-				CombinedObjPropertyConstantName: schema.NewPropertySchema(inputType[1], nil, false, nil, nil, nil, nil, nil),
+				CombinedObjPropertyConstantName: schema.NewPropertySchema(constantsTypeArg, nil, false, nil, nil, nil, nil, nil),
 			}),
 		nil, nil), nil
 }
