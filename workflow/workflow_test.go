@@ -1181,11 +1181,13 @@ steps:
     step: wait
     deploy:
       deployer_name: "test-impl"
-      # Set the deploy time long enough for there to not be a race between this exiting and the cancellation.
-      # There is no dependency on stop_if, so we need to enforce order with this.
+      # stop_if doesn't create any dependency, so we must keep the step in the deployment
+      # stage long enough for the cancellation to occur. Otherwise there would be a race.
       deploy_time: 50 # ms
     input:
-      wait_time_ms: 20
+      # The actual wait time should not matter for this test because the intention is to
+      # to cancel it before it is run.
+      wait_time_ms: 0
     stop_if: $.input.step_cancelled
 outputs:
   success:
@@ -1194,9 +1196,12 @@ outputs:
 
 func TestInputCancelledStepWorkflow(t *testing.T) {
 	// Run a workflow where the step is cancelled by a value in the input.
-	// This causes a cancellation during deployment. This is also unique
-	// because that cancelled step is the only step, so its cancellation
-	// must be handled properly to prevent a deadlock.
+	// Therefore, the step and stop_if have their dependencies resolved already.
+	// This causes a cancellation that is executed around the time that
+	// the step starts, which could be during deployment. In this test
+	// the cancellation is enforced to be during deployment with delays.
+	// In addition, the cancelled step is the only step, so its
+	// cancellation must be handled properly to prevent a deadlock.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, inputCancelledStepWorkflow),
 	)
