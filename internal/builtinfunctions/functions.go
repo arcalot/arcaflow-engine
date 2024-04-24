@@ -581,25 +581,9 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 	if len(inputType) != 2 {
 		return nil, fmt.Errorf("expected exactly two types")
 	}
-
 	itemType := itemsType.ItemsValue
-	objItemType, itemIsObject := schema.ConvertToObjectSchema(itemType)
-
 	constantsTypeArg := inputType[1]
-	constantsType, constantsIsObject := schema.ConvertToObjectSchema(constantsTypeArg)
-
-	var combinedObjectName string
-	if itemIsObject {
-		combinedObjectName = objItemType.ID()
-	} else {
-		combinedObjectName = string(itemType.TypeID())
-	}
-	if constantsIsObject {
-		combinedObjectName += CombinedObjIDDelimiter + constantsType.ID()
-	} else {
-		combinedObjectName += CombinedObjIDDelimiter + string(constantsTypeArg.TypeID())
-	}
-
+	combinedObjectName := schemaName(itemType) + CombinedObjIDDelimiter + schemaName(constantsTypeArg)
 	return schema.NewListSchema(
 		schema.NewObjectSchema(
 			combinedObjectName,
@@ -608,4 +592,12 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 				CombinedObjPropertyConstantName: schema.NewPropertySchema(constantsTypeArg, nil, false, nil, nil, nil, nil, nil),
 			}),
 		nil, nil), nil
+}
+
+func schemaName(typeSchema schema.Type) string {
+	objItemType, itemIsObject := schema.ConvertToObjectSchema(typeSchema)
+	if itemIsObject {
+		return objItemType.ID()
+	}
+	return string(typeSchema.TypeID())
 }
