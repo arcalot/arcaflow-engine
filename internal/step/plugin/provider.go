@@ -1058,8 +1058,6 @@ func (r *runningStep) runFailed(err error) {
 }
 
 // TransitionStage transitions the stage to the specified stage, and the state to the specified state.
-//
-//nolint:unparam
 func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepState) {
 	r.transitionStageWithOutput(newStage, state, nil, nil)
 }
