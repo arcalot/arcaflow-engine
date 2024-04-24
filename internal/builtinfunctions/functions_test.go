@@ -845,7 +845,7 @@ func Test_bindConstants(t *testing.T) {
 
 	output, err = functionToTest.Call([]any{[]any{}, repeatedInputs})
 	assert.NoError(t, err)
-	fmt.Printf("%v\n", output)
+	assert.Equals(t, output.([]any), []any{})
 }
 
 func defaultPropertySchema(t schema.Type) *schema.PropertySchema {

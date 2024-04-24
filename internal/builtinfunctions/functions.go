@@ -552,7 +552,7 @@ func getBindConstantsFunction() schema.CallableFunction {
 					fmt.Sprintf("Param 1: Value(s) to be included in the `%s` field \n", CombinedObjPropertyItemName)+
 					fmt.Sprintf("Param 2: Value(s) to populate the field `%s` with every output item", CombinedObjPropertyConstantName)),
 			nil),
-		func(items []any, columnValues any) ([]any, error) {
+		func(items []any, columnValues any) (any, error) {
 			combinedItems := make([]any, len(items))
 			for k, itemValue := range items {
 				combinedItems[k] = map[string]any{
