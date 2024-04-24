@@ -548,15 +548,15 @@ func getBindConstantsFunction() schema.CallableFunction {
 			schema.PointerTo("Bind Constants"),
 			schema.PointerTo(
 				"Creates a list of objects with ID `CombinedObject`. "+
-					"Each object has two properties `item` and `constant`.\n"+
-					"Param 1: Value(s) to be included in the `item` field \n"+
-					"Param 2: Value(s) to populate the field `constant` with every output item\n"),
+					fmt.Sprintf("Each object has two properties `%s` and `%s`.\n", CombinedObjPropertyItemName, CombinedObjPropertyConstantName)+
+					fmt.Sprintf("Param 1: Value(s) to be included in the `%s` field \n", CombinedObjPropertyItemName)+
+					fmt.Sprintf("Param 2: Value(s) to populate the field `%s` with every output item", CombinedObjPropertyConstantName)),
 			nil),
-		func(items []any, columnValues any) (any, error) {
+		func(items []any, columnValues any) ([]any, error) {
 			combinedItems := make([]any, len(items))
-			for k := range items {
+			for k, itemValue := range items {
 				combinedItems[k] = map[string]any{
-					CombinedObjPropertyItemName:     items[k],
+					CombinedObjPropertyItemName:     itemValue,
 					CombinedObjPropertyConstantName: columnValues,
 				}
 			}
@@ -571,15 +571,15 @@ func getBindConstantsFunction() schema.CallableFunction {
 }
 
 // HandleTypeSchemaCombine returns the type that is output by the 'bindConstants' function.
-// Its parameter list requires a ListSchema, and at least one other schema of any type.
+// Its parameter list requires a ListSchema and one other schema of any type.
 // A new ListSchema of ObjectSchemas is created from the two given types.
 func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
+	if len(inputType) != 2 {
+		return nil, fmt.Errorf("expected exactly two types")
+	}
 	itemsType, isList := inputType[0].(*schema.ListSchema)
 	if !isList {
 		return nil, fmt.Errorf("expected first type to be a list schema")
-	}
-	if len(inputType) != 2 {
-		return nil, fmt.Errorf("expected exactly two types")
 	}
 	itemType := itemsType.ItemsValue
 	constantsTypeArg := inputType[1]
