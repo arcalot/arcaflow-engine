@@ -843,6 +843,7 @@ func Test_bindConstants(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equals(t, output.([]any), outputExp)
 
+	// no items in input list
 	output, err = functionToTest.Call([]any{[]any{}, repeatedInputs})
 	assert.NoError(t, err)
 	assert.Equals(t, output.([]any), []any{})
@@ -884,12 +885,12 @@ func TestHandleTypeSchemaCombine(t *testing.T) {
 	_, err := builtinfunctions.HandleTypeSchemaCombine(
 		[]schema.Type{basicStringSchema, basicIntSchema})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected first type to be a list schema")
+	assert.Contains(t, err.Error(), "expected first input type to be a list schema")
 
 	_, err = builtinfunctions.HandleTypeSchemaCombine(
 		[]schema.Type{listInt})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected exactly two types")
+	assert.Contains(t, err.Error(), "expected exactly two input types")
 
 	// valid inputs
 	type testInput struct {
@@ -912,6 +913,10 @@ func TestHandleTypeSchemaCombine(t *testing.T) {
 		{
 			typeArgs:       []schema.Type{listStr, basicIntSchema},
 			expectedResult: joinStrs(strTypeID, intTypeID),
+		},
+		{
+			typeArgs:       []schema.Type{listStr, listMyFirstObj},
+			expectedResult: joinStrs(strTypeID, myFirstObj.ID()),
 		},
 	}
 
