@@ -856,24 +856,16 @@ func joinStrs(s1, s2 string) string {
 	return strings.Join([]string{s1, s2}, builtinfunctions.CombinedObjIDDelimiter)
 }
 
-func TestHandleTypeSchemaZip(t *testing.T) {
+// TestHandleTypeSchemaCombine tests the error cases for invalid input, and
+// the equivalence classes of valid input creates the expected behavior in
+// the returned error and returned type and type name, respectively.
+func TestHandleTypeSchemaCombine(t *testing.T) {
 	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
 	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
 	strTypeID := string(basicStringSchema.TypeID())
 	intTypeID := string(basicIntSchema.TypeID())
 	listInt := schema.NewListSchema(basicIntSchema, nil, nil)
 	listStr := schema.NewListSchema(basicStringSchema, nil, nil)
-
-	_, err := builtinfunctions.HandleTypeSchemaCombine(
-		[]schema.Type{basicStringSchema, basicIntSchema})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected first type to be a list schema")
-
-	_, err = builtinfunctions.HandleTypeSchemaCombine(
-		[]schema.Type{listInt})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected exactly two types")
-
 	myFirstObj := schema.NewObjectSchema(
 		"ObjectTitle",
 		map[string]*schema.PropertySchema{
@@ -888,6 +880,18 @@ func TestHandleTypeSchemaZip(t *testing.T) {
 			"p_int": defaultPropertySchema(basicIntSchema),
 		})
 
+	// invalid inputs
+	_, err := builtinfunctions.HandleTypeSchemaCombine(
+		[]schema.Type{basicStringSchema, basicIntSchema})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "expected first type to be a list schema")
+
+	_, err = builtinfunctions.HandleTypeSchemaCombine(
+		[]schema.Type{listInt})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "expected exactly two types")
+
+	// valid inputs
 	type testInput struct {
 		typeArgs       []schema.Type
 		expectedResult string

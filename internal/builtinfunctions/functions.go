@@ -572,14 +572,14 @@ func getBindConstantsFunction() schema.CallableFunction {
 
 // HandleTypeSchemaCombine returns the type that is output by the 'bindConstants' function.
 // Its parameter list requires a ListSchema and one other schema of any type.
-// A new ListSchema of ObjectSchemas is created from the two given types.
+// A new ListSchema of ObjectSchemas is created from the two input types.
 func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 	if len(inputType) != 2 {
-		return nil, fmt.Errorf("expected exactly two types")
+		return nil, fmt.Errorf("expected exactly two input types")
 	}
 	itemsType, isList := inputType[0].(*schema.ListSchema)
 	if !isList {
-		return nil, fmt.Errorf("expected first type to be a list schema")
+		return nil, fmt.Errorf("expected first input type to be a list schema")
 	}
 	itemType := itemsType.ItemsValue
 	constantsTypeArg := inputType[1]
