@@ -1182,7 +1182,7 @@ steps:
     deploy:
       deployer_name: "test-impl"
       # stop_if doesn't create any dependency, so we must keep the step in the deployment
-      # stage long enough for the cancellation to occur. Otherwise there would be a race.
+      # stage long enough for the cancellation to occur at the intended stage.
       deploy_time: 50 # ms
     input:
       # The actual wait time should not matter for this test because the intention is to
