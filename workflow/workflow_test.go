@@ -1195,11 +1195,12 @@ outputs:
 `
 
 func TestInputCancelledStepWorkflow(t *testing.T) {
-	// Run a workflow where the step is cancelled by a value in the input.
-	// Therefore, the step and stop_if have their dependencies resolved already.
-	// This causes a cancellation that is executed around the time that
-	// the step starts, which could be during deployment. In this test
-	// the cancellation is enforced to be during deployment with delays.
+	// Run a workflow where the step is cancelled before deployment.
+	// The dependencies of `stop_if` are already resolved when the step
+	// gets deployed. This causes a cancellation that is executed around
+	// the time that the step begins processing.
+	// This test configures the deployer with a delay to allow the
+	// cancellation to be delivered before the deployment finishes.
 	// In addition, the cancelled step is the only step, so its
 	// cancellation must be handled properly to prevent a deadlock.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
