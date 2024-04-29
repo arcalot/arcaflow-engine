@@ -538,6 +538,9 @@ const CombinedObjPropertyItemName = "item"
 // CombinedObjIDDelimiter is the delimiter for joining Object ID strings and/or TypeID strings.
 const CombinedObjIDDelimiter = "__"
 
+// ListSchemaNameDelimiter is the delimiter for joining the names of the types nested within a list.
+const ListSchemaNameDelimiter = "_"
+
 func getBindConstantsFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewDynamicCallableFunction(
 		"bindConstants",
@@ -595,9 +598,20 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 }
 
 func schemaName(typeSchema schema.Type) string {
+	return strings.Join(SchemaNames(typeSchema, []string{}), ListSchemaNameDelimiter)
+}
+
+func SchemaNames(typeSchema schema.Type, names []string) []string {
+	listSchema, isList := typeSchema.(*schema.ListSchema)
+	if isList {
+		names = append(names, string(listSchema.TypeID()))
+		return SchemaNames(listSchema.ItemsValue, names)
+	}
 	objItemType, itemIsObject := schema.ConvertToObjectSchema(typeSchema)
 	if itemIsObject {
-		return objItemType.ID()
+		names = append(names, objItemType.ID())
+	} else {
+		names = append(names, string(typeSchema.TypeID()))
 	}
-	return string(typeSchema.TypeID())
+	return names
 }
