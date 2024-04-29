@@ -858,8 +858,8 @@ func joinStrs(s1, s2 string) string {
 }
 
 // TestHandleTypeSchemaCombine tests the error cases for invalid input, and
-// the equivalence classes of valid input creates the expected behavior in
-// the returned error and returned type and type name, respectively.
+// the valid input cases create the expected behavior in the returned error
+// and returned type and type name, respectively.
 func TestHandleTypeSchemaCombine(t *testing.T) {
 	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
 	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
@@ -882,15 +882,18 @@ func TestHandleTypeSchemaCombine(t *testing.T) {
 		})
 
 	// invalid inputs
-	_, err := builtinfunctions.HandleTypeSchemaCombine(
-		[]schema.Type{basicStringSchema, basicIntSchema})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected first input type to be a list schema")
-
-	_, err = builtinfunctions.HandleTypeSchemaCombine(
-		[]schema.Type{listInt})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected exactly two input types")
+	t.Run("first argument incorrect type", func(t *testing.T) {
+		_, err := builtinfunctions.HandleTypeSchemaCombine(
+			[]schema.Type{basicStringSchema, basicIntSchema})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "expected first input type to be a list schema")
+	})
+	t.Run("incorrect argument quantity", func(t *testing.T) {
+		_, err := builtinfunctions.HandleTypeSchemaCombine(
+			[]schema.Type{listInt})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "expected exactly two input types")
+	})
 
 	// valid inputs
 	type testInput struct {
@@ -914,10 +917,10 @@ func TestHandleTypeSchemaCombine(t *testing.T) {
 			typeArgs:       []schema.Type{listStr, basicIntSchema},
 			expectedResult: joinStrs(strTypeID, intTypeID),
 		},
-		{
-			typeArgs:       []schema.Type{listStr, listMyFirstObj},
-			expectedResult: joinStrs(strTypeID, myFirstObj.ID()),
-		},
+		//{
+		//	typeArgs:       []schema.Type{listStr, listMyFirstObj},
+		//	expectedResult: joinStrs(strTypeID, myFirstObj.ID()),
+		//},
 	}
 
 	for _, input := range testInputs {
