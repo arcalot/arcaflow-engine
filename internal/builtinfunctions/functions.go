@@ -598,14 +598,14 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 }
 
 func schemaName(typeSchema schema.Type) string {
-	return strings.Join(SchemaNames(typeSchema, []string{}), ListSchemaNameDelimiter)
+	return strings.Join(BuildSchemaNames(typeSchema, []string{}), ListSchemaNameDelimiter)
 }
 
-func SchemaNames(typeSchema schema.Type, names []string) []string {
+func BuildSchemaNames(typeSchema schema.Type, names []string) []string {
 	listSchema, isList := typeSchema.(*schema.ListSchema)
 	if isList {
 		names = append(names, string(listSchema.TypeID()))
-		return SchemaNames(listSchema.ItemsValue, names)
+		return BuildSchemaNames(listSchema.ItemsValue, names)
 	}
 	objItemType, itemIsObject := schema.ConvertToObjectSchema(typeSchema)
 	if itemIsObject {

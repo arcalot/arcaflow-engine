@@ -1035,7 +1035,7 @@ func TestSchemaNames(t *testing.T) {
 	for _, input := range testInputs {
 		lclInput := input
 		t.Run(strings.Join(lclInput.expectedResult, "_"), func(t *testing.T) {
-			outputNames := builtinfunctions.SchemaNames(lclInput.typeArgs, []string{})
+			outputNames := builtinfunctions.BuildSchemaNames(lclInput.typeArgs, []string{})
 			assert.Equals(t, outputNames, lclInput.expectedResult)
 		})
 	}
