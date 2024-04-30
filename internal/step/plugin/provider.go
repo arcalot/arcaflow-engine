@@ -147,6 +147,9 @@ const (
 	StageIDDeployFailed StageID = "deploy_failed"
 	// StageIDRunning is a stage that indicates that a plugin is now working.
 	StageIDRunning StageID = "running"
+	// StageIDEnabling is a stage that indicates that the plugin is waiting to be enabled.
+	// This is required to be separate to ensure that it exits immediately if disabled.
+	StageIDEnabling StageID = "enabling"
 	// StageIDCancelled is a stage that indicates that the plugin's step was cancelled.
 	StageIDCancelled StageID = "cancelled"
 	// StageIDOutput is a stage that indicates that the plugin has completed working successfully.
@@ -174,6 +177,19 @@ var deployFailedLifecycleStage = step.LifecycleStage{
 	RunningName:  "deploy failed",
 	FinishedName: "deploy failed",
 	Fatal:        true,
+}
+
+var enablingLifecycleStage = step.LifecycleStage{
+	ID:           string(StageIDEnabling),
+	WaitingName:  "waiting to be enabled",
+	RunningName:  "enabling",
+	FinishedName: "enablement determined",
+	InputFields: map[string]struct{}{
+		"enabled": {},
+	},
+	NextStages: []string{
+		string(StageIDStarting), string(StageIDOutput),
+	},
 }
 
 var startingLifecycleStage = step.LifecycleStage{
@@ -213,6 +229,18 @@ var cancelledLifecycleStage = step.LifecycleStage{
 		string(StageIDOutput), string(StageIDCrashed), string(StageIDDeployFailed),
 	},
 }
+
+/*var disabledLifecycleStage = step.LifecycleStage{
+	ID:           string(StageIDDisabled),
+	WaitingName:  "waiting for the step to be disabled",
+	RunningName:  "disabling",
+	FinishedName: "disabled",
+	InputFields:  map[string]struct{}{}, // The starting stage is the one that waits, so the input goes there instead.
+	NextStages: []string{
+		string(StageIDOutput),
+	},
+}*/
+
 var finishedLifecycleStage = step.LifecycleStage{
 	ID:           string(StageIDOutput),
 	WaitingName:  "finished",
@@ -233,9 +261,11 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 		Stages: []step.LifecycleStage{
 			deployingLifecycleStage,
 			deployFailedLifecycleStage,
+			enablingLifecycleStage,
 			startingLifecycleStage,
 			runningLifecycleStage,
 			cancelledLifecycleStage,
+			//disabledLifecycleStage,
 			finishedLifecycleStage,
 			crashedLifecycleStage,
 		},
@@ -437,6 +467,26 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 				},
 			},
 			{
+				LifecycleStage: enablingLifecycleStage,
+				InputSchema: map[string]*schema.PropertySchema{
+					"enabled": schema.NewPropertySchema(
+						schema.NewBoolSchema(),
+						schema.NewDisplayValue(
+							schema.PointerTo("Enabled"),
+							schema.PointerTo("Used to set whether the step is enabled."),
+							nil,
+						),
+						false,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+					),
+				},
+				Outputs: nil,
+			},
+			{
 				LifecycleStage: startingLifecycleStage,
 				InputSchema: map[string]*schema.PropertySchema{
 					"input": schema.NewPropertySchema(
@@ -463,6 +513,20 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 						nil,
 					),
+					"enabled": schema.NewPropertySchema(
+						schema.NewBoolSchema(),
+						schema.NewDisplayValue(
+							schema.PointerTo("Enabled"),
+							schema.PointerTo("Used to set whether the step is enabled."),
+							nil,
+						),
+						false,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+					),
 				},
 				Outputs: map[string]*schema.StepOutputSchema{
 					"started": r.StartedSchema(),
@@ -480,6 +544,11 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 				},
 				Outputs: nil,
 			},
+			/*{
+				LifecycleStage: disabledLifecycleStage,
+				InputSchema:    nil,
+				Outputs:        nil,
+			},*/
 			{
 				LifecycleStage: finishedLifecycleStage,
 				InputSchema:    nil,
@@ -563,6 +632,7 @@ func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHand
 		cancel:             cancel,
 		deployInput:        make(chan any, 1),
 		runInput:           make(chan any, 1),
+		enabledInput:       make(chan bool, 1),
 		logger:             r.logger,
 		deploymentType:     r.deploymentType,
 		source:             r.source,
@@ -581,32 +651,34 @@ func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHand
 }
 
 type runningStep struct {
-	deployerRegistry     registry.Registry
-	stepSchema           schema.Step
-	stageChangeHandler   step.StageChangeHandler
-	lock                 *sync.Mutex
-	wg                   sync.WaitGroup
-	ctx                  context.Context
-	cancel               context.CancelFunc
-	atpClient            atp.Client
-	deployInput          chan any
-	deployInputAvailable bool
-	runInput             chan any
-	runInputAvailable    bool
-	logger               log.Logger
-	currentStage         StageID
-	runID                string // The ID associated with this execution (the workflow step ID)
-	deploymentType       deployer.DeploymentType
-	source               string
-	pluginStepID         string // The ID of the step in the plugin
-	state                step.RunningStepState
-	useLocalDeployer     bool
-	localDeployer        deployer.Connector
-	container            deployer.Plugin
-	executionChannel     chan atp.ExecutionResult
-	signalToStep         chan schema.Input // Communicates with the ATP client, not other steps.
-	signalFromStep       chan schema.Input // Communicates with the ATP client, not other steps.
-	closed               bool
+	deployerRegistry      registry.Registry
+	stepSchema            schema.Step
+	stageChangeHandler    step.StageChangeHandler
+	lock                  *sync.Mutex
+	wg                    sync.WaitGroup
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	atpClient             atp.Client
+	deployInput           chan any
+	deployInputAvailable  bool
+	enabledInput          chan bool
+	enabledInputAvailable bool
+	runInput              chan any
+	runInputAvailable     bool
+	logger                log.Logger
+	currentStage          StageID
+	runID                 string // The ID associated with this execution (the workflow step ID)
+	deploymentType        deployer.DeploymentType
+	source                string
+	pluginStepID          string // The ID of the step in the plugin
+	state                 step.RunningStepState
+	useLocalDeployer      bool
+	localDeployer         deployer.Connector
+	container             deployer.Plugin
+	executionChannel      chan atp.ExecutionResult
+	signalToStep          chan schema.Input // Communicates with the ATP client, not other steps.
+	signalFromStep        chan schema.Input // Communicates with the ATP client, not other steps.
+	closed                bool
 	// Store channels for sending pre-calculated signal outputs to other steps?
 	// Store channels for receiving pre-calculated signal inputs from other steps?
 }
@@ -640,6 +712,8 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		return r.provideDeployInput(input)
 	case string(StageIDStarting):
 		return r.provideStartingInput(input)
+	case string(StageIDEnabling):
+		return r.provideEnablingInput(input)
 	case string(StageIDRunning):
 		return nil
 	case string(StageIDCancelled):
@@ -688,10 +762,23 @@ func (r *runningStep) provideDeployInput(input map[string]any) error {
 	return nil
 }
 
+func (r *runningStep) provideEnablingInput(input map[string]any) error {
+	// Note: The calling function must have the step mutex locked
+	if r.enabledInputAvailable {
+		return fmt.Errorf("enabled input provided more than once")
+	}
+	// Check to make sure it's enabled.
+	// This is an optional field, so no input means enabled.
+	enabled := input["enabled"] == nil || input["enabled"] == true
+	r.enabledInputAvailable = true
+	r.enabledInput <- enabled
+	return nil
+}
+
 func (r *runningStep) provideStartingInput(input map[string]any) error {
 	// Note: The calling function must have the step mutex locked
 	if r.runInputAvailable {
-		return fmt.Errorf("input provided more than once")
+		return fmt.Errorf("starting input provided more than once")
 	}
 	// Ensure input is given
 	if input["input"] == nil {
@@ -817,6 +904,18 @@ func (r *runningStep) run() {
 	}
 	r.lock.Unlock()
 	r.logger.Debugf("Successfully deployed container with ID '%s' for step %s/%s", container.ID(), r.runID, r.pluginStepID)
+
+	r.logger.Debugf("Checking to see if step %s/%s is enabled", r.runID, r.pluginStepID)
+	enabled, err := r.enableStage()
+	r.logger.Debugf("Step %s/%s enablement state: %t", r.runID, r.pluginStepID, enabled)
+	if err != nil {
+		// TODO
+		r.logger.Errorf("TODO: Error while checking stage enablement")
+	}
+	if !enabled {
+		r.startFailed(fmt.Errorf("step disabled; TODO: handle this more gracefully"))
+		return
+	}
 	if err := r.startStage(container); err != nil {
 		r.startFailed(err)
 		return
@@ -883,6 +982,32 @@ func (r *runningStep) deployStage() (deployer.Plugin, error) {
 		return nil, err
 	}
 	return container, nil
+}
+
+// enableStage returns the result of whether the stage was enabled or not.
+func (r *runningStep) enableStage() (bool, error) {
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentStage = StageIDEnabling
+	enabledInputAvailable := r.enabledInputAvailable
+	r.lock.Unlock()
+
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(StageIDEnabling),
+		enabledInputAvailable,
+		&r.wg,
+	)
+
+	select {
+	case enabled := <-r.enabledInput:
+		return enabled, nil
+	case <-r.ctx.Done():
+		return false, fmt.Errorf("step closed while determining enablement status")
+	}
 }
 
 func (r *runningStep) startStage(container deployer.Plugin) error {

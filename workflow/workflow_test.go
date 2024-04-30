@@ -1213,6 +1213,112 @@ func TestInputCancelledStepWorkflow(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot construct any output")
 }
 
+var inputDisabledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    deploy:
+      deployer_name: "test-impl"
+      # Disabling steps waits for the value to be resolved before executing the step.
+      # So if it's working correctly, this should not cause any race conditions.
+      deploy_time: 0 # ms
+    input:
+      wait_time_ms: 20
+    enabled: !expr $.input.step_enabled
+outputs:
+  success:
+    simple_wait_output: !expr $.steps.simple_wait.outputs.success
+`
+
+func TestInputDisabledStepWorkflow(t *testing.T) {
+	// Run a workflow where the step is cancelled by a value in the input.
+	// This causes a cancellation during deployment. This is also unique
+	// because that cancelled step is the only step, so its cancellation
+	// must be handled properly to prevent a deadlock.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, inputDisabledStepWorkflow),
+	)
+	// The workflow should pass with it enabled
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	// The workflow should fail with it disabled
+	_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot construct any output")
+}
+
+var dynamicDisabledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        sleep_time:
+          type:
+            type_id: integer
+steps:
+  initial_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: !expr $.input.sleep_time # ms
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.steps.initial_wait.outputs.success.message == "Plugin slept for 20 ms."
+outputs:
+  success:
+    initial_wait_output: !expr $.steps.initial_wait.outputs.success
+    simple_wait_output: !expr $.steps.simple_wait.outputs.success
+`
+
+func TestDelayedDisabledStepWorkflow(t *testing.T) {
+	// Run a workflow where the step is disabled by a value that isn't there at
+	// the start of the workflow; in this case from another step's output.
+	// Run a workflow where the step is disabled by a value in the input.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, dynamicDisabledStepWorkflow),
+	)
+	// The second step expects a 20ms sleep/wait.
+	// Pass with a 20ms input.
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"sleep_time": 20,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	// Fail with a non-20ms input.
+	_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"sleep_time": 19,
+	})
+	assert.Error(t, err)
+}
+
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
 		Level:       log.LevelDebug,
