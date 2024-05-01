@@ -601,6 +601,10 @@ func schemaName(typeSchema schema.Type) string {
 	return strings.Join(BuildSchemaNames(typeSchema, []string{}), ListSchemaNameDelimiter)
 }
 
+// BuildSchemaNames appends the name or constituent names of a schema, the Object ID
+// for ObjectSchemas and the stringified TypeID for all other schemas, to
+// a list of strings. ListSchema names start with the ListSchema TypeID, and
+// recursively append the name of list's ItemValue schema.
 func BuildSchemaNames(typeSchema schema.Type, names []string) []string {
 	listSchema, isList := typeSchema.(*schema.ListSchema)
 	if isList {
