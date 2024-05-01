@@ -729,13 +729,13 @@ steps:
       wait_time_ms: 0
     deploy:
       deployer_name: "test-impl"
-      #deploy_time: 20000 # 10 ms
-      deploy_succeed: false
+      deploy_succeed: false # This step will fail due to this.
   wait_2:
     plugin:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
+    # This step waits for the failing step here.
     wait_for: !expr $.steps.wait_1.outputs.success
     input:
       wait_time_ms: 0
@@ -1244,10 +1244,10 @@ outputs:
 `
 
 func TestInputDisabledStepWorkflow(t *testing.T) {
-	// Run a workflow where the step is cancelled by a value in the input.
-	// This causes a cancellation during deployment. This is also unique
-	// because that cancelled step is the only step, so its cancellation
-	// must be handled properly to prevent a deadlock.
+	// Run a workflow with one step that has its enablement state
+	// set by the input. The output only passes on success, so
+	// this test case also tests that the failure case doesn't
+	// lead to a deadlock.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, inputDisabledStepWorkflow),
 	)
@@ -1284,7 +1284,7 @@ steps:
     step: wait
     input:
       wait_time_ms: !expr $.input.sleep_time # ms
-  simple_wait:
+  toggled_wait:
     plugin:
       src: "n/a"
       deployment_type: "builtin"
@@ -1295,13 +1295,16 @@ steps:
 outputs:
   success:
     initial_wait_output: !expr $.steps.initial_wait.outputs.success
-    simple_wait_output: !expr $.steps.simple_wait.outputs.success
+    toggled_wait_output: !expr $.steps.toggled_wait.outputs.success
+  disabled:
+    initial_wait_output: !expr $.steps.initial_wait.outputs.success
+    toggled_wait_output: !expr $.steps.toggled_wait.disabled.output
 `
 
 func TestDelayedDisabledStepWorkflow(t *testing.T) {
 	// Run a workflow where the step is disabled by a value that isn't there at
 	// the start of the workflow; in this case from another step's output.
-	// Run a workflow where the step is disabled by a value in the input.
+	// This workflow has an output for success, and an output for disabled.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, dynamicDisabledStepWorkflow),
 	)
@@ -1313,10 +1316,19 @@ func TestDelayedDisabledStepWorkflow(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "success")
 	// Fail with a non-20ms input.
-	_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"sleep_time": 19,
 	})
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "disabled")
+	assert.InstanceOf[map[any]any](t, outputData)
+	outputMap := outputData.(map[any]any)
+	assert.MapContainsKey(t, "toggled_wait_output", outputMap)
+	toggledOutput := outputMap["toggled_wait_output"]
+	assert.InstanceOf[map[any]any](t, toggledOutput)
+	toggledOutputMap := toggledOutput.(map[any]any)
+	assert.MapContainsKey(t, "message", toggledOutputMap)
+	assert.Equals(t, toggledOutputMap["message"], "Step toggled_wait/wait disabled")
 }
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {

@@ -150,6 +150,8 @@ const (
 	// StageIDEnabling is a stage that indicates that the plugin is waiting to be enabled.
 	// This is required to be separate to ensure that it exits immediately if disabled.
 	StageIDEnabling StageID = "enabling"
+	// StageIDDisabled is a stage that indicates that the plugin's step was disabled.
+	StageIDDisabled StageID = "disabled"
 	// StageIDCancelled is a stage that indicates that the plugin's step was cancelled.
 	StageIDCancelled StageID = "cancelled"
 	// StageIDOutput is a stage that indicates that the plugin has completed working successfully.
@@ -188,7 +190,7 @@ var enablingLifecycleStage = step.LifecycleStage{
 		"enabled": {},
 	},
 	NextStages: []string{
-		string(StageIDStarting), string(StageIDOutput),
+		string(StageIDStarting), string(StageIDDisabled),
 	},
 }
 
@@ -230,16 +232,14 @@ var cancelledLifecycleStage = step.LifecycleStage{
 	},
 }
 
-/*var disabledLifecycleStage = step.LifecycleStage{
+var disabledLifecycleStage = step.LifecycleStage{
 	ID:           string(StageIDDisabled),
 	WaitingName:  "waiting for the step to be disabled",
 	RunningName:  "disabling",
 	FinishedName: "disabled",
-	InputFields:  map[string]struct{}{}, // The starting stage is the one that waits, so the input goes there instead.
-	NextStages: []string{
-		string(StageIDOutput),
-	},
-}*/
+	InputFields:  map[string]struct{}{},
+	NextStages:   nil,
+}
 
 var finishedLifecycleStage = step.LifecycleStage{
 	ID:           string(StageIDOutput),
@@ -265,7 +265,7 @@ func (p *pluginProvider) Lifecycle() step.Lifecycle[step.LifecycleStage] {
 			startingLifecycleStage,
 			runningLifecycleStage,
 			cancelledLifecycleStage,
-			//disabledLifecycleStage,
+			disabledLifecycleStage,
 			finishedLifecycleStage,
 			crashedLifecycleStage,
 		},
@@ -361,6 +361,60 @@ func (r *runnableStep) StartedSchema() *schema.StepOutputSchema {
 			schema.NewObjectSchema(
 				"StartedOutput",
 				map[string]*schema.PropertySchema{},
+			),
+		),
+		nil,
+		false,
+	)
+}
+
+func (r *runnableStep) EnabledOutputSchema() *schema.StepOutputSchema {
+	return schema.NewStepOutputSchema(
+		schema.NewScopeSchema(
+			schema.NewObjectSchema(
+				"EnabledOutput",
+				map[string]*schema.PropertySchema{
+					"enabled": schema.NewPropertySchema(
+						schema.NewBoolSchema(),
+						schema.NewDisplayValue(
+							schema.PointerTo("enabled"),
+							schema.PointerTo("Whether the step was enabled"),
+							nil),
+						true,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+					),
+				},
+			),
+		),
+		nil,
+		false,
+	)
+}
+
+func (r *runnableStep) DisabledOutputSchema() *schema.StepOutputSchema {
+	return schema.NewStepOutputSchema(
+		schema.NewScopeSchema(
+			schema.NewObjectSchema(
+				"DisabledMessageOutput",
+				map[string]*schema.PropertySchema{
+					"message": schema.NewPropertySchema(
+						schema.NewStringSchema(nil, nil, nil),
+						schema.NewDisplayValue(
+							schema.PointerTo("message"),
+							schema.PointerTo("A human readable message stating that the step was disabled."),
+							nil),
+						true,
+						nil,
+						nil,
+						nil,
+						nil,
+						nil,
+					),
+				},
 			),
 		),
 		nil,
@@ -484,7 +538,9 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 					),
 				},
-				Outputs: nil,
+				Outputs: map[string]*schema.StepOutputSchema{
+					"resolved": r.EnabledOutputSchema(),
+				},
 			},
 			{
 				LifecycleStage: startingLifecycleStage,
@@ -513,20 +569,6 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 						nil,
 					),
-					"enabled": schema.NewPropertySchema(
-						schema.NewBoolSchema(),
-						schema.NewDisplayValue(
-							schema.PointerTo("Enabled"),
-							schema.PointerTo("Used to set whether the step is enabled."),
-							nil,
-						),
-						false,
-						nil,
-						nil,
-						nil,
-						nil,
-						nil,
-					),
 				},
 				Outputs: map[string]*schema.StepOutputSchema{
 					"started": r.StartedSchema(),
@@ -544,11 +586,13 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 				},
 				Outputs: nil,
 			},
-			/*{
+			{
 				LifecycleStage: disabledLifecycleStage,
 				InputSchema:    nil,
-				Outputs:        nil,
-			},*/
+				Outputs: map[string]*schema.StepOutputSchema{
+					"output": r.DisabledOutputSchema(),
+				},
+			},
 			{
 				LifecycleStage: finishedLifecycleStage,
 				InputSchema:    nil,
@@ -913,7 +957,7 @@ func (r *runningStep) run() {
 		r.logger.Errorf("TODO: Error while checking stage enablement")
 	}
 	if !enabled {
-		r.startFailed(fmt.Errorf("step disabled; TODO: handle this more gracefully"))
+		r.transitionToDisabled()
 		return
 	}
 	if err := r.startStage(container); err != nil {
@@ -990,6 +1034,7 @@ func (r *runningStep) enableStage() (bool, error) {
 	previousStage := string(r.currentStage)
 	r.currentStage = StageIDEnabling
 	enabledInputAvailable := r.enabledInputAvailable
+	r.state = step.RunningStepStateWaitingForInput
 	r.lock.Unlock()
 
 	r.stageChangeHandler.OnStageChange(
@@ -1014,38 +1059,29 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	r.logger.Debugf("Starting stage for step %s/%s", r.runID, r.pluginStepID)
 	atpClient := atp.NewClientWithLogger(container, r.logger)
 	r.lock.Lock()
-	previousStage := string(r.currentStage)
-	r.currentStage = StageIDStarting
 	inputRecievedEarly := false
 	r.atpClient = atpClient
+	r.lock.Unlock()
 
 	var runInput any
+	var newState step.RunningStepState
 	select {
 	case runInput = <-r.runInput:
 		// Good. It received it immediately.
-		r.state = step.RunningStepStateRunning
+		newState = step.RunningStepStateRunning
 		inputRecievedEarly = true
 	default: // The default makes it not wait.
-		r.state = step.RunningStepStateWaitingForInput
+		newState = step.RunningStepStateWaitingForInput
 	}
 
-	runInputAvailable := r.runInputAvailable
-	r.lock.Unlock()
-
-	r.stageChangeHandler.OnStageChange(
-		r,
-		&previousStage,
-		nil,
-		nil,
-		string(StageIDStarting),
-		runInputAvailable,
-		&r.wg,
+	enabledOutput := any(map[any]any{"enabled": true})
+	// End Enabling with resolved output, and start starting
+	r.transitionStageWithOutput(
+		StageIDStarting,
+		newState,
+		schema.PointerTo("resolved"),
+		&enabledOutput,
 	)
-
-	r.lock.Lock()
-	r.currentStage = StageIDStarting
-	r.logger.Debugf("Waiting for input state while starting 2.")
-	r.lock.Unlock()
 
 	// First, try to non-blocking retrieve the runInput.
 	// If not yet available, set to state waiting for input and do a blocking receive.
@@ -1153,6 +1189,25 @@ func (r *runningStep) transitionToCancelled() {
 	r.transitionStage(StageIDCancelled, step.RunningStepStateRunning)
 	// Cancelled currently has no output.
 	r.transitionStage(StageIDCancelled, step.RunningStepStateFinished)
+}
+
+func (r *runningStep) transitionToDisabled() {
+	r.logger.Infof("Step %s/%s disabled", r.runID, r.pluginStepID)
+	enabledOutput := any(map[any]any{"enabled": false})
+	// End prior stage "enabling" with "resolved" output, and start "disabled" stage.
+	r.transitionStageWithOutput(
+		StageIDDisabled,
+		step.RunningStepStateRunning, // Must set it to finished to realize the step is done running.
+		schema.PointerTo("resolved"),
+		&enabledOutput,
+	)
+	disabledOutput := any(map[any]any{"message": fmt.Sprintf("Step %s/%s disabled", r.runID, r.pluginStepID)})
+	r.completeStep(
+		StageIDDisabled,
+		step.RunningStepStateFinished,
+		schema.PointerTo("output"),
+		&disabledOutput,
+	)
 }
 
 func (r *runningStep) startFailed(err error) {
