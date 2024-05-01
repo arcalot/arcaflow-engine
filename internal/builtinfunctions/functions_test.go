@@ -920,6 +920,11 @@ func TestHandleTypeSchemaCombine(t *testing.T) {
 			"p_str": defaultPropertySchema(basicStringSchema),
 			"p_int": defaultPropertySchema(basicIntSchema),
 		})
+	//listTypeID := string(listMyFirstObj.TypeID())
+	//listListInt := schema.NewListSchema(listInt, nil, nil)
+	//listListListInt := schema.NewListSchema(listListInt, nil, nil)
+	//listListObj := schema.NewListSchema(listMyFirstObj, nil, nil)
+	//listListListObj := schema.NewListSchema(listListObj, nil, nil)
 
 	// invalid inputs
 	t.Run("first argument incorrect type", func(t *testing.T) {
@@ -987,12 +992,7 @@ func TestSchemaNames(t *testing.T) {
 			"b": defaultPropertySchema(basicStringSchema),
 		})
 	listMyFirstObj := schema.NewListSchema(myFirstObj, nil, nil)
-	//constantsObj := schema.NewObjectSchema(
-	//	"Constants",
-	//	map[string]*schema.PropertySchema{
-	//		"p_str": defaultPropertySchema(basicStringSchema),
-	//		"p_int": defaultPropertySchema(basicIntSchema),
-	//	})
+
 	listTypeID := string(listMyFirstObj.TypeID())
 
 	listListInt := schema.NewListSchema(listInt, nil, nil)
