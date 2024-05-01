@@ -833,7 +833,7 @@ func Test_bindConstants(t *testing.T) {
 		"a": "A", "b": "B",
 	}
 	repeatedInputsInt := 2
-	repeatedInputsRegexPattern, _ := regexp.Compile("p([a-z]+)ch")
+	repeatedInputsRegexPattern := regexp.MustCompile("p([a-z]+)ch")
 	repeatedInputName := builtinfunctions.CombinedObjPropertyConstantName
 	itemName := builtinfunctions.CombinedObjPropertyItemName
 	functionToTest := builtinfunctions.GetFunctions()["bindConstants"]
