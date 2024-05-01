@@ -1162,6 +1162,57 @@ func TestNestedWorkflowWithNamespacedScopes(t *testing.T) {
 	}
 }
 
+var inputCancelledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_cancelled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    deploy:
+      deployer_name: "test-impl"
+      # stop_if doesn't create any dependency, so we must keep the step in the deployment
+      # stage long enough for the cancellation to occur at the intended stage.
+      deploy_time: 50 # ms
+    input:
+      # The actual wait time should not matter for this test because the intention is to
+      # to cancel it before it is run.
+      wait_time_ms: 0
+    stop_if: $.input.step_cancelled
+outputs:
+  success:
+    simple_wait_output: !expr $.steps.simple_wait.outputs.success
+`
+
+func TestInputCancelledStepWorkflow(t *testing.T) {
+	// Run a workflow where the step is cancelled before deployment.
+	// The dependencies of `stop_if` are already resolved when the step
+	// gets deployed. This causes a cancellation that is executed around
+	// the time that the step begins processing.
+	// This test configures the deployer with a delay to allow the
+	// cancellation to be delivered before the deployment finishes.
+	// In addition, the cancelled step is the only step, so its
+	// cancellation must be handled properly to prevent a deadlock.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, inputCancelledStepWorkflow),
+	)
+	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_cancelled": true,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot construct any output")
+}
+
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
 		Level:       log.LevelDebug,

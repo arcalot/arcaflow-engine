@@ -810,6 +810,7 @@ func (r *runningStep) run() {
 			r.logger.Warningf("failed to remove deployed container for step %s/%s", r.runID, r.pluginStepID)
 		}
 		r.lock.Unlock()
+		r.transitionToCancelled()
 		return
 	default:
 		r.container = container
@@ -1021,6 +1022,14 @@ func (r *runningStep) deployFailed(err error) {
 	r.completeStep(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
 }
 
+func (r *runningStep) transitionToCancelled() {
+	r.logger.Infof("Step %s/%s cancelled", r.runID, r.pluginStepID)
+	// Follow the convention of transitioning to running then finished.
+	r.transitionStage(StageIDCancelled, step.RunningStepStateRunning)
+	// Cancelled currently has no output.
+	r.transitionStage(StageIDCancelled, step.RunningStepStateFinished)
+}
+
 func (r *runningStep) startFailed(err error) {
 	r.logger.Debugf("Start failed stage for step %s/%s", r.runID, r.pluginStepID)
 	r.transitionStage(StageIDCrashed, step.RunningStepStateRunning)
@@ -1049,8 +1058,6 @@ func (r *runningStep) runFailed(err error) {
 }
 
 // TransitionStage transitions the stage to the specified stage, and the state to the specified state.
-//
-//nolint:unparam
 func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepState) {
 	r.transitionStageWithOutput(newStage, state, nil, nil)
 }
@@ -1077,7 +1084,8 @@ func (r *runningStep) transitionStageWithOutput(newStage StageID, state step.Run
 	)
 }
 
-//nolint:unparam
+//nolint:unparam // Currently only gets state finished, but that's okay.
+//nolint:nolintlint // Differing versions of the linter do or do not care.
 func (r *runningStep) completeStep(currentStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)
