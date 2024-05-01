@@ -823,6 +823,14 @@ func Test_floatToFormattedString_success(t *testing.T) {
 	}
 }
 
+func expectedOutBindConstants(repInp any, items []any) []any {
+	return []any{
+		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[0], builtinfunctions.CombinedObjPropertyConstantName: repInp},
+		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[1], builtinfunctions.CombinedObjPropertyConstantName: repInp},
+		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[2], builtinfunctions.CombinedObjPropertyConstantName: repInp},
+	}
+}
+
 func Test_bindConstants(t *testing.T) {
 	items := []any{
 		map[string]any{"loop_id": 1},
@@ -834,52 +842,22 @@ func Test_bindConstants(t *testing.T) {
 	}
 	repeatedInputsInt := 2
 	repeatedInputsRegexPattern := regexp.MustCompile("p([a-z]+)ch")
-	repeatedInputName := builtinfunctions.CombinedObjPropertyConstantName
-	itemName := builtinfunctions.CombinedObjPropertyItemName
+	testItems := map[string]any{
+		"combine with map":   repeatedInputsMap,
+		"combine with list":  items,
+		"combine with int":   repeatedInputsInt,
+		"combine with regex": repeatedInputsRegexPattern,
+	}
 	functionToTest := builtinfunctions.GetFunctions()["bindConstants"]
 
-	t.Run("happy path", func(t *testing.T) {
-		output, err := functionToTest.Call([]any{items, repeatedInputsMap})
-		assert.NoError(t, err)
-		assert.Equals(t, output.([]any), []any{
-			map[string]any{itemName: items[0], repeatedInputName: repeatedInputsMap},
-			map[string]any{itemName: items[1], repeatedInputName: repeatedInputsMap},
-			map[string]any{itemName: items[2], repeatedInputName: repeatedInputsMap},
+	for testName, testValue := range testItems {
+		tvLocal := testValue
+		t.Run(testName, func(t *testing.T) {
+			output, err := functionToTest.Call([]any{items, tvLocal})
+			assert.NoError(t, err)
+			assert.Equals(t, output.([]any), expectedOutBindConstants(tvLocal, items))
 		})
-	})
-
-	t.Run("combine with list", func(t *testing.T) {
-		functionToTest := builtinfunctions.GetFunctions()["bindConstants"]
-		output, err := functionToTest.Call([]any{items, items})
-		assert.NoError(t, err)
-		assert.Equals(t, output.([]any), []any{
-			map[string]any{itemName: items[0], repeatedInputName: items},
-			map[string]any{itemName: items[1], repeatedInputName: items},
-			map[string]any{itemName: items[2], repeatedInputName: items},
-		})
-	})
-
-	t.Run("combine with int", func(t *testing.T) {
-		functionToTest := builtinfunctions.GetFunctions()["bindConstants"]
-		output, err := functionToTest.Call([]any{items, repeatedInputsInt})
-		assert.NoError(t, err)
-		assert.Equals(t, output.([]any), []any{
-			map[string]any{itemName: items[0], repeatedInputName: repeatedInputsInt},
-			map[string]any{itemName: items[1], repeatedInputName: repeatedInputsInt},
-			map[string]any{itemName: items[2], repeatedInputName: repeatedInputsInt},
-		})
-	})
-
-	t.Run("combine with regex", func(t *testing.T) {
-		functionToTest := builtinfunctions.GetFunctions()["bindConstants"]
-		output, err := functionToTest.Call([]any{items, repeatedInputsRegexPattern})
-		assert.NoError(t, err)
-		assert.Equals(t, output.([]any), []any{
-			map[string]any{itemName: items[0], repeatedInputName: repeatedInputsRegexPattern},
-			map[string]any{itemName: items[1], repeatedInputName: repeatedInputsRegexPattern},
-			map[string]any{itemName: items[2], repeatedInputName: repeatedInputsRegexPattern},
-		})
-	})
+	}
 
 	t.Run("no items in input list", func(t *testing.T) {
 		output, err := functionToTest.Call([]any{[]any{}, repeatedInputsMap})
