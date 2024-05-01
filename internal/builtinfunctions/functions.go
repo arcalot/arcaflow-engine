@@ -613,9 +613,7 @@ func BuildSchemaNames(typeSchema schema.Type, names []string) []string {
 	}
 	objItemType, itemIsObject := schema.ConvertToObjectSchema(typeSchema)
 	if itemIsObject {
-		names = append(names, objItemType.ID())
-	} else {
-		names = append(names, string(typeSchema.TypeID()))
+		return append(names, objItemType.ID())
 	}
-	return names
+	return append(names, string(typeSchema.TypeID()))
 }
