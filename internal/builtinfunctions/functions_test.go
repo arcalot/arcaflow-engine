@@ -919,23 +919,23 @@ func TestHandleTypeSchemaCombine(t *testing.T) {
 		expectedResult string
 	}
 	testInputs := []testInput{
-		{
+		{ // Inputs:  a list of int's and an object
 			typeArgs:       []schema.Type{listInt, constantsObj},
 			expectedResult: joinStrs(intTypeID, constantsObj.ID()),
 		},
-		{
+		{ // Inputs:  a list of objects and an object
 			typeArgs:       []schema.Type{listMyFirstObj, constantsObj},
 			expectedResult: joinStrs(myFirstObj.ID(), constantsObj.ID()),
 		},
-		{
+		{ // Inputs:  a list of objects and a string
 			typeArgs:       []schema.Type{listMyFirstObj, basicStringSchema},
 			expectedResult: joinStrs(myFirstObj.ID(), strTypeID),
 		},
-		{
+		{ // Inputs:  a list of strings and an int
 			typeArgs:       []schema.Type{listStr, basicIntSchema},
 			expectedResult: joinStrs(strTypeID, intTypeID),
 		},
-		{
+		{ // Inputs: a list of strings and a list of objects
 			typeArgs:       []schema.Type{listStr, listMyFirstObj},
 			expectedResult: joinStrs(strTypeID, listPrefix+myFirstObj.ID()),
 		},
