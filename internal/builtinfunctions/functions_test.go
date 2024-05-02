@@ -875,8 +875,7 @@ func joinStrs(s1, s2 string) string {
 }
 
 // TestHandleTypeSchemaCombine tests that the error cases for invalid
-// and valid input cases create the expected behavior in the returned
-// error and returned type and type name, respectively.
+// and valid input cases create the expected error or type.
 func TestHandleTypeSchemaCombine(t *testing.T) {
 	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
 	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
