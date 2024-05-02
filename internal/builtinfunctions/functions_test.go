@@ -823,7 +823,7 @@ func Test_floatToFormattedString_success(t *testing.T) {
 	}
 }
 
-func expectedOutBindConstants(repInp any, items []any) []any {
+func expectedOutputBindConstants(repInp any, items []any) []any {
 	return []any{
 		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[0], builtinfunctions.CombinedObjPropertyConstantName: repInp},
 		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[1], builtinfunctions.CombinedObjPropertyConstantName: repInp},
@@ -855,7 +855,7 @@ func Test_bindConstants(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			output, err := functionToTest.Call([]any{items, tvLocal})
 			assert.NoError(t, err)
-			assert.Equals(t, output.([]any), expectedOutBindConstants(tvLocal, items))
+			assert.Equals(t, output.([]any), expectedOutputBindConstants(tvLocal, items))
 		})
 	}
 
