@@ -874,9 +874,9 @@ func joinStrs(s1, s2 string) string {
 	return strings.Join([]string{s1, s2}, builtinfunctions.CombinedObjIDDelimiter)
 }
 
-// TestHandleTypeSchemaCombine tests the error cases for invalid input, and
-// the valid input cases create the expected behavior in the returned error
-// and returned type and type name, respectively.
+// TestHandleTypeSchemaCombine tests that the error cases for invalid input,
+// and the valid input cases create the expected behavior in the returned
+// error and returned type and type name, respectively.
 func TestHandleTypeSchemaCombine(t *testing.T) {
 	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
 	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
