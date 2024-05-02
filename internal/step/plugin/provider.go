@@ -190,7 +190,7 @@ var enablingLifecycleStage = step.LifecycleStage{
 		"enabled": {},
 	},
 	NextStages: []string{
-		string(StageIDStarting), string(StageIDDisabled),
+		string(StageIDStarting), string(StageIDDisabled), string(StageIDCrashed),
 	},
 }
 
@@ -951,11 +951,10 @@ func (r *runningStep) run() {
 
 	r.logger.Debugf("Checking to see if step %s/%s is enabled", r.runID, r.pluginStepID)
 	enabled, err := r.enableStage()
-	r.logger.Debugf("Step %s/%s enablement state: %t", r.runID, r.pluginStepID, enabled)
 	if err != nil {
-		// TODO
-		r.logger.Errorf("TODO: Error while checking stage enablement")
+		r.startFailed(err)
 	}
+	r.logger.Debugf("Step %s/%s enablement state: %t", r.runID, r.pluginStepID, enabled)
 	if !enabled {
 		r.transitionToDisabled()
 		return
