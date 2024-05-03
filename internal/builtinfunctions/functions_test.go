@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/internal/builtinfunctions"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	"math"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -817,5 +820,195 @@ func Test_floatToFormattedString_success(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+func expectedOutputBindConstants(repInp any, items []any) []any {
+	return []any{
+		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[0], builtinfunctions.CombinedObjPropertyConstantName: repInp},
+		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[1], builtinfunctions.CombinedObjPropertyConstantName: repInp},
+		map[string]any{builtinfunctions.CombinedObjPropertyItemName: items[2], builtinfunctions.CombinedObjPropertyConstantName: repInp},
+	}
+}
+
+func Test_bindConstants(t *testing.T) {
+	items := []any{
+		map[string]any{"loop_id": 1},
+		map[string]any{"loop_id": 2},
+		map[string]any{"loop_id": 3},
+	}
+	repeatedInputsMap := map[string]any{
+		"a": "A", "b": "B",
+	}
+	repeatedInputsInt := 2
+	repeatedInputsRegexPattern := regexp.MustCompile("p([a-z]+)ch")
+	testItems := map[string]any{
+		"combine with map":   repeatedInputsMap,
+		"combine with list":  items,
+		"combine with int":   repeatedInputsInt,
+		"combine with regex": repeatedInputsRegexPattern,
+	}
+	functionToTest := builtinfunctions.GetFunctions()["bindConstants"]
+
+	for testName, testValue := range testItems {
+		tvLocal := testValue
+		t.Run(testName, func(t *testing.T) {
+			output, err := functionToTest.Call([]any{items, tvLocal})
+			assert.NoError(t, err)
+			assert.Equals(t, output.([]any), expectedOutputBindConstants(tvLocal, items))
+		})
+	}
+
+	t.Run("no items in input list", func(t *testing.T) {
+		output, err := functionToTest.Call([]any{[]any{}, repeatedInputsMap})
+		assert.NoError(t, err)
+		assert.Equals(t, output.([]any), []any{})
+	})
+}
+
+func defaultPropertySchema(t schema.Type) *schema.PropertySchema {
+	return schema.NewPropertySchema(t, nil, false, nil, nil, nil, nil, nil)
+}
+
+func joinStrs(s1, s2 string) string {
+	return strings.Join([]string{s1, s2}, builtinfunctions.CombinedObjIDDelimiter)
+}
+
+// TestHandleTypeSchemaCombine tests that the error cases for invalid
+// and valid input cases create the expected error or type.
+func TestHandleTypeSchemaCombine(t *testing.T) {
+	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
+	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
+	strTypeID := string(basicStringSchema.TypeID())
+	intTypeID := string(basicIntSchema.TypeID())
+	listInt := schema.NewListSchema(basicIntSchema, nil, nil)
+	listStr := schema.NewListSchema(basicStringSchema, nil, nil)
+	myFirstObj := schema.NewObjectSchema(
+		"ObjectTitle",
+		map[string]*schema.PropertySchema{
+			"a": defaultPropertySchema(basicStringSchema),
+			"b": defaultPropertySchema(basicStringSchema),
+		})
+	listMyFirstObj := schema.NewListSchema(myFirstObj, nil, nil)
+	constantsObj := schema.NewObjectSchema(
+		"Constants",
+		map[string]*schema.PropertySchema{
+			"p_str": defaultPropertySchema(basicStringSchema),
+			"p_int": defaultPropertySchema(basicIntSchema),
+		})
+	listPrefix := string(listInt.TypeID()) + builtinfunctions.ListSchemaNameDelimiter
+
+	// invalid inputs
+	t.Run("first argument incorrect type", func(t *testing.T) {
+		_, err := builtinfunctions.HandleTypeSchemaCombine(
+			[]schema.Type{basicStringSchema, basicIntSchema})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "expected first input type to be a list schema")
+	})
+	t.Run("incorrect argument quantity", func(t *testing.T) {
+		_, err := builtinfunctions.HandleTypeSchemaCombine(
+			[]schema.Type{listInt})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "expected exactly two input types")
+	})
+
+	// valid inputs
+	type testInput struct {
+		typeArgs       []schema.Type
+		expectedResult string
+	}
+	testInputs := []testInput{
+		{ // Inputs:  a list of int's and an object
+			typeArgs:       []schema.Type{listInt, constantsObj},
+			expectedResult: joinStrs(intTypeID, constantsObj.ID()),
+		},
+		{ // Inputs:  a list of objects and an object
+			typeArgs:       []schema.Type{listMyFirstObj, constantsObj},
+			expectedResult: joinStrs(myFirstObj.ID(), constantsObj.ID()),
+		},
+		{ // Inputs:  a list of objects and a string
+			typeArgs:       []schema.Type{listMyFirstObj, basicStringSchema},
+			expectedResult: joinStrs(myFirstObj.ID(), strTypeID),
+		},
+		{ // Inputs:  a list of strings and an int
+			typeArgs:       []schema.Type{listStr, basicIntSchema},
+			expectedResult: joinStrs(strTypeID, intTypeID),
+		},
+		{ // Inputs: a list of strings and a list of objects
+			typeArgs:       []schema.Type{listStr, listMyFirstObj},
+			expectedResult: joinStrs(strTypeID, listPrefix+myFirstObj.ID()),
+		},
+	}
+
+	for _, input := range testInputs {
+		lclInput := input
+		t.Run(lclInput.expectedResult, func(t *testing.T) {
+			outputType, err := builtinfunctions.HandleTypeSchemaCombine(lclInput.typeArgs)
+			assert.NoError(t, err)
+			listItemObj, isObj := schema.ConvertToObjectSchema(outputType.(*schema.ListSchema).ItemsValue)
+			assert.Equals(t, isObj, true)
+			assert.Equals(t, listItemObj.ID(), lclInput.expectedResult)
+		})
+	}
+}
+
+func TestBuildSchemaNames(t *testing.T) {
+	basicStringSchema := schema.NewStringSchema(nil, nil, nil)
+	basicIntSchema := schema.NewIntSchema(nil, nil, nil)
+	intTypeID := string(basicIntSchema.TypeID())
+	listInt := schema.NewListSchema(basicIntSchema, nil, nil)
+	myFirstObj := schema.NewObjectSchema(
+		"ObjectTitle",
+		map[string]*schema.PropertySchema{
+			"a": defaultPropertySchema(basicStringSchema),
+			"b": defaultPropertySchema(basicStringSchema),
+		})
+	listMyFirstObj := schema.NewListSchema(myFirstObj, nil, nil)
+
+	listTypeID := string(listMyFirstObj.TypeID())
+
+	listListInt := schema.NewListSchema(listInt, nil, nil)
+	listListListInt := schema.NewListSchema(listListInt, nil, nil)
+	listListObj := schema.NewListSchema(listMyFirstObj, nil, nil)
+	listListListObj := schema.NewListSchema(listListObj, nil, nil)
+
+	// valid inputs
+	type testInput struct {
+		typeArgs       schema.Type
+		expectedResult []string
+	}
+	testInputs := []testInput{
+		{
+			typeArgs:       listInt,
+			expectedResult: []string{listTypeID, intTypeID},
+		},
+		{
+			typeArgs:       listMyFirstObj,
+			expectedResult: []string{listTypeID, myFirstObj.ID()},
+		},
+		{
+			typeArgs:       listListInt,
+			expectedResult: []string{listTypeID, listTypeID, intTypeID},
+		},
+		{
+			typeArgs:       listListObj,
+			expectedResult: []string{listTypeID, listTypeID, myFirstObj.ID()},
+		},
+		{
+			typeArgs:       listListListInt,
+			expectedResult: []string{listTypeID, listTypeID, listTypeID, intTypeID},
+		},
+		{
+			typeArgs:       listListListObj,
+			expectedResult: []string{listTypeID, listTypeID, listTypeID, myFirstObj.ID()},
+		},
+	}
+
+	for _, input := range testInputs {
+		lclInput := input
+		t.Run(strings.Join(lclInput.expectedResult, "_"), func(t *testing.T) {
+			outputNames := builtinfunctions.BuildSchemaNames(lclInput.typeArgs, []string{})
+			assert.Equals(t, outputNames, lclInput.expectedResult)
+		})
 	}
 }
