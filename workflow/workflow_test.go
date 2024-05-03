@@ -1230,11 +1230,6 @@ steps:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
-    deploy:
-      deployer_name: "test-impl"
-      # Disabling steps waits for the value to be resolved before executing the step.
-      # So if it's working correctly, this should not cause any race conditions.
-      deploy_time: 0 # ms
     input:
       wait_time_ms: 20
     enabled: !expr $.input.step_enabled
@@ -1245,8 +1240,9 @@ outputs:
 
 func TestInputDisabledStepWorkflow(t *testing.T) {
 	// Run a workflow with one step that has its enablement state
-	// set by the input. The output only passes on success, so
-	// this test case also tests that the failure case doesn't
+	// set by the input. The output depends on successful output
+	// of the step that can be disabled, so this test case also
+	// tests that the failure caused when it's disabled doesn't
 	// lead to a deadlock.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, inputDisabledStepWorkflow),
@@ -1257,7 +1253,7 @@ func TestInputDisabledStepWorkflow(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "success")
-	// The workflow should fail with it disabled
+	// The workflow should fail with it disabled because the output cannot be resolved.
 	_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
 		"step_enabled": false,
 	})
@@ -1302,9 +1298,10 @@ outputs:
 `
 
 func TestDelayedDisabledStepWorkflow(t *testing.T) {
-	// Run a workflow where the step is disabled by a value that isn't there at
-	// the start of the workflow; in this case from another step's output.
-	// This workflow has an output for success, and an output for disabled.
+	// Run a workflow where the step is disabled by a value that isn't available
+	// at the start of the workflow; in this case the step is disabled from
+	// another step's output.
+	// This workflow has an output for success and an output for disabled.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, dynamicDisabledStepWorkflow),
 	)

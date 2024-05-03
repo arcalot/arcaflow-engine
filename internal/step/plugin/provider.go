@@ -238,7 +238,6 @@ var disabledLifecycleStage = step.LifecycleStage{
 	RunningName:  "disabling",
 	FinishedName: "disabled",
 	InputFields:  map[string]struct{}{},
-	NextStages:   nil,
 }
 
 var finishedLifecycleStage = step.LifecycleStage{
@@ -1057,8 +1056,8 @@ func (r *runningStep) enableStage() (bool, error) {
 func (r *runningStep) startStage(container deployer.Plugin) error {
 	r.logger.Debugf("Starting stage for step %s/%s", r.runID, r.pluginStepID)
 	atpClient := atp.NewClientWithLogger(container, r.logger)
+	var inputReceivedEarly bool
 	r.lock.Lock()
-	inputRecievedEarly := false
 	r.atpClient = atpClient
 	r.lock.Unlock()
 
@@ -1068,9 +1067,10 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	case runInput = <-r.runInput:
 		// Good. It received it immediately.
 		newState = step.RunningStepStateRunning
-		inputRecievedEarly = true
+		inputReceivedEarly = true
 	default: // The default makes it not wait.
 		newState = step.RunningStepStateWaitingForInput
+		inputReceivedEarly = false
 	}
 
 	enabledOutput := any(map[any]any{"enabled": true})
@@ -1085,7 +1085,7 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 	// First, try to non-blocking retrieve the runInput.
 	// If not yet available, set to state waiting for input and do a blocking receive.
 	// If it is available, continue.
-	if !inputRecievedEarly {
+	if !inputReceivedEarly {
 		// Input is not yet available. Now waiting.
 		r.lock.Lock()
 		if r.state != step.RunningStepStateWaitingForInput {
@@ -1196,14 +1196,14 @@ func (r *runningStep) transitionToDisabled() {
 	// End prior stage "enabling" with "resolved" output, and start "disabled" stage.
 	r.transitionStageWithOutput(
 		StageIDDisabled,
-		step.RunningStepStateRunning, // Must set it to finished to realize the step is done running.
+		step.RunningStepStateRunning,
 		schema.PointerTo("resolved"),
 		&enabledOutput,
 	)
 	disabledOutput := any(map[any]any{"message": fmt.Sprintf("Step %s/%s disabled", r.runID, r.pluginStepID)})
 	r.completeStep(
 		StageIDDisabled,
-		step.RunningStepStateFinished,
+		step.RunningStepStateFinished, // Must set the stage to finished for the engine realize the step is done.
 		schema.PointerTo("output"),
 		&disabledOutput,
 	)
