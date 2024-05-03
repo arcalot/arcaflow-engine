@@ -35,6 +35,8 @@ func GetFunctions() map[string]schema.CallableFunction {
 	toUpperFunction := getToUpperFunction()
 	splitStringFunction := getSplitStringFunction()
 	loadFileFunction := getReadFileFunction()
+	// Data transformation functions
+	bindConstantsFunction := getBindConstantsFunction()
 
 	// Combine in a map
 	allFunctions := map[string]schema.CallableFunction{
@@ -55,6 +57,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 		toUpperFunction.ID():                toUpperFunction,
 		splitStringFunction.ID():            splitStringFunction,
 		loadFileFunction.ID():               loadFileFunction,
+		bindConstantsFunction.ID():          bindConstantsFunction,
 	}
 
 	return allFunctions
@@ -524,4 +527,93 @@ func getReadFileFunction() schema.CallableFunction {
 		panic(err)
 	}
 	return funcSchema
+}
+
+// CombinedObjPropertyConstantName is the identifier string key that points to the container of constant or repeated values.
+const CombinedObjPropertyConstantName = "constant"
+
+// CombinedObjPropertyItemName is the identifier string key that points to the container of a list of objects.
+const CombinedObjPropertyItemName = "item"
+
+// CombinedObjIDDelimiter is the delimiter for joining Object ID strings and/or TypeID strings.
+const CombinedObjIDDelimiter = "__"
+
+// ListSchemaNameDelimiter is the delimiter for joining the names of the types nested within a list.
+const ListSchemaNameDelimiter = "_"
+
+func getBindConstantsFunction() schema.CallableFunction {
+	funcSchema, err := schema.NewDynamicCallableFunction(
+		"bindConstants",
+		[]schema.Type{
+			schema.NewListSchema(schema.NewAnySchema(), nil, nil),
+			schema.NewAnySchema()},
+		schema.NewDisplayValue(
+			schema.PointerTo("Bind Constants"),
+			schema.PointerTo(
+				"Creates a list of objects with ID `CombinedObject`. "+
+					fmt.Sprintf("Each object has two properties `%s` and `%s`.\n", CombinedObjPropertyItemName, CombinedObjPropertyConstantName)+
+					fmt.Sprintf("Param 1: Value(s) to be included in the `%s` field \n", CombinedObjPropertyItemName)+
+					fmt.Sprintf("Param 2: Value(s) to populate the field `%s` with every output item", CombinedObjPropertyConstantName)),
+			nil),
+		func(items []any, columnValues any) (any, error) {
+			combinedItems := make([]any, len(items))
+			for k, itemValue := range items {
+				combinedItems[k] = map[string]any{
+					CombinedObjPropertyItemName:     itemValue,
+					CombinedObjPropertyConstantName: columnValues,
+				}
+			}
+			return combinedItems, nil
+		},
+		HandleTypeSchemaCombine,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return funcSchema
+}
+
+// HandleTypeSchemaCombine returns the type that is output by the 'bindConstants' function.
+// Its parameter list requires a ListSchema and one other schema of any type.
+// A new ListSchema of ObjectSchemas is created from the two input types.
+func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
+	if len(inputType) != 2 {
+		return nil, fmt.Errorf("expected exactly two input types")
+	}
+	itemsType, isList := inputType[0].(*schema.ListSchema)
+	if !isList {
+		return nil, fmt.Errorf("expected first input type to be a list schema")
+	}
+	itemType := itemsType.ItemsValue
+	constantsTypeArg := inputType[1]
+	combinedObjectName := schemaName(itemType) + CombinedObjIDDelimiter + schemaName(constantsTypeArg)
+	return schema.NewListSchema(
+		schema.NewObjectSchema(
+			combinedObjectName,
+			map[string]*schema.PropertySchema{
+				CombinedObjPropertyItemName:     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
+				CombinedObjPropertyConstantName: schema.NewPropertySchema(constantsTypeArg, nil, false, nil, nil, nil, nil, nil),
+			}),
+		nil, nil), nil
+}
+
+func schemaName(typeSchema schema.Type) string {
+	return strings.Join(BuildSchemaNames(typeSchema, []string{}), ListSchemaNameDelimiter)
+}
+
+// BuildSchemaNames appends the name or constituent names of a schema, the Object ID
+// for ObjectSchemas and the stringified TypeID for all other schemas, to
+// a list of strings. ListSchema names start with the ListSchema TypeID, and
+// recursively append the name of list's ItemValue schema.
+func BuildSchemaNames(typeSchema schema.Type, names []string) []string {
+	listSchema, isList := typeSchema.(*schema.ListSchema)
+	if isList {
+		names = append(names, string(listSchema.TypeID()))
+		return BuildSchemaNames(listSchema.ItemsValue, names)
+	}
+	objItemType, itemIsObject := schema.ConvertToObjectSchema(typeSchema)
+	if itemIsObject {
+		return append(names, objItemType.ID())
+	}
+	return append(names, string(typeSchema.TypeID()))
 }
