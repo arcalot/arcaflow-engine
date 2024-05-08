@@ -5,13 +5,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/loadfile"
 	"gopkg.in/yaml.v3"
-	"os"
-	"os/signal"
 )
 
 // These variables are filled using ldflags during the build process with Goreleaser.
@@ -57,53 +58,42 @@ func main() {
 	workflowFile := "workflow.yaml"
 	printVersion := false
 
-	flag.BoolVar(&printVersion, "version", printVersion, "Print Arcaflow Engine version and exit.")
-	flag.StringVar(
-		&configFile,
-		"config",
-		configFile,
-		"The Arcaflow configuration file to load, if any.",
+	const (
+		helpUsage    = "Display this help output."
+		versionUsage = "Print Arcaflow Engine version and exit."
+		configUsage  = "The Arcaflow configuration file to load, if any."
+		inputUsage   = `The workflow input file to load. May be outside
+                           the workflow directory. If no input file is
+                           passed, the workflow is assumed to take no input.`
+		contextUsage = `The workflow directory to run from. Defaults 
+                           to the current directory.`
+		workflowUsage = `The workflow file in the current directory to load.
+                           Defaults to workflow.yaml.`
 	)
-	flag.StringVar(
-		&input,
-		"input",
-		input,
-		"The workflow input file to load. May be outside the workflow directory. If no input file is passed, "+
-			"the workflow is assumed to take no input.",
-	)
-	flag.StringVar(
-		&dir,
-		"context",
-		dir,
-		"The workflow directory to run from. Defaults to the current directory.",
-	)
-	flag.StringVar(
-		&workflowFile,
-		"workflow",
-		workflowFile,
-		"The workflow file in the current directory to load. Defaults to workflow.yaml.",
-	)
+	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
+	flag.BoolVar(&printVersion, "v", printVersion, versionUsage+" (shorthand)")
+	flag.StringVar(&configFile, "config", configFile, configUsage)
+	flag.StringVar(&configFile, "c", configFile, configUsage+" (shorthand)")
+	flag.StringVar(&input, "input", input, inputUsage)
+	flag.StringVar(&input, "i", input, inputUsage+" (shorthand)")
+	flag.StringVar(&dir, "context", dir, contextUsage)
+	flag.StringVar(&dir, "t", dir, contextUsage+" (shorthand)")
+	flag.StringVar(&workflowFile, "workflow", workflowFile, workflowUsage)
+	flag.StringVar(&workflowFile, "w", workflowFile, workflowUsage+" (shorthand)")
+
 	flag.Usage = func() {
 		_, _ = os.Stderr.Write([]byte(`Usage: arcaflow [OPTIONS]
-
+		
 The Arcaflow engine will read the current directory and use it as a context
 for executing the workflow.
 
 Options:
-
-  -version            Print the Arcaflow Engine version and exit.
-
-  -config FILENAME    The Arcaflow configuration file to load, if any.
-
-  -input FILENAME     The workflow input file to load. May be outside the
-                      workflow directory. If no input file is passed,
-                      the workflow is assumed to take no input.
-
-  -context DIRECTORY  The workflow directory to run from. Defaults to the
-                      current directory.
-
-  -workflow FILENAME  The workflow file in the current directory to load.
-                      Defaults to workflow.yaml.
+  -h, --help               ` + helpUsage + `
+  -v, --version            ` + versionUsage + `
+  -c, --config FILENAME    ` + configUsage + `
+  -i, --input FILENAME     ` + inputUsage + `
+  -t, --context DIRECTORY  ` + contextUsage + `  
+  -w, --workflow FILENAME  ` + workflowUsage + `
 `))
 	}
 	flag.Parse()
