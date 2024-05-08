@@ -71,15 +71,15 @@ func main() {
                            Defaults to workflow.yaml.`
 	)
 	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
-	flag.BoolVar(&printVersion, "v", printVersion, versionUsage+" (shorthand)")
+	flag.BoolVar(&printVersion, "v", printVersion, versionUsage)
 	flag.StringVar(&configFile, "config", configFile, configUsage)
-	flag.StringVar(&configFile, "c", configFile, configUsage+" (shorthand)")
+	flag.StringVar(&configFile, "c", configFile, configUsage)
 	flag.StringVar(&input, "input", input, inputUsage)
-	flag.StringVar(&input, "i", input, inputUsage+" (shorthand)")
+	flag.StringVar(&input, "i", input, inputUsage)
 	flag.StringVar(&dir, "context", dir, contextUsage)
-	flag.StringVar(&dir, "t", dir, contextUsage+" (shorthand)")
+	flag.StringVar(&dir, "x", dir, contextUsage)
 	flag.StringVar(&workflowFile, "workflow", workflowFile, workflowUsage)
-	flag.StringVar(&workflowFile, "w", workflowFile, workflowUsage+" (shorthand)")
+	flag.StringVar(&workflowFile, "w", workflowFile, workflowUsage)
 
 	flag.Usage = func() {
 		_, _ = os.Stderr.Write([]byte(`Usage: arcaflow [OPTIONS]
@@ -92,7 +92,7 @@ Options:
   -v, --version            ` + versionUsage + `
   -c, --config FILENAME    ` + configUsage + `
   -i, --input FILENAME     ` + inputUsage + `
-  -t, --context DIRECTORY  ` + contextUsage + `  
+  -x, --context DIRECTORY  ` + contextUsage + `  
   -w, --workflow FILENAME  ` + workflowUsage + `
 `))
 	}
