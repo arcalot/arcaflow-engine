@@ -116,7 +116,7 @@ Options:
 				"Commit: %s\n"+
 				"Date: %s\n"+
 				"Apache 2.0 license\n"+
-				"Copyright (c) Arcalot Contributors",
+				"Copyright (c) Arcalot Contributors\n",
 			version, commit, date,
 		)
 		return
