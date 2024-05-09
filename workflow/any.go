@@ -46,8 +46,8 @@ func (a *anySchemaWithExpressions) Serialize(data any) (any, error) {
 	return a.checkAndConvert(data)
 }
 
-func (a *anySchemaWithExpressions) ApplyScope(scope schema.Scope, namespace string) {
-	a.anySchema.ApplyScope(scope, namespace)
+func (a *anySchemaWithExpressions) ApplyNamespace(objects map[string]*schema.ObjectSchema, namespace string) {
+	a.anySchema.ApplyNamespace(objects, namespace)
 }
 
 func (a *anySchemaWithExpressions) ValidateReferences() error {

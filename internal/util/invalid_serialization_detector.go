@@ -19,6 +19,7 @@ func NewInvalidSerializationDetectorSchema() *InvalidSerializationDetectorSchema
 // the data has been serialized or unserialized at least once (since, if it is
 // never operated on, then it's trivial to claim that it was never doubly done).
 type InvalidSerializationDetectorSchema struct {
+	schema.ScalarType
 	SerializeCnt   int
 	UnserializeCnt int
 }
@@ -87,15 +88,6 @@ func (d *InvalidSerializationDetectorSchema) Serialize(data any) (any, error) {
 // SerializeType is string-input-typed version of Serialize.
 func (d *InvalidSerializationDetectorSchema) SerializeType(data string) (any, error) {
 	return d.Serialize(data)
-}
-
-// ApplyScope is for applying a scope to the references. Does not apply to this object.
-func (d *InvalidSerializationDetectorSchema) ApplyScope(_ schema.Scope, _ string) {}
-
-// ValidateReferences validates that all necessary references from scopes have been applied.
-// Does not apply to this object.
-func (d *InvalidSerializationDetectorSchema) ValidateReferences() error {
-	return nil
 }
 
 // TypeID returns the category of type this type is. Returns string because

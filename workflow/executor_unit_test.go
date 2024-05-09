@@ -59,17 +59,17 @@ var testLifecycleStage = step.LifecycleStageWithSchema{
 }
 
 func TestAddOutputNamespacedScopes(t *testing.T) {
-	allNamespaces := make(map[string]schema.Scope)
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	namespacePrefix := "TEST_PREFIX_"
 	addOutputNamespacedScopes(allNamespaces, testLifecycleStage, namespacePrefix)
 	expectedNamespace := namespacePrefix + "outputC"
 	assert.Equals(t, len(allNamespaces), 1)
 	assert.MapContainsKey(t, expectedNamespace, allNamespaces)
-	assert.Equals(t, "testObjectC", allNamespaces[expectedNamespace].Root())
+	assert.MapContainsKey(t, "testObjectC", allNamespaces[expectedNamespace])
 }
 
 func TestAddInputNamespacedScopes(t *testing.T) {
-	allNamespaces := make(map[string]schema.Scope)
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	namespacePrefix := "TEST_PREFIX_"
 	expectedInputs := map[string]string{
 		"scopeA": "testObjectA",
@@ -81,12 +81,12 @@ func TestAddInputNamespacedScopes(t *testing.T) {
 	for expectedInput, expectedObject := range expectedInputs {
 		expectedNamespace := namespacePrefix + expectedInput
 		assert.MapContainsKey(t, expectedNamespace, allNamespaces)
-		assert.Equals(t, expectedObject, allNamespaces[expectedNamespace].Root())
+		assert.MapContainsKey(t, expectedObject, allNamespaces[expectedNamespace])
 	}
 }
 
 func TestAddScopesWithMissingCache(t *testing.T) {
-	allNamespaces := make(map[string]schema.Scope)
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	externalRef3 := schema.NewNamespacedRefSchema("scopeTestObjectC", "not-applied-namespace", nil)
 	notAppliedExternalRefProperty := schema.NewPropertySchema(
 		externalRef3,
@@ -117,7 +117,7 @@ func TestAddScopesWithMissingCache(t *testing.T) {
 
 func TestAddScopesWithReferences(t *testing.T) {
 	// Test that the scope itself and the resolved references are added.
-	allNamespaces := make(map[string]schema.Scope)
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	internalRef := schema.NewRefSchema("scopeTestObjectA", nil)
 	internalRefProperty := schema.NewPropertySchema(
 		internalRef,
@@ -178,9 +178,9 @@ func TestAddScopesWithReferences(t *testing.T) {
 			"scopeTestObjectB", map[string]*schema.PropertySchema{},
 		),
 	)
-	testScope.ApplyScope(scopeToApply, "test-namespace-1")
-	testScope.ApplyScope(scopeToApply, "$.test-namespace-2")
-	testScope.ApplyScope(testScope, schema.DEFAULT_NAMESPACE)
+	testScope.ApplyNamespace(scopeToApply.Objects(), "test-namespace-1")
+	testScope.ApplyNamespace(scopeToApply.Objects(), "$.test-namespace-2")
+	testScope.ApplySelf()
 	addScopesWithReferences(allNamespaces, testScope, "$")
 	assert.Equals(t, len(allNamespaces), 3)
 	assert.MapContainsKey(t, "$", allNamespaces)
@@ -229,17 +229,18 @@ func TestApplyAllNamespaces_Pass(t *testing.T) {
 	assert.Panics(t, func() {
 		ref2Schema.GetObject()
 	})
-	allNamespaces := make(map[string]schema.Scope)
-	allNamespaces["test-namespace-1"] = schema.NewScopeSchema(
-		schema.NewObjectSchema(
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
+	// Test one manual map creation, and one using scope's `Objects()` method.
+	allNamespaces["test-namespace-1"] = map[string]*schema.ObjectSchema{
+		"scopeTestObjectB": schema.NewObjectSchema(
 			"scopeTestObjectB", map[string]*schema.PropertySchema{},
 		),
-	)
+	}
 	allNamespaces["test-namespace-2"] = schema.NewScopeSchema(
 		schema.NewObjectSchema(
 			"scopeTestObjectC", map[string]*schema.PropertySchema{},
 		),
-	)
+	).Objects()
 	// Call the function under test and validate that all caches are set.
 	assert.NoError(t, applyAllNamespaces(allNamespaces, testScope))
 	assert.NoError(t, testScope.ValidateReferences())
@@ -289,12 +290,12 @@ func TestApplyAllNamespaces_MissingNamespace(t *testing.T) {
 		ref2Schema.GetObject()
 	})
 	// Only add test-namespace-1
-	allNamespaces := make(map[string]schema.Scope)
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	allNamespaces["test-namespace-1"] = schema.NewScopeSchema(
 		schema.NewObjectSchema(
 			"scopeTestObjectB", map[string]*schema.PropertySchema{},
 		),
-	)
+	).Objects()
 	err := applyAllNamespaces(allNamespaces, testScope)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error validating references")
@@ -324,12 +325,12 @@ func TestApplyAllNamespaces_InvalidObject(t *testing.T) {
 			},
 		),
 	)
-	allNamespaces := make(map[string]schema.Scope)
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	allNamespaces["test-namespace-1"] = schema.NewScopeSchema(
 		schema.NewObjectSchema(
 			"scopeTestObjectB", map[string]*schema.PropertySchema{},
 		),
-	)
+	).Objects()
 	assert.PanicsContains(
 		t,
 		func() {
