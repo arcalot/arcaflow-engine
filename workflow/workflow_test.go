@@ -1346,21 +1346,25 @@ steps:
       wait_time_ms: 0
 outputs:
   a:
-    leading-whitespace: !expr "    $.steps.wait_1.outputs"
-    trailing-whitespace: !expr "$.steps.wait_1.outputs     "
+    leading-whitespace: !expr "    $.steps.wait_1.outputs.success.message"
+    trailing-whitespace: !expr "$.steps.wait_1.outputs.success.message     "
     # Use | instead of |- to keep the newline at the end.
     trailing-newline: !expr |
-      $.steps.wait_1.outputs
+      $.steps.wait_1.outputs.success.message
 `
 
 func TestExpressionWithWhitespace(t *testing.T) {
-	// Just a single wait
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, testExpressionWithExtraWhitespace),
 	)
-	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "a")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"leading-whitespace":  "Plugin slept for 0 ms.",
+		"trailing-whitespace": "Plugin slept for 0 ms.",
+		"trailing-newline":    "Plugin slept for 0 ms.",
+	})
 }
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {

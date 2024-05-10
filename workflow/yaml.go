@@ -54,7 +54,7 @@ func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
 		if data.Type() != yaml.TypeIDString {
 			return nil, fmt.Errorf("!!expr found on non-string node at %s", strings.Join(path, " -> "))
 		}
-		expr, err := expressions.New(strings.TrimSpace(data.Value()))
+		expr, err := expressions.New(data.Value())
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile expression at %s (%w)", strings.Join(path, " -> "), err)
 		}

@@ -139,8 +139,8 @@ go.flow.arcalot.io/deployer v0.6.0-beta1 h1:6wVGi/D5rHcT1pnQETg9ZAq5PCxArPwg0MNj
 go.flow.arcalot.io/deployer v0.6.0-beta1/go.mod h1:MDaDc9xDRjQN5TyTvvKMXipc5Khe8NLOnUjh31Nm0wU=
 go.flow.arcalot.io/dockerdeployer v0.7.0 h1:zQi/r5FVi1MBD4Z+I9l0i4nUQvjBSaZXdhtVKs3zPcM=
 go.flow.arcalot.io/dockerdeployer v0.7.0/go.mod h1:xIPCRSnyb/JEitUzsY2deWa7VwVZJd+opLNcFTcrN8U=
-go.flow.arcalot.io/expressions v0.4.1 h1:WOl3DtDcWAmPKupwYxJV3bVYKPoMgAmQbECfiUgv/0s=
-go.flow.arcalot.io/expressions v0.4.1/go.mod h1:FA/50wX1+0iTgW/dFeeE1yOslZSmfBaMNR4IiMYRwxc=
+go.flow.arcalot.io/expressions v0.4.2 h1:nEfxpWGEG1+59CoiAnS3AUQ+j2RZcUSPhPGjwPd+wOA=
+go.flow.arcalot.io/expressions v0.4.2/go.mod h1:FA/50wX1+0iTgW/dFeeE1yOslZSmfBaMNR4IiMYRwxc=
 go.flow.arcalot.io/kubernetesdeployer v0.9.1 h1:AGnJFazehAENXxGMCF0Uc7aG9F0LpvuhoyQFu8deJG0=
 go.flow.arcalot.io/kubernetesdeployer v0.9.1/go.mod h1:yvxT3VwmyrlIi4422pxl02z4QeU2Gvbjg5aQB17Ye4s=
 go.flow.arcalot.io/pluginsdk v0.11.1 h1:vutbhJVSqCqVvgYHNTEYa0Hx0p+lxh9HoyFhhC+ui94=
