@@ -1328,6 +1328,41 @@ func TestDelayedDisabledStepWorkflow(t *testing.T) {
 	assert.Equals(t, toggledOutputMap["message"], "Step toggled_wait/wait disabled")
 }
 
+var testExpressionWithExtraWhitespace = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_1:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+outputs:
+  a:
+    leading-whitespace: !expr "    $.steps.wait_1.outputs"
+    trailing-whitespace: !expr "$.steps.wait_1.outputs     "
+    # Use | instead of |- to keep the newline at the end.
+    trailing-newline: !expr |
+      $.steps.wait_1.outputs
+`
+
+func TestExpressionWithWhitespace(t *testing.T) {
+	// Just a single wait
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, testExpressionWithExtraWhitespace),
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "a")
+}
+
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
 		Level:       log.LevelDebug,
