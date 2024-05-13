@@ -17,11 +17,7 @@ func newAnySchemaWithExpressions() *anySchemaWithExpressions {
 // anySchemaWithExpressions is a wildcard allowing maps, lists, integers, strings, bools, and floats. It also allows
 // expression objects.
 type anySchemaWithExpressions struct {
-	anySchema schema.AnySchema
-}
-
-func (a *anySchemaWithExpressions) ReflectedType() reflect.Type {
-	return a.anySchema.ReflectedType()
+	schema.AnySchema
 }
 
 func (a *anySchemaWithExpressions) Unserialize(data any) (any, error) {
@@ -39,23 +35,11 @@ func (a *anySchemaWithExpressions) ValidateCompatibility(dataOrType any) error {
 		// Assume okay
 		return nil
 	}
-	return a.anySchema.ValidateCompatibility(dataOrType)
+	return a.AnySchema.ValidateCompatibility(dataOrType)
 }
 
 func (a *anySchemaWithExpressions) Serialize(data any) (any, error) {
 	return a.checkAndConvert(data)
-}
-
-func (a *anySchemaWithExpressions) ApplyNamespace(objects map[string]*schema.ObjectSchema, namespace string) {
-	a.anySchema.ApplyNamespace(objects, namespace)
-}
-
-func (a *anySchemaWithExpressions) ValidateReferences() error {
-	return a.anySchema.ValidateReferences()
-}
-
-func (a *anySchemaWithExpressions) TypeID() schema.TypeID {
-	return a.anySchema.TypeID()
 }
 
 func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
@@ -91,7 +75,7 @@ func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
 	case reflect.String:
 		fallthrough
 	case reflect.Bool:
-		return a.anySchema.Unserialize(data)
+		return a.AnySchema.Unserialize(data)
 	case reflect.Slice:
 		result := make([]any, t.Len())
 		for i := 0; i < t.Len(); i++ {
