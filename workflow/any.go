@@ -48,34 +48,6 @@ func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
 	}
 	t := reflect.ValueOf(data)
 	switch t.Kind() {
-	case reflect.Int:
-		fallthrough
-	case reflect.Uint:
-		fallthrough
-	case reflect.Int8:
-		fallthrough
-	case reflect.Uint8:
-		fallthrough
-	case reflect.Int16:
-		fallthrough
-	case reflect.Uint16:
-		fallthrough
-	case reflect.Int32:
-		fallthrough
-	case reflect.Uint32:
-		fallthrough
-	case reflect.Uint64:
-		fallthrough
-	case reflect.Int64:
-		fallthrough
-	case reflect.Float32:
-		fallthrough
-	case reflect.Float64:
-		fallthrough
-	case reflect.String:
-		fallthrough
-	case reflect.Bool:
-		return a.AnySchema.Unserialize(data)
 	case reflect.Slice:
 		result := make([]any, t.Len())
 		for i := 0; i < t.Len(); i++ {
@@ -102,8 +74,6 @@ func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
 		}
 		return result, nil
 	default:
-		return nil, &schema.ConstraintError{
-			Message: fmt.Sprintf("unsupported data type for 'any' type: %T", data),
-		}
+		return a.AnySchema.Unserialize(data)
 	}
 }
