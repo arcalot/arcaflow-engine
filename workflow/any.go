@@ -17,11 +17,7 @@ func newAnySchemaWithExpressions() *anySchemaWithExpressions {
 // anySchemaWithExpressions is a wildcard allowing maps, lists, integers, strings, bools, and floats. It also allows
 // expression objects.
 type anySchemaWithExpressions struct {
-	anySchema schema.AnySchema
-}
-
-func (a *anySchemaWithExpressions) ReflectedType() reflect.Type {
-	return a.anySchema.ReflectedType()
+	schema.AnySchema
 }
 
 func (a *anySchemaWithExpressions) Unserialize(data any) (any, error) {
@@ -39,23 +35,11 @@ func (a *anySchemaWithExpressions) ValidateCompatibility(dataOrType any) error {
 		// Assume okay
 		return nil
 	}
-	return a.anySchema.ValidateCompatibility(dataOrType)
+	return a.AnySchema.ValidateCompatibility(dataOrType)
 }
 
 func (a *anySchemaWithExpressions) Serialize(data any) (any, error) {
 	return a.checkAndConvert(data)
-}
-
-func (a *anySchemaWithExpressions) ApplyScope(scope schema.Scope, namespace string) {
-	a.anySchema.ApplyScope(scope, namespace)
-}
-
-func (a *anySchemaWithExpressions) ValidateReferences() error {
-	return a.anySchema.ValidateReferences()
-}
-
-func (a *anySchemaWithExpressions) TypeID() schema.TypeID {
-	return a.anySchema.TypeID()
 }
 
 func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
@@ -64,34 +48,6 @@ func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
 	}
 	t := reflect.ValueOf(data)
 	switch t.Kind() {
-	case reflect.Int:
-		fallthrough
-	case reflect.Uint:
-		fallthrough
-	case reflect.Int8:
-		fallthrough
-	case reflect.Uint8:
-		fallthrough
-	case reflect.Int16:
-		fallthrough
-	case reflect.Uint16:
-		fallthrough
-	case reflect.Int32:
-		fallthrough
-	case reflect.Uint32:
-		fallthrough
-	case reflect.Uint64:
-		fallthrough
-	case reflect.Int64:
-		fallthrough
-	case reflect.Float32:
-		fallthrough
-	case reflect.Float64:
-		fallthrough
-	case reflect.String:
-		fallthrough
-	case reflect.Bool:
-		return a.anySchema.Unserialize(data)
 	case reflect.Slice:
 		result := make([]any, t.Len())
 		for i := 0; i < t.Len(); i++ {
@@ -118,8 +74,6 @@ func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
 		}
 		return result, nil
 	default:
-		return nil, &schema.ConstraintError{
-			Message: fmt.Sprintf("unsupported data type for 'any' type: %T", data),
-		}
+		return a.AnySchema.Unserialize(data)
 	}
 }
