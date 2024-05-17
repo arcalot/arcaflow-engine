@@ -52,7 +52,7 @@ func main() {
 		Stdout:      os.Stderr,
 	})
 
-	configFile := ""
+	configFile := "config.yaml"
 	input := ""
 	dir := "."
 	workflowFile := "workflow.yaml"
@@ -71,15 +71,10 @@ func main() {
                            Defaults to workflow.yaml.`
 	)
 	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
-	flag.BoolVar(&printVersion, "v", printVersion, versionUsage)
 	flag.StringVar(&configFile, "config", configFile, configUsage)
-	flag.StringVar(&configFile, "c", configFile, configUsage)
 	flag.StringVar(&input, "input", input, inputUsage)
-	flag.StringVar(&input, "i", input, inputUsage)
 	flag.StringVar(&dir, "context", dir, contextUsage)
-	flag.StringVar(&dir, "x", dir, contextUsage)
 	flag.StringVar(&workflowFile, "workflow", workflowFile, workflowUsage)
-	flag.StringVar(&workflowFile, "w", workflowFile, workflowUsage)
 
 	flag.Usage = func() {
 		_, _ = os.Stderr.Write([]byte(`Usage: arcaflow [OPTIONS]
@@ -88,12 +83,12 @@ The Arcaflow engine will read the current directory and use it as a context
 for executing the workflow.
 
 Options:
-  -h, --help               ` + helpUsage + `
-  -v, --version            ` + versionUsage + `
-  -c, --config FILENAME    ` + configUsage + `
-  -i, --input FILENAME     ` + inputUsage + `
-  -x, --context DIRECTORY  ` + contextUsage + `  
-  -w, --workflow FILENAME  ` + workflowUsage + `
+  -help               ` + helpUsage + `
+  -version            ` + versionUsage + `
+  -config FILENAME    ` + configUsage + `
+  -input FILENAME     ` + inputUsage + `
+  -context DIRECTORY  ` + contextUsage + `  
+  -workflow FILENAME  ` + workflowUsage + `
 `))
 	}
 	flag.Parse()
