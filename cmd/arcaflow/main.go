@@ -52,7 +52,7 @@ func main() {
 		Stdout:      os.Stderr,
 	})
 
-	configFile := "config.yaml"
+	configFile := ""
 	input := ""
 	dir := "."
 	workflowFile := "workflow.yaml"
@@ -62,13 +62,10 @@ func main() {
 		helpUsage    = "Display this help output."
 		versionUsage = "Print Arcaflow Engine version and exit."
 		configUsage  = "The Arcaflow configuration file to load, if any."
-		inputUsage   = `The workflow input file to load. May be outside
-                           the workflow directory. If no input file is
-                           passed, the workflow is assumed to take no input.`
-		contextUsage = `The workflow directory to run from. Defaults 
-                           to the current directory.`
-		workflowUsage = `The workflow file in the current directory to load.
-                           Defaults to workflow.yaml.`
+		inputUsage   = "The workflow input file to load. May be outside the workflow " +
+			"directory."
+		contextUsage  = "The workflow directory to run from."
+		workflowUsage = "The workflow file in the current directory to load."
 	)
 	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
 	flag.StringVar(&configFile, "config", configFile, configUsage)
@@ -77,20 +74,17 @@ func main() {
 	flag.StringVar(&workflowFile, "workflow", workflowFile, workflowUsage)
 
 	flag.Usage = func() {
-		_, _ = os.Stderr.Write([]byte(`Usage: arcaflow [OPTIONS]
-		
-The Arcaflow engine will read the current directory and use it as a context
-for executing the workflow.
-
-Options:
-  -help               ` + helpUsage + `
-  -version            ` + versionUsage + `
-  -config FILENAME    ` + configUsage + `
-  -input FILENAME     ` + inputUsage + `
-  -context DIRECTORY  ` + contextUsage + `  
-  -workflow FILENAME  ` + workflowUsage + `
-`))
+		w := flag.CommandLine.Output()
+		_, _ = w.Write(
+			[]byte(
+				"Usage: " + os.Args[0] + " [OPTIONS]\n\n" +
+					"The Arcaflow engine will read the current directory and use it as a " +
+					"context for executing the workflow.\n\n",
+			),
+		)
+		flag.PrintDefaults()
 	}
+
 	flag.Parse()
 
 	if printVersion {
