@@ -250,6 +250,13 @@ func TestProvider_HappyError(t *testing.T) {
 			"deploy_time":   "abc"}},
 	))
 
+	// Enable the step
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDEnabling),
+		map[string]any{},
+	))
+
+	// Start with valid input
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDDeploy),
 		map[string]any{"deploy": map[string]any{
@@ -483,6 +490,11 @@ func TestProvider_StartFail(t *testing.T) {
 		string(plugin.StageIDStarting),
 		map[string]any{"input": map[string]any{
 			"wait_time_ms": 50}},
+	))
+
+	assert.NoError(t, running.ProvideStageInput(
+		string(plugin.StageIDEnabling),
+		map[string]any{},
 	))
 
 	// wait for message, but we don't care about its value

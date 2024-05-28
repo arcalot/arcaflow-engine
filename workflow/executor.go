@@ -227,7 +227,7 @@ func (e *executor) processInput(workflow *Workflow) (schema.Scope, error) {
 	if !ok {
 		return nil, fmt.Errorf("bug: unserialized input is not a scope")
 	}
-	typedInput.ApplyScope(typedInput, schema.DEFAULT_NAMESPACE)
+	typedInput.ApplySelf()
 	return typedInput, nil
 }
 
@@ -317,7 +317,7 @@ func applyLifecycleScopes(
 	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
 	typedInput schema.Scope,
 ) error {
-	allNamespaces := make(map[string]schema.Scope)
+	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	for workflowStepID, stepLifecycle := range stepLifecycles {
 		for _, stage := range stepLifecycle.Stages {
 			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
@@ -335,9 +335,9 @@ func applyLifecycleScopes(
 // applyAllNamespaces applies all namespaces to the given scope.
 // This function also validates references, and lists the namespaces
 // and their objects in the event of a reference failure.
-func applyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo schema.Scope) error {
-	for namespace, scope := range allNamespaces {
-		scopeToApplyTo.ApplyScope(scope, namespace)
+func applyAllNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema, scopeToApplyTo schema.Scope) error {
+	for namespace, objects := range allNamespaces {
+		scopeToApplyTo.ApplyNamespace(objects, namespace)
 	}
 	err := scopeToApplyTo.ValidateReferences()
 	if err == nil {
@@ -345,9 +345,9 @@ func applyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo sc
 	}
 	// Now on the error path. Provide useful debug info.
 	availableObjects := ""
-	for namespace, scope := range allNamespaces {
+	for namespace, objects := range allNamespaces {
 		availableObjects += "\n\t" + namespace + ":"
-		for objectID := range scope.Objects() {
+		for objectID := range objects {
 			availableObjects += " " + objectID
 		}
 	}
@@ -359,13 +359,13 @@ func applyAllNamespaces(allNamespaces map[string]schema.Scope, scopeToApplyTo sc
 	)
 }
 
-func addOutputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
+func addOutputNamespacedScopes(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
 	for outputID, outputSchema := range stage.Outputs {
 		addScopesWithReferences(allNamespaces, outputSchema.Schema(), prefix+outputID)
 	}
 }
 
-func addInputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.LifecycleStageWithSchema, prefix string) {
+func addInputNamespacedScopes(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
 	for inputID, inputSchemaProperty := range stage.InputSchema {
 		var inputSchemaType = inputSchemaProperty.Type()
 		// Extract item values from lists (like for ForEach)
@@ -379,19 +379,19 @@ func addInputNamespacedScopes(allNamespaces map[string]schema.Scope, stage step.
 }
 
 // Adds the scope to the namespace map, as well as all resolved references from external namespaces.
-func addScopesWithReferences(allNamespaces map[string]schema.Scope, scope schema.Scope, prefix string) {
-	// First, just adds the scope
-	allNamespaces[prefix] = scope
+func addScopesWithReferences(allNamespaces map[string]map[string]*schema.ObjectSchema, scope schema.Scope, prefix string) {
+	// First, just adds the scope's objects.
+	allNamespaces[prefix] = scope.Objects()
 	// Next, checks all properties for resolved references that reference objects outside of this scope.
 	rootObject := scope.RootObject()
 	for propertyID, property := range rootObject.Properties() {
 		if property.Type().TypeID() == schema.TypeIDRef {
 			refProperty := property.Type().(schema.Ref)
-			if refProperty.Namespace() != schema.DEFAULT_NAMESPACE {
+			if refProperty.Namespace() != schema.SelfNamespace {
 				// Found a reference to an object that is not included in the scope. Add it to the map.
 				var referencedObject any = refProperty.GetObject()
 				refObjectSchema := referencedObject.(*schema.ObjectSchema)
-				allNamespaces[prefix+"."+propertyID] = schema.NewScopeSchema(refObjectSchema)
+				allNamespaces[prefix+"."+propertyID] = map[string]*schema.ObjectSchema{refObjectSchema.ID(): refObjectSchema}
 			}
 		}
 	}
