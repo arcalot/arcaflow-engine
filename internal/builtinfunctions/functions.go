@@ -550,7 +550,9 @@ func getBindConstantsFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("Bind Constants"),
 			schema.PointerTo(
-				"Creates a list of objects with a new ID equal to schema name of the first parameter concatenated with the schema name of the second parameter. "+
+				"Returns a list of objects each containing two properties: an item property which contains "+
+					"the corresponding item from the list in the first parameter; and, a constant property which "+
+					"contains the value of the second input parameter. "+
 					fmt.Sprintf("The two names are joined with the delimiter %q. ", CombinedObjIDDelimiter)+
 					fmt.Sprintf("Each object has two properties `%s` and `%s`.\n", CombinedObjPropertyItemName, CombinedObjPropertyConstantName)+
 					fmt.Sprintf("Param 1: Value(s) to be included in the `%s` field \n", CombinedObjPropertyItemName)+
