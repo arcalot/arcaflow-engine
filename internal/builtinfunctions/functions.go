@@ -550,11 +550,10 @@ func getBindConstantsFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("Bind Constants"),
 			schema.PointerTo(
-				"Returns a list of objects each containing two properties: an item property which contains "+
-					"the corresponding item from the list in the first parameter; and, a constant property which "+
-					"contains the value of the second input parameter. "+
-					fmt.Sprintf("The two names are joined with the delimiter %q. ", CombinedObjIDDelimiter)+
+				"Returns a list of objects each containing two properties. "+
 					fmt.Sprintf("Each object has two properties `%s` and `%s`.\n", CombinedObjPropertyItemName, CombinedObjPropertyConstantName)+
+					"The output list items will have an Object ID and schema name as documented in "+
+					"https://arcalot.io/arcaflow/workflows/schemas/#generated-combined-schema-names"+
 					fmt.Sprintf("Param 1: Value(s) to be included in the `%s` field \n", CombinedObjPropertyItemName)+
 					fmt.Sprintf("Param 2: Value(s) to populate the field `%s` with every output item", CombinedObjPropertyConstantName)),
 			nil),
