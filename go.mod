@@ -1,6 +1,6 @@
 module go.flow.arcalot.io/engine
 
-go 1.21.10
+go 1.21
 
 require (
 	go.arcalot.io/assert v1.8.0
