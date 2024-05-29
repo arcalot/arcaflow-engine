@@ -551,10 +551,10 @@ func getBindConstantsFunction() schema.CallableFunction {
 			schema.PointerTo("Bind Constants"),
 			schema.PointerTo(
 				"Returns a list of objects each containing two properties. "+
-					"The output list items will have an Object ID and schema name as documented in "+
-					"https://arcalot.io/arcaflow/workflows/schemas/#generated-combined-schema-names"+
 					fmt.Sprintf("Param 1: Value(s) to be included in the `%s` field \n", CombinedObjPropertyItemName)+
-					fmt.Sprintf("Param 2: Value(s) to populate the field `%s` with every output item", CombinedObjPropertyConstantName)),
+					fmt.Sprintf("Param 2: Value(s) to populate the field `%s` with every output item\n", CombinedObjPropertyConstantName)+
+					"The output list items will have an Object ID and schema name as documented in "+
+					"https://arcalot.io/arcaflow/workflows/schemas/#generated-combined-schema-names."),
 			nil),
 		func(items []any, columnValues any) (any, error) {
 			combinedItems := make([]any, len(items))
