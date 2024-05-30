@@ -550,10 +550,11 @@ func getBindConstantsFunction() schema.CallableFunction {
 		schema.NewDisplayValue(
 			schema.PointerTo("Bind Constants"),
 			schema.PointerTo(
-				"Creates a list of objects with ID `CombinedObject`. "+
-					fmt.Sprintf("Each object has two properties `%s` and `%s`.\n", CombinedObjPropertyItemName, CombinedObjPropertyConstantName)+
-					fmt.Sprintf("Param 1: Value(s) to be included in the `%s` field \n", CombinedObjPropertyItemName)+
-					fmt.Sprintf("Param 2: Value(s) to populate the field `%s` with every output item", CombinedObjPropertyConstantName)),
+				fmt.Sprintf("Returns a list of objects each containing two "+
+					"properties. The `%s` property contains the corresponding "+
+					"item from the list in the first parameter, and the `%s` "+
+					"property contains the value of the second input parameter. ",
+					CombinedObjPropertyItemName, CombinedObjPropertyConstantName)),
 			nil),
 		func(items []any, columnValues any) (any, error) {
 			combinedItems := make([]any, len(items))
