@@ -8,7 +8,7 @@ def run(arg: EngineArgs) -> int:
         if os.path.isfile("{}/{}".format(arg.context, arg.config)):
             args.extend(["-config", arg.config])
         else:
-            raise Exception("Error: config file {} not found".format(arg.config))
+            raise Exception("Error: config file {}/{} not found".format(arg.context, arg.config))
 
     if arg.input is not None:
         if os.path.isfile(arg.input):
@@ -26,7 +26,7 @@ def run(arg: EngineArgs) -> int:
         if os.path.isfile("{}/{}".format(arg.context, arg.workflow)):
             args.extend(["-workflow", arg.workflow])
         else:
-            raise Exception("Error: context file {} not found".format(arg.workflow))
+            raise Exception("Error: context file {}/{} not found".format(arg.context, arg.workflow))
 
     is_windows = any(platform.win32_ver())
     binary_name = "arcaflow"
