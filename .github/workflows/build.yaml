@@ -14,23 +14,9 @@ jobs:
       go_version: ${{ vars.ARCALOT_GO_VERSION }}
   generate:
     name: go generate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ vars.ARCALOT_GO_VERSION }}
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: go-test-${{ hashFiles('**/go.sum') }}
-          restore-keys: go-generate-
-      - name: Run go generate
-        run: ./.github/scripts/gogenerate.sh
+    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_generate.yaml@main
+    with:
+      go_version: ${{ vars.ARCALOT_GO_VERSION }}
   release:
     name: release
     permissions:
