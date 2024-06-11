@@ -190,13 +190,11 @@ logged_outputs:
 			flag.Usage()
 			os.Exit(ExitCodeInvalidData)
 		}
-		if input != "" {
-			inputData, err = os.ReadFile(inputFilePath)
-			if err != nil {
-				logger.Errorf("Failed to read input file %s (%v)", input, err)
-				flag.Usage()
-				os.Exit(ExitCodeInvalidData)
-			}
+		inputData, err = os.ReadFile(inputFilePath)
+		if err != nil {
+			logger.Errorf("Failed to read input file %s (%v)", input, err)
+			flag.Usage()
+			os.Exit(ExitCodeInvalidData)
 		}
 	}
 
