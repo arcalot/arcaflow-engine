@@ -133,13 +133,6 @@ logged_outputs:
 		os.Exit(ExitCodeInvalidData)
 	}
 
-	configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
-	if len(configFile) != 0 && err != nil {
-		tempLogger.Errorf("Unable to find configuration file %s (%v)", configFile, err)
-		flag.Usage()
-		os.Exit(ExitCodeInvalidData)
-	}
-
 	var configData any
 	if len(configFile) == 0 {
 		if err := yaml.Unmarshal([]byte(defaultConfig), &configData); err != nil {
@@ -147,6 +140,13 @@ logged_outputs:
 			os.Exit(ExitCodeInvalidData)
 		}
 	} else {
+		configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
+		if err != nil {
+			tempLogger.Errorf("Unable to find configuration file %s (%v)", configFile, err)
+			flag.Usage()
+			os.Exit(ExitCodeInvalidData)
+		}
+
 		configData, err = loadYamlFile(configFilePath)
 		if err != nil {
 			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
@@ -180,23 +180,23 @@ logged_outputs:
 		os.Exit(ExitCodeInvalidData)
 	}
 
-	inputFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyInput)
-	if len(input) != 0 && err != nil {
-		tempLogger.Errorf("Unable to find input file %s (%v)", input, err)
-		flag.Usage()
-		os.Exit(ExitCodeInvalidData)
-	}
-
 	var inputData []byte
 	if len(input) == 0 {
 		inputData = []byte("{}")
-	}
-	if input != "" {
-		inputData, err = os.ReadFile(inputFilePath)
+	} else {
+		inputFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyInput)
 		if err != nil {
-			logger.Errorf("Failed to read input file %s (%v)", input, err)
+			tempLogger.Errorf("Unable to find input file %s (%v)", input, err)
 			flag.Usage()
 			os.Exit(ExitCodeInvalidData)
+		}
+		if input != "" {
+			inputData, err = os.ReadFile(inputFilePath)
+			if err != nil {
+				logger.Errorf("Failed to read input file %s (%v)", input, err)
+				flag.Usage()
+				os.Exit(ExitCodeInvalidData)
+			}
 		}
 	}
 
