@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
@@ -190,7 +191,8 @@ logged_outputs:
 			flag.Usage()
 			os.Exit(ExitCodeInvalidData)
 		}
-		inputData, err = os.ReadFile(inputFilePath)
+
+		inputData, err = os.ReadFile(filepath.Clean(inputFilePath))
 		if err != nil {
 			logger.Errorf("Failed to read input file %s (%v)", input, err)
 			flag.Usage()
