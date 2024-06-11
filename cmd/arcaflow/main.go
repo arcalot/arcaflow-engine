@@ -52,6 +52,18 @@ func main() {
 		Stdout:      os.Stderr,
 	})
 
+	defaultConfig := `
+log:
+  level: info
+deployers:
+  image:
+    deployer_name: podman
+    deployment:
+      imagePullPolicy: IfNotPresent
+logged_outputs:
+  error:
+    level: info`
+
 	configFile := ""
 	input := ""
 	dir := "."
@@ -103,7 +115,6 @@ func main() {
 	var err error
 
 	requiredFiles := map[string]string{
-		RequiredFileKeyInput:    input,
 		RequiredFileKeyWorkflow: workflowFile,
 	}
 
@@ -111,10 +122,14 @@ func main() {
 		requiredFiles[RequiredFileKeyConfig] = configFile
 	}
 
+	if len(input) != 0 {
+		requiredFiles[RequiredFileKeyInput] = input
+	}
+
 	fileCtx, err := loadfile.NewFileCacheUsingContext(dir, requiredFiles)
 	if err != nil {
 		flag.Usage()
-		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
+		tempLogger.Errorf("Context path resolution failed %s (%v)", dir, err)
 		os.Exit(ExitCodeInvalidData)
 	}
 
@@ -127,17 +142,6 @@ func main() {
 
 	var configData any
 	if len(configFile) == 0 {
-		defaultConfig := `
-log:
-  level: info
-deployers:
-  image:
-    deployer_name: podman
-    deployment:
-      imagePullPolicy: IfNotPresent
-logged_outputs:
-  error:
-    level: info`
 		if err := yaml.Unmarshal([]byte(defaultConfig), &configData); err != nil {
 			tempLogger.Errorf("Failed to load default configuration", err)
 			os.Exit(ExitCodeInvalidData)
@@ -176,9 +180,19 @@ logged_outputs:
 		os.Exit(ExitCodeInvalidData)
 	}
 
+	inputFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyInput)
+	if len(input) != 0 && err != nil {
+		tempLogger.Errorf("Unable to find input file %s (%v)", input, err)
+		flag.Usage()
+		os.Exit(ExitCodeInvalidData)
+	}
+
 	var inputData []byte
+	if len(input) == 0 {
+		inputData = []byte("{}")
+	}
 	if input != "" {
-		inputData, err = os.ReadFile(input)
+		inputData, err = os.ReadFile(inputFilePath)
 		if err != nil {
 			logger.Errorf("Failed to read input file %s (%v)", input, err)
 			flag.Usage()
