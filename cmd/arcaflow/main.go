@@ -59,13 +59,12 @@ func main() {
 	printVersion := false
 
 	const (
-		helpUsage    = "Display this help output."
-		versionUsage = "Print Arcaflow Engine version and exit."
-		configUsage  = "The Arcaflow configuration file to load, if any."
-		inputUsage   = "The workflow input file to load. May be outside the workflow " +
-			"directory."
-		contextUsage  = "The workflow directory to run from."
-		workflowUsage = "The workflow file in the current directory to load."
+		helpUsage     = "Display this help output."
+		versionUsage  = "Print Arcaflow Engine version and exit."
+		configUsage   = "The path to the Arcaflow configuration file to load, if any."
+		inputUsage    = "The path to the workflow input file to load."
+		contextUsage  = "The path to the workflow directory to run from."
+		workflowUsage = "The path to the workflow file to load."
 	)
 	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
 	flag.StringVar(&configFile, "config", configFile, configUsage)
@@ -104,9 +103,12 @@ func main() {
 	var err error
 
 	requiredFiles := map[string]string{
-		RequiredFileKeyConfig:   configFile,
 		RequiredFileKeyInput:    input,
 		RequiredFileKeyWorkflow: workflowFile,
+	}
+
+	if len(configFile) != 0 {
+		requiredFiles[RequiredFileKeyConfig] = configFile
 	}
 
 	fileCtx, err := loadfile.NewFileCacheUsingContext(dir, requiredFiles)
@@ -117,18 +119,36 @@ func main() {
 	}
 
 	configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
-	if err != nil {
+	if len(configFile) != 0 && err != nil {
 		tempLogger.Errorf("Unable to find configuration file %s (%v)", configFile, err)
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
 	}
 
 	var configData any
-	configData, err = loadYamlFile(configFilePath)
-	if err != nil {
-		tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
-		flag.Usage()
-		os.Exit(ExitCodeInvalidData)
+	if len(configFile) == 0 {
+		var defaultConfig string = `
+log:
+  level: info
+deployers:
+  image:
+    deployer_name: podman
+    deployment:
+      imagePullPolicy: IfNotPresent
+logged_outputs:
+  error:
+    level: info`
+		if err := yaml.Unmarshal([]byte(defaultConfig), &configData); err != nil {
+			tempLogger.Errorf("Failed to load default configuration", err)
+			os.Exit(ExitCodeInvalidData)
+		}
+	} else {
+		configData, err = loadYamlFile(configFilePath)
+		if err != nil {
+			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
+			flag.Usage()
+			os.Exit(ExitCodeInvalidData)
+		}
 	}
 
 	cfg, err := config.Load(configData)
