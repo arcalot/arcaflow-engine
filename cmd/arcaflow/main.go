@@ -127,7 +127,7 @@ func main() {
 
 	var configData any
 	if len(configFile) == 0 {
-		var defaultConfig string = `
+		defaultConfig := `
 log:
   level: info
 deployers:
