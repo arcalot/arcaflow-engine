@@ -68,7 +68,7 @@ image deployer and will set the log outputs to the `info` level.
 If you have a local Docker / Moby setup installed, you can run the workflow immediately:
 
 ```bash
-arcaflow -input input.yaml
+arcaflow --input input.yaml
 ```
 
 If you don't have a local Docker setup, or if you want to use another deployer or any
@@ -92,16 +92,16 @@ logged_outputs:
     level: debug
 ```
 
-You can load this config by passing the `-config` flag to Arcaflow.
+You can load this config by passing the `--config` flag to Arcaflow.
 
 ```bash
-arcaflow -input input.yaml -config config.yaml
+arcaflow --input input.yaml --config config.yaml
 ```
 
 The default workflow file name is `workflow.yaml`, but you can override this with the
-`-workflow` input parameter.
+`--workflow` input parameter.
 
-Arcaflow also accepts a `-context` parameter that defines the base directory for all
+Arcaflow also accepts a `--context` parameter that defines the base directory for all
 input files. All relative file paths are from the context directory, and absolute paths
 are also supported. The default context is the current working directory (`.`).
 
@@ -110,20 +110,20 @@ are also supported. The default context is the current working directory (`.`).
 Use the built-in configuration and run the `workflow.yaml` file from the `/my-workflow`
 context directory with no input:
 ```bash
-arcaflow -context /my-workflow
+arcaflow --context /my-workflow
 ```
 
 Use a custom `my-config.yaml` configuration file and run the `my-workflow.yaml` workflow
 using the `my-input.yaml` input file from the current directory:
 ```bash
-arcaflow -config my-config.yaml -workflow my-workflow.yaml -input my-input.yaml
+arcaflow --config my-config.yaml --workflow my-workflow.yaml --input my-input.yaml
 ```
 
 Use a custom `config.yaml` configuration file and the default `workflow.yaml` file from
 the `/my-workflow` context directory, and an `input.yaml` file from the current working
 directory:
 ```bash
-arcaflow -context /my-workflow -config config.yaml -input ./input.yaml
+arcaflow --context /my-workflow --config config.yaml --input ./input.yaml
 ```
 
 ## Deployers
