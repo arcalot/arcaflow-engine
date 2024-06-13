@@ -58,9 +58,11 @@ log:
   level: info
 deployers:
   image:
-    deployer_name: podman
+    deployer_name: docker
     deployment:
       imagePullPolicy: IfNotPresent
+  python:
+    deployer_name: python
 logged_outputs:
   error:
     level: info`
@@ -74,7 +76,7 @@ logged_outputs:
 	const (
 		versionUsage  = "Print Arcaflow Engine version and exit."
 		configUsage   = "The path to the Arcaflow configuration file to load, if any."
-		inputUsage    = "The path to the workflow input file to load."
+		inputUsage    = "The path to the workflow input file to load, if any."
 		contextUsage  = "The path to the workflow directory to run from."
 		workflowUsage = "The path to the workflow file to load."
 	)
