@@ -72,7 +72,6 @@ logged_outputs:
 	printVersion := false
 
 	const (
-		helpUsage     = "Display this help output."
 		versionUsage  = "Print Arcaflow Engine version and exit."
 		configUsage   = "The path to the Arcaflow configuration file to load, if any."
 		inputUsage    = "The path to the workflow input file to load."
@@ -88,11 +87,7 @@ logged_outputs:
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
 		_, _ = w.Write(
-			[]byte(
-				"Usage: " + os.Args[0] + " [OPTIONS]\n\n" +
-					"The Arcaflow engine will read the current directory and use it as a " +
-					"context for executing the workflow.\n\n",
-			),
+			[]byte("Usage: " + os.Args[0] + " [OPTIONS]\n\n"),
 		)
 		flag.PrintDefaults()
 	}
@@ -129,8 +124,8 @@ logged_outputs:
 
 	fileCtx, err := loadfile.NewFileCacheUsingContext(dir, requiredFiles)
 	if err != nil {
-		flag.Usage()
 		tempLogger.Errorf("Context path resolution failed %s (%v)", dir, err)
+		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
 	}
 
