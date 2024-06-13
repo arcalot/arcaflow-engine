@@ -61,8 +61,6 @@ deployers:
     deployer_name: docker
     deployment:
       imagePullPolicy: IfNotPresent
-  python:
-    deployer_name: python
 logged_outputs:
   error:
     level: info`
