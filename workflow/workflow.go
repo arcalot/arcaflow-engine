@@ -340,7 +340,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 
 	// Can include runnable nodes, nodes that cannot be resolved, and nodes that are not for running, like an input.
 	for nodeID, resolutionStatus := range readyNodes {
-		if resolutionStatus != dgraph.Waiting {
+		if resolutionStatus == dgraph.Unresolvable {
 			l.logger.Debugf("Disregarding node %q with resolution %q", nodeID, resolutionStatus)
 			continue
 		}
