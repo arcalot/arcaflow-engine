@@ -87,7 +87,10 @@ logged_outputs:
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
 		_, _ = w.Write(
-			[]byte("Usage: " + os.Args[0] + " [OPTIONS]\n\n"),
+			[]byte(
+				"Usage: " + os.Args[0] + " [OPTIONS]\n\n" +
+					"Arcaflow will read file paths relative to the context directory.\n\n",
+			),
 		)
 		flag.PrintDefaults()
 	}
