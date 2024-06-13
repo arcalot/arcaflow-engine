@@ -50,10 +50,11 @@ outputs:
 ```
 
 As you can see, a workflow has the root keys of `version`, `input`, `steps`, and
-`outputs`. Each of these keys is required in a workflow. These can be linked together
-using the Arcaflow
-[expression language](https://arcalot.io/arcaflow/workflows/expressions/). The
-expressions also determine the execution order of plugins.
+`outputs`. Each of these keys is required in a workflow. Output values and inputs to
+steps can be specified using the Arcaflow
+[expression language](https://arcalot.io/arcaflow/workflows/expressions/). Input and
+output references create dependencies between the workflow steps which determines their
+execution order.
 
 An input file for this basic workflow may look like:
 
@@ -79,12 +80,6 @@ parameters. For example:
 deployers:
   image: 
     deployer_name: podman
-    deployment:
-      host:
-        NetworkMode: host
-      imagePullPolicy: IfNotPresent
-  python:
-    deployer_name: python
 log:
   level: debug
 logged_outputs:
@@ -123,7 +118,7 @@ Use a custom `config.yaml` configuration file and the default `workflow.yaml` fi
 the `/my-workflow` context directory, and an `input.yaml` file from the current working
 directory:
 ```bash
-arcaflow --context /my-workflow --config config.yaml --input ./input.yaml
+arcaflow --context /my-workflow --config config.yaml --input ${PWD}/input.yaml
 ```
 
 ## Deployers
@@ -137,4 +132,6 @@ has configuraiton parameters specific to its platform. These deployers are:
 
 There is also a
 [Python deployer](https://github.com/arcalot/arcaflow-engine-deployer-python) that
-allows for running supported plugins directly instead of containerized.
+allows for running Python plugins directly instead of containerized. *Note that not all
+Python plugins may work with the Python deployer, and any plugin dependencies must be
+on the target system.*
