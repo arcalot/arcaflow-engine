@@ -3,12 +3,13 @@
 a waterfall and a river with 3 trees symbolizing the various plugins"
 src="https://github.com/arcalot/.github/raw/main/branding/arcaflow.png">
 
-**Arcaflow** is a highly-flexible and portable **workflow system** that helps
-you to build simple or complex pipelines of actions with data passing between the
-actions. The **data is validated** according to schemas along the way to make sure
-there is no corrupt data, catching potential failure conditions before they happen.
-Arcaflow runs on your laptop, a jump host, or in a CI system requiring only the Arcaflow
-engine binary, a workflow definition in YAML, and a compatible container runtime.
+Arcaflow is a highly-flexible and portable workflow system that helps you to build
+pipelines of actions via plugins. Plugin steps typically perform one action well, 
+creating or manipulating data that is returned in a machine-readable format. Data is
+validated according to schemas as it passes through the pipeline in order to clearly
+diagnose type mismatch problems early. Arcaflow runs on your laptop, a jump host, or in
+a CI system, requiring only the Arcaflow engine binary, a workflow definition in YAML,
+and a compatible container runtime.
 
 [Complete Arcaflow Documentation](https://arcalot.io/arcaflow)
 
@@ -16,14 +17,20 @@ engine binary, a workflow definition in YAML, and a compatible container runtime
 
 # The Arcaflow Engine
 
-The Arcaflow Engine is the core execution component for workflows. It allows you to run
-workflows using container engines including Docker, Podman, and Kubernetes. The Arcaflow
-SDK is available for [Python](https://arcalot.io/arcaflow/creating-plugins/python/) and
-[Golang](https://github.com/arcalot/arcaflow-plugin-sdk-go) to aid with the development
-of plugins, from which workflows are constructed.
-[Official plugins](https://github.com/orgs/arcalot/repositories?q=arcaflow-plugin-) are
+The Arcaflow Engine is the core execution component for workflows. It allows you to use
+actions provided by containerized plugins to build pipelines of work. The Arcaflow
+engine can be configured to run plugins using Docker, Podman, and Kubernetes.
+
+ An ever-growing catalog of
+[official plugins](https://github.com/orgs/arcalot/repositories?q=arcaflow-plugin-) are
 maintained within the Arcalot organization and are available as
-[versioned containers from Quay.io](https://quay.io/organization/arcalot).
+[versioned containers from Quay.io](https://quay.io/organization/arcalot). You can also
+build your own containerized plugins using the the Arcaflow SDK, available for
+[Python](https://arcalot.io/arcaflow/creating-plugins/python/) and
+[Golang](https://github.com/arcalot/arcaflow-plugin-sdk-go). We encourage you to
+contribute your plugins to the community, and you can start by adding them to the
+[plugins incubator](https://github.com/arcalot/arcaflow-plugins-incubator) repo via a
+pull request.
 
 ## Pre-built engine binaries
 
