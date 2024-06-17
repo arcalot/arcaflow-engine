@@ -1,6 +1,6 @@
 # Arcaflow: The Noble Workflow Engine
-<img align="left" width="200px" style="padding-right: 2em; padding-bottom: 2em" alt="Arcaflow logo showing
-a waterfall and a river with 3 trees symbolizing the various plugins"
+<img align="left" width="200px" alt="Arcaflow logo showing a waterfall and a river with
+3 trees symbolizing the various plugins"
 src="https://github.com/arcalot/.github/raw/main/branding/arcaflow.png">
 
 Arcaflow is a highly-flexible and portable workflow system that helps you to build
@@ -13,6 +13,8 @@ and a compatible container runtime.
 
 [Complete Arcaflow Documentation](https://arcalot.io/arcaflow)
 
+<br/>
+
 ![image](arcaflow-basic-demo.gif)
 
 # The Arcaflow Engine
@@ -22,12 +24,12 @@ actions provided by containerized plugins to build pipelines of work. The Arcafl
 engine can be configured to run plugins using Podman, Docker, and Kubernetes.
 
 An ever-growing catalog of
-[official plugins](https://github.com/orgs/arcalot/repositories?q=arcaflow-plugin-) are
-maintained within the Arcalot organization and are available as
+[official plugins](https://github.com/orgs/arcalot/repositories?q=%22arcaflow-plugin-%22)
+are maintained within the Arcalot organization and are available as
 [versioned containers from Quay.io](https://quay.io/organization/arcalot). You can also
 build your own containerized plugins using the the Arcaflow SDK, available for
-[Python](https://arcalot.io/arcaflow/creating-plugins/python/) and
-[Golang](https://github.com/arcalot/arcaflow-plugin-sdk-go). We encourage you to
+[Python](https://arcalot.io/arcaflow/plugins/python/) and
+[Golang](https://arcalot.io/arcaflow/plugins/go/). We encourage you to
 contribute your plugins to the community, and you can start by adding them to the
 [plugins incubator](https://github.com/arcalot/arcaflow-plugins-incubator) repo via a
 pull request.
@@ -90,8 +92,8 @@ name: Arca Lot
 ```
 
 The Arcaflow engine uses a configuration to define the standard behaviors for deploying
-plugins within the workflow. The default configuration will use Podman as the container
-runtime and will set the log outputs to the `info` level.
+plugins within the workflow. The default configuration will use Podman to run the
+container and will set the log outputs to the `info` level.
 
 If you have a local Podman setup installed, you can simply run the workflow like this:
 
