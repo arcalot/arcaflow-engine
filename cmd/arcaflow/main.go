@@ -58,7 +58,7 @@ log:
   level: info
 deployers:
   image:
-    deployer_name: docker
+    deployer_name: podman
     deployment:
       imagePullPolicy: IfNotPresent
 logged_outputs:

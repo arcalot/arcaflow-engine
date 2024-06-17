@@ -19,9 +19,9 @@ and a compatible container runtime.
 
 The Arcaflow Engine is the core execution component for workflows. It allows you to use
 actions provided by containerized plugins to build pipelines of work. The Arcaflow
-engine can be configured to run plugins using Docker, Podman, and Kubernetes.
+engine can be configured to run plugins using Podman, Docker, and Kubernetes.
 
- An ever-growing catalog of
+An ever-growing catalog of
 [official plugins](https://github.com/orgs/arcalot/repositories?q=arcaflow-plugin-) are
 maintained within the Arcalot organization and are available as
 [versioned containers from Quay.io](https://quay.io/organization/arcalot). You can also
@@ -90,11 +90,10 @@ name: Arca Lot
 ```
 
 The Arcaflow engine uses a configuration to define the standard behaviors for deploying
-plugins within the workflow. The default configuration will use Docker as the container
+plugins within the workflow. The default configuration will use Podman as the container
 runtime and will set the log outputs to the `info` level.
 
-If you have a local Docker / Moby setup installed, you can simply run the workflow like
-this:
+If you have a local Podman setup installed, you can simply run the workflow like this:
 
 ```bash
 arcaflow --input input.yaml
@@ -103,14 +102,14 @@ arcaflow --input input.yaml
 This results in the default behavior of using the built-in configuration and reading the
 workflow from the `workflow.yaml` file in the current working directory.
 
-If you don't have a local Docker setup, or if you want to use another deployer or any
+If you don't have a local Podman setup, or if you want to use another deployer or any
 custom configuration parameters, you can create a `config.yaml` with your desired
 parameters. For example:
 
 ```yaml
 deployers:
   image: 
-    deployer_name: podman
+    deployer_name: docker
 log:
   level: debug
 logged_outputs:
@@ -160,8 +159,8 @@ arcaflow --context /my-workflow --config config.yaml --input ${PWD}/input.yaml
 Image-based deployers are used to deploy plugins to container platforms. Each deployer
 has configuraiton parameters specific to its platform. These deployers are:
 
-- [Docker](https://github.com/arcalot/arcaflow-engine-deployer-docker)
 - [Podman](https://github.com/arcalot/arcaflow-engine-deployer-podman)
+- [Docker](https://github.com/arcalot/arcaflow-engine-deployer-docker)
 - [Kubernetes](https://github.com/arcalot/arcaflow-engine-deployer-kubernetes)
 
 There is also a
