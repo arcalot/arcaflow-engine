@@ -121,6 +121,8 @@ func main() {
 	}
 
 	var configData any
+	// If no config file is passed, we use an empty map to accept the schema defaults
+	configData = make(map[string]any)
 	if len(configFile) > 0 {
 		configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
 		if err != nil {
@@ -135,9 +137,6 @@ func main() {
 			flag.Usage()
 			os.Exit(ExitCodeInvalidData)
 		}
-	} else {
-		// If no config file is passed, we use an empty map to accept the schema defaults
-		configData = make(map[string]any)
 	}
 
 	cfg, err := config.Load(configData)
