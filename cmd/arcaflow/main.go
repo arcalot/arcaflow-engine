@@ -53,18 +53,6 @@ func main() {
 		Stdout:      os.Stderr,
 	})
 
-	defaultConfig := `
-log:
-  level: info
-deployers:
-  image:
-    deployer_name: podman
-    deployment:
-      imagePullPolicy: IfNotPresent
-logged_outputs:
-  error:
-    level: info`
-
 	configFile := ""
 	input := ""
 	dir := "."
@@ -133,12 +121,9 @@ logged_outputs:
 	}
 
 	var configData any
-	if len(configFile) == 0 {
-		if err := yaml.Unmarshal([]byte(defaultConfig), &configData); err != nil {
-			tempLogger.Errorf("Failed to load default configuration", err)
-			os.Exit(ExitCodeInvalidData)
-		}
-	} else {
+	// If no config file is passed, we use an empty map to accept the schema defaults
+	configData = make(map[string]any)
+	if len(configFile) > 0 {
 		configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
 		if err != nil {
 			tempLogger.Errorf("Unable to find configuration file %s (%v)", configFile, err)
