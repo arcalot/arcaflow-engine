@@ -5,13 +5,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/loadfile"
 	"gopkg.in/yaml.v3"
-	"os"
-	"os/signal"
 )
 
 // These variables are filled using ldflags during the build process with Goreleaser.
@@ -57,55 +59,30 @@ func main() {
 	workflowFile := "workflow.yaml"
 	printVersion := false
 
-	flag.BoolVar(&printVersion, "version", printVersion, "Print Arcaflow Engine version and exit.")
-	flag.StringVar(
-		&configFile,
-		"config",
-		configFile,
-		"The Arcaflow configuration file to load, if any.",
+	const (
+		versionUsage  = "Print Arcaflow Engine version and exit."
+		configUsage   = "The path to the Arcaflow configuration file to load, if any."
+		inputUsage    = "The path to the workflow input file to load, if any."
+		contextUsage  = "The path to the workflow directory to run from."
+		workflowUsage = "The path to the workflow file to load."
 	)
-	flag.StringVar(
-		&input,
-		"input",
-		input,
-		"The workflow input file to load. May be outside the workflow directory. If no input file is passed, "+
-			"the workflow is assumed to take no input.",
-	)
-	flag.StringVar(
-		&dir,
-		"context",
-		dir,
-		"The workflow directory to run from. Defaults to the current directory.",
-	)
-	flag.StringVar(
-		&workflowFile,
-		"workflow",
-		workflowFile,
-		"The workflow file in the current directory to load. Defaults to workflow.yaml.",
-	)
+	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
+	flag.StringVar(&configFile, "config", configFile, configUsage)
+	flag.StringVar(&input, "input", input, inputUsage)
+	flag.StringVar(&dir, "context", dir, contextUsage)
+	flag.StringVar(&workflowFile, "workflow", workflowFile, workflowUsage)
+
 	flag.Usage = func() {
-		_, _ = os.Stderr.Write([]byte(`Usage: arcaflow [OPTIONS]
-
-The Arcaflow engine will read the current directory and use it as a context
-for executing the workflow.
-
-Options:
-
-  -version            Print the Arcaflow Engine version and exit.
-
-  -config FILENAME    The Arcaflow configuration file to load, if any.
-
-  -input FILENAME     The workflow input file to load. May be outside the
-                      workflow directory. If no input file is passed,
-                      the workflow is assumed to take no input.
-
-  -context DIRECTORY  The workflow directory to run from. Defaults to the
-                      current directory.
-
-  -workflow FILENAME  The workflow file in the current directory to load.
-                      Defaults to workflow.yaml.
-`))
+		w := flag.CommandLine.Output()
+		_, _ = w.Write(
+			[]byte(
+				"Usage: " + os.Args[0] + " [OPTIONS]\n\n" +
+					"Arcaflow will read file paths relative to the context directory.\n\n",
+			),
+		)
+		flag.PrintDefaults()
 	}
+
 	flag.Parse()
 
 	if printVersion {
@@ -116,7 +93,7 @@ Options:
 				"Commit: %s\n"+
 				"Date: %s\n"+
 				"Apache 2.0 license\n"+
-				"Copyright (c) Arcalot Contributors",
+				"Copyright (c) Arcalot Contributors\n",
 			version, commit, date,
 		)
 		return
@@ -125,31 +102,41 @@ Options:
 	var err error
 
 	requiredFiles := map[string]string{
-		RequiredFileKeyConfig:   configFile,
-		RequiredFileKeyInput:    input,
 		RequiredFileKeyWorkflow: workflowFile,
+	}
+
+	if len(configFile) != 0 {
+		requiredFiles[RequiredFileKeyConfig] = configFile
+	}
+
+	if len(input) != 0 {
+		requiredFiles[RequiredFileKeyInput] = input
 	}
 
 	fileCtx, err := loadfile.NewFileCacheUsingContext(dir, requiredFiles)
 	if err != nil {
-		flag.Usage()
-		tempLogger.Errorf("context path resolution failed %s (%v)", dir, err)
-		os.Exit(ExitCodeInvalidData)
-	}
-
-	configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
-	if err != nil {
-		tempLogger.Errorf("Unable to find configuration file %s (%v)", configFile, err)
+		tempLogger.Errorf("Context path resolution failed %s (%v)", dir, err)
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
 	}
 
 	var configData any
-	configData, err = loadYamlFile(configFilePath)
-	if err != nil {
-		tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
-		flag.Usage()
-		os.Exit(ExitCodeInvalidData)
+	// If no config file is passed, we use an empty map to accept the schema defaults
+	configData = make(map[string]any)
+	if len(configFile) > 0 {
+		configFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyConfig)
+		if err != nil {
+			tempLogger.Errorf("Unable to find configuration file %s (%v)", configFile, err)
+			flag.Usage()
+			os.Exit(ExitCodeInvalidData)
+		}
+
+		configData, err = loadYamlFile(configFilePath)
+		if err != nil {
+			tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
+			flag.Usage()
+			os.Exit(ExitCodeInvalidData)
+		}
 	}
 
 	cfg, err := config.Load(configData)
@@ -178,8 +165,17 @@ Options:
 	}
 
 	var inputData []byte
-	if input != "" {
-		inputData, err = os.ReadFile(input)
+	if len(input) == 0 {
+		inputData = []byte("{}")
+	} else {
+		inputFilePath, err := fileCtx.AbsPathByKey(RequiredFileKeyInput)
+		if err != nil {
+			tempLogger.Errorf("Unable to find input file %s (%v)", input, err)
+			flag.Usage()
+			os.Exit(ExitCodeInvalidData)
+		}
+
+		inputData, err = os.ReadFile(filepath.Clean(inputFilePath))
 		if err != nil {
 			logger.Errorf("Failed to read input file %s (%v)", input, err)
 			flag.Usage()

@@ -1,8 +1,9 @@
 package config_test
 
 import (
-	"go.arcalot.io/log/v2"
 	"testing"
+
+	"go.arcalot.io/log/v2"
 
 	"go.arcalot.io/lang"
 	"go.flow.arcalot.io/engine/config"
@@ -19,7 +20,7 @@ var configLoadData = map[string]struct {
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
 			LocalDeployers: map[string]any{
-				"image": map[string]string{"deployer_name": "docker"},
+				"image": map[string]string{"deployer_name": "podman"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,
@@ -35,7 +36,7 @@ log:
 		expectedOutput: &config.Config{
 			TypeHintPlugins: nil,
 			LocalDeployers: map[string]any{
-				"image": map[string]string{"deployer_name": "docker"},
+				"image": map[string]string{"deployer_name": "podman"},
 			},
 			Log: log.Config{
 				Level:       log.LevelDebug,
@@ -70,7 +71,7 @@ plugins:
 				"quay.io/arcalot/example-plugin:latest",
 			},
 			LocalDeployers: map[string]any{
-				"image": map[string]string{"deployer_name": "docker"},
+				"image": map[string]string{"deployer_name": "podman"},
 			},
 			Log: log.Config{
 				Level:       log.LevelInfo,

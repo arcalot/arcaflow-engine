@@ -1,10 +1,44 @@
-# Arcaflow Engine
+# Arcaflow: The Noble Workflow Engine
+<img align="left" width="200px" alt="Arcaflow logo showing a waterfall and a river with
+3 trees symbolizing the various plugins"
+src="https://github.com/arcalot/.github/raw/main/branding/arcaflow.png">
 
-The Arcaflow Engine allows you to run workflows using container engines, such as Docker or Kubernetes. The plugins must be built with the [Arcaflow SDK](https://arcalot.io/arcaflow/creating-plugins/python/).
+Arcaflow is a highly-flexible and portable workflow system that helps you to build
+pipelines of actions via plugins. Plugin steps typically perform one action well, 
+creating or manipulating data that is returned in a machine-readable format. Data is
+validated according to schemas as it passes through the pipeline in order to clearly
+diagnose type mismatch problems early. Arcaflow runs on your laptop, a jump host, or in
+a CI system, requiring only the Arcaflow engine binary, a workflow definition in YAML,
+and a compatible container runtime.
 
-## Pre-built binaries
+[Complete Arcaflow Documentation](https://arcalot.io/arcaflow)
 
-If you want to use our pre-built binaries, you can find them in the [releases section](https://github.com/arcalot/arcaflow-engine/releases).
+<br/>
+
+![image](arcaflow-basic-demo.gif)
+
+# The Arcaflow Engine
+
+The Arcaflow Engine is the core execution component for workflows. It allows you to use
+actions provided by containerized plugins to build pipelines of work. The Arcaflow
+engine can be configured to run plugins using Podman, Docker, and Kubernetes.
+
+An ever-growing catalog of
+[official plugins](https://github.com/orgs/arcalot/repositories?q=%22arcaflow-plugin-%22)
+are maintained within the Arcalot organization and are available as
+[versioned containers from Quay.io](https://quay.io/organization/arcalot). You can also
+build your own containerized plugins using the the Arcaflow SDK, available for
+[Python](https://arcalot.io/arcaflow/plugins/python/) and
+[Golang](https://arcalot.io/arcaflow/plugins/go/). We encourage you to
+contribute your plugins to the community, and you can start by adding them to the
+[plugins incubator](https://github.com/arcalot/arcaflow-plugins-incubator) repo via a
+pull request.
+
+## Pre-built engine binaries
+
+Our pre-built engine binaries are available in the
+[releases section](https://github.com/arcalot/arcaflow-engine/releases) for multiple
+platforms and architectures.
 
 ## Building from source
 
@@ -14,15 +48,16 @@ This system requires at least Go 1.18 to run and can be built from source:
 go build -o arcaflow cmd/arcaflow/main.go
 ```
 
-This binary can then be used to run Arcaflow workflows.
+This self-contained engine binary can then be used to run Arcaflow workflows.
 
-## Building a simple workflow
+## Running a simple workflow
 
-The simplest workflow is the example plugin workflow using the workflow schema version `v0.2.0`: (save it to workflow.yaml)
+A set of [example workflows](https://github.com/arcalot/arcaflow-workflows) is available
+to demonstrate workflow features. A basic example `workflow.yaml` may look like this:
 
 ```yaml
-version: v0.2.0
-input:
+version: v0.2.0  # The compatible workflow schema version
+input:  # The input schema for the workflow
   root: RootObject
   objects:
     RootObject:
@@ -31,108 +66,107 @@ input:
         name:
           type:
             type_id: string
-steps:
+steps:  # The individual steps of the workflow
   example:
-    plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
-    # step: step-id if the plugin has more than one step
-    # deploy:
-    #   type: docker|kubernetes
-    #   ... more options
+    plugin:
+      deployment_type: image
+      src: quay.io/arcalot/arcaflow-plugin-example
     input:
       name: !expr $.input.name
-output:
-  message: !expr $.steps.example.outputs.success.message
+outputs:  # The expected output schema and data for the workflow
+  success:
+    message: !expr $.steps.example.outputs.success.message
 ```
 
-As you can see, it has a `version`, `input`, a list of `steps`, and an `output` definition. Each of these keys is required in a workflow. These can be linked together using JSONPath expressions (not all features are supported). The expressions also determine the execution order of plugins.
+As you can see, a workflow has the root keys of `version`, `input`, `steps`, and
+`outputs`. Each of these keys is required in a workflow. Output values and inputs to
+steps can be specified using the Arcaflow
+[expression language](https://arcalot.io/arcaflow/workflows/expressions/). Input and
+output references create dependencies between the workflow steps which determine their
+execution order.
 
-You can now create an input YAML for this workflow: (save it to input.yaml)
+An input YAML file for this basic workflow may look like this:
 
 ```yaml
 name: Arca Lot
 ```
 
-If you have a local Docker / Moby setup installed, you can run it immediately:
+The Arcaflow engine uses a configuration to define the standard behaviors for deploying
+plugins within the workflow. The default configuration will use Podman to run the
+container and will set the log outputs to the `info` level.
 
-```
-./arcaflow -input input.yaml
+If you have a local Podman setup installed, you can simply run the workflow like this:
+
+```bash
+arcaflow --input input.yaml
 ```
 
-If you don't have a local Docker setup, you can also create a `config.yaml` with the following structure:
+This results in the default behavior of using the built-in configuration and reading the
+workflow from the `workflow.yaml` file in the current working directory.
+
+If you don't have a local Podman setup, or if you want to use another deployer or any
+custom configuration parameters, you can create a `config.yaml` with your desired
+parameters. For example:
 
 ```yaml
 deployers:
   image: 
-    deployer_name: docker|podman|kubernetes
-  python:
-    deployer_name: python
-  # More deployer options
+    deployer_name: docker
 log:
-  level: debug|info|warning|error
+  level: debug
+logged_outputs:
+  error:
+    level: debug
 ```
 
-You can load this config by passing the `-config` flag to Arcaflow.
+You can load this config by passing the `--config` flag to Arcaflow.
 
-### Supported Workflow Schema Versions
-
-- v0.2.0
-
-## Deployer options
-
-Currently, the two deployer types supported are Docker and Kubernetes.
-
-### The Docker deployer
-
-This deployer uses the Docker socket to launch containers. It has the following config structure:
-
-```yaml
-image:
-  deployer_name: docker
-  connection:
-    host: # Docker connection string
-    cacert: # CA certificate for engine connection in PEM format
-    cert: # Client cert in PEM format
-    key: # Client key in PEM format
-  deployment:
-    container: # Container options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-    host: # Host options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-    network: # Network options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-    platform: # Platform options, see https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
-
-    # Pull policy, similar to Kubernetes
-    imagePullPolicy: Always|IfNotPresent|Never
-  timeouts:
-    http: 15s
+```bash
+arcaflow --input input.yaml --config config.yaml
 ```
 
-**Note:** not all container options are supported. STDIN/STDOUT-related options are disabled. Some other options may not be implemented yet, but you will always get an error message explaining missing options.
+The default workflow file name is `workflow.yaml`, but you can override this with the
+`--workflow` input parameter.
 
-## The Kubernetes deployer
+Arcaflow also accepts a `--context` parameter that defines the base directory for all
+input files. All relative file paths are from the context directory, and absolute paths
+are also supported. The default context is the current working directory (`.`).
 
-The Kubernetes deployer deploys on a Kubernetes cluster. It has the following config structure:
+### A few command examples...
 
-```yaml
-image:
-  deployer_name: kubernetes
-  connection:
-    host: api.server.host
-    path: /api
-    username: foo
-    password: bar
-    serverName: tls.server.name
-    cert: PEM-encoded certificate
-    key: PEM-encoded key
-    cacert: PEM-encoded CA certificate
-    bearerToken: Bearer token for access
-    qps: queries per second
-    burst: burst value
-  deployment:
-    metadata:
-      # Add pod metadata here
-    spec:
-      # Add a normal pod spec here, plus the following option here:
-      pluginContainer:
-        # A single container configuration the plugin will run in. Do not specify the image, the engine will fill that.
-  timeouts:
-    http: 15s
+Use the built-in configuration and run the `workflow.yaml` file from the `/my-workflow`
+context directory with no input:
+
+```bash
+arcaflow --context /my-workflow
 ```
+
+Use a custom `my-config.yaml` configuration file and run the `my-workflow.yaml` workflow
+using the `my-input.yaml` input file from the current directory:
+
+```bash
+arcaflow --config my-config.yaml --workflow my-workflow.yaml --input my-input.yaml
+```
+
+Use a custom `config.yaml` configuration file and the default `workflow.yaml` file from
+the `/my-workflow` context directory, and an `input.yaml` file from the current working
+directory:
+
+```bash
+arcaflow --context /my-workflow --config config.yaml --input ${PWD}/input.yaml
+```
+
+## Deployers
+
+Image-based deployers are used to deploy plugins to container platforms. Each deployer
+has configuraiton parameters specific to its platform. These deployers are:
+
+- [Podman](https://github.com/arcalot/arcaflow-engine-deployer-podman)
+- [Docker](https://github.com/arcalot/arcaflow-engine-deployer-docker)
+- [Kubernetes](https://github.com/arcalot/arcaflow-engine-deployer-kubernetes)
+
+There is also a
+[Python deployer](https://github.com/arcalot/arcaflow-engine-deployer-python) that
+allows for running Python plugins directly instead of containerized. *Note that not all
+Python plugins may work with the Python deployer, and any plugin dependencies must be
+present on the target system.*

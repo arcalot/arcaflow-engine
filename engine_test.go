@@ -3,8 +3,9 @@ package engine_test
 import (
 	"context"
 	"errors"
-	"go.flow.arcalot.io/engine/loadfile"
 	"testing"
+
+	"go.flow.arcalot.io/engine/loadfile"
 
 	log "go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
@@ -29,7 +30,7 @@ func createTestEngine(t *testing.T) engine.WorkflowEngine {
 	cfg.Log.Level = log.LevelDebug
 	cfg.Log.Destination = log.DestinationTest
 	cfg.LocalDeployers["image"] = map[string]any{
-		"deployer_name": "docker",
+		"deployer_name": "podman",
 		"deployment": map[string]any{
 			"imagePullPolicy": "IfNotPresent",
 		},
