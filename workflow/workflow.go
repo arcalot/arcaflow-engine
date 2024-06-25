@@ -282,7 +282,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		l.cancel()
 		return
 	}
-	l.logger.Debugf("Resolving node '%s' in the DAG", stageNode.ID())
+	l.logger.Debugf("Resolving node %q in the DAG", stageNode.ID())
 	if err := stageNode.ResolveNode(dgraph.Resolved); err != nil {
 		l.logger.Errorf("Failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
 		l.recentErrors <- fmt.Errorf("failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
@@ -299,7 +299,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		}
 		// Resolves the node in the DAG. This allows us to know which nodes are
 		// ready for processing due to all dependencies being resolved.
-		l.logger.Debugf("Resolving node '%s' in the DAG", outputNode.ID())
+		l.logger.Debugf("Resolving node %q in the DAG", outputNode.ID())
 		if err := outputNode.ResolveNode(dgraph.Resolved); err != nil {
 			l.logger.Errorf("Failed to resolve output node ID %s (%w)", outputNode.ID(), err)
 			l.recentErrors <- fmt.Errorf("failed to resolve output node ID %s (%w)", outputNode.ID(), err)
