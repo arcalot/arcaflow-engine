@@ -35,9 +35,10 @@ type executableWorkflow struct {
 	stepRunData       map[string]map[string]any
 	workflowContext   map[string][]byte
 	internalDataModel *schema.ScopeSchema
-	runnableSteps     map[string]step.RunnableStep
-	lifecycles        map[string]step.Lifecycle[step.LifecycleStageWithSchema]
-	outputSchema      map[string]*schema.StepOutputSchema
+	// All of these fields have the step ID as the key.
+	runnableSteps map[string]step.RunnableStep
+	lifecycles    map[string]step.Lifecycle[step.LifecycleStageWithSchema]
+	outputSchema  map[string]*schema.StepOutputSchema
 }
 
 func (e *executableWorkflow) OutputSchema() map[string]*schema.StepOutputSchema {
@@ -281,7 +282,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		l.cancel()
 		return
 	}
-	l.logger.Debugf("Resolved node '%s' in the DAG", stageNode.ID())
+	l.logger.Debugf("Resolving node '%s' in the DAG", stageNode.ID())
 	if err := stageNode.ResolveNode(dgraph.Resolved); err != nil {
 		l.logger.Errorf("Failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
 		l.recentErrors <- fmt.Errorf("failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
@@ -324,17 +325,10 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 	l.notifySteps()
 }
 
-// notifySteps is a function we can call to go through all DAG nodes that have no inbound connections and
-// provide step inputs based on expressions.
+// notifySteps is a function we can call to go through all DAG nodes that are marked
+// ready and provides step inputs based on expressions.
 // The lock should be acquired by the caller before this is called.
 func (l *loopState) notifySteps() { //nolint:gocognit
-	// This function goes through the DAG and feeds the input to all steps that have no further inbound
-	// dependencies.
-	//
-	// This function could be further optimized if there was a DAG that contained not only the steps, but the
-	// concrete values that needed to be updated. This would make it possible to completely forego the need to
-	// iterate through the input.
-
 	readyNodes := l.dag.PopReadyNodes()
 	l.logger.Debugf("Currently %d DAG nodes are ready. Now processing them.", len(readyNodes))
 
@@ -436,18 +430,7 @@ type stateCounters struct {
 	finished int
 }
 
-func (l *loopState) countStates() stateCounters {
-	counters := struct {
-		starting int
-		waiting  int
-		running  int
-		finished int
-	}{
-		0,
-		0,
-		0,
-		0,
-	}
+func (l *loopState) countStates() (counters stateCounters) {
 	for stepID, runningStep := range l.runningSteps {
 		switch runningStep.State() {
 		case step.RunningStepStateStarting:
