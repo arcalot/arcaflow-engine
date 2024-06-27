@@ -21,16 +21,18 @@ jobs:
     name: release
     permissions:
       contents: write
+      packages: write
     needs:
       - lint_and_test
       - generate
-    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_release.yaml@main
+    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_release.yaml@update-go-lint-and-test  # FIXME:  SHOULD BE @main
     secrets:
-      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      REGISTRY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
     with:
       go_version: ${{ vars.ARCALOT_GO_VERSION }}
       for_release: ${{ startsWith(github.event.ref, 'refs/tags/') }}
+      registry: quay.io
   build_python_wheel:
     name: build python wheel
     needs:
