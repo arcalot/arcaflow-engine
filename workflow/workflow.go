@@ -347,7 +347,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
 		inputData := nodeItem.Data
 		if inputData == nil {
-			// No input data is needed.
+			// No input data is needed. This is often the case for input nodes.
 			continue
 		}
 		// Resolve any expressions in the input data.
