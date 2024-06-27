@@ -25,7 +25,7 @@ jobs:
     needs:
       - lint_and_test
       - generate
-    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_release.yaml@update-go-lint-and-test  # FIXME:  SHOULD BE @main
+    uses: arcalot/arcaflow-reusable-workflows/.github/workflows/go_release.yaml@main
     secrets:
       REGISTRY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       REGISTRY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
