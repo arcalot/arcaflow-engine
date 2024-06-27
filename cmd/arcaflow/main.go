@@ -182,7 +182,7 @@ func main() {
 			os.Exit(ExitCodeInvalidData)
 		}
 	}
-	//ctx := context.Background()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	ctrlC := make(chan os.Signal, 4) // We expect up to three ctrl-C inputs. Plus one extra to buffer in case.
 	signal.Notify(ctrlC, os.Interrupt)
@@ -197,16 +197,6 @@ func main() {
 }
 
 func runWorkflow(ctx context.Context, flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflowFile string, logger log.Logger, inputData []byte) int {
-	//ctx, cancel := context.WithCancel(ctx)
-	//ctrlC := make(chan os.Signal, 4) // We expect up to three ctrl-C inputs. Plus one extra to buffer in case.
-	//signal.Notify(ctrlC, os.Interrupt)
-	//
-	//go handleOSInterrupt(ctrlC, cancel, logger)
-	//defer func() {
-	//	close(ctrlC) // Ensure that the goroutine exits
-	//	cancel()
-	//}()
-
 	workflow, err := flow.Parse(fileCtx, workflowFile)
 	if err != nil {
 		logger.Errorf("Invalid workflow (%v)", err)
