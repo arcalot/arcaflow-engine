@@ -40,6 +40,10 @@ type executableWorkflow struct {
 	outputSchema      map[string]*schema.StepOutputSchema
 }
 
+func (e *executableWorkflow) DataModel() *schema.ScopeSchema {
+	return e.internalDataModel
+}
+
 func (e *executableWorkflow) OutputSchema() map[string]*schema.StepOutputSchema {
 	return e.outputSchema
 }

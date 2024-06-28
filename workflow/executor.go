@@ -71,6 +71,7 @@ type ExecutableWorkflow interface {
 
 	// OutputSchema returns the schema for the possible outputs of this workflow.
 	OutputSchema() map[string]*schema.StepOutputSchema
+	DataModel() *schema.ScopeSchema
 }
 
 type executor struct {

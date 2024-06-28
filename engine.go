@@ -56,6 +56,7 @@ type Workflow interface {
 	InputSchema() schema.Scope
 	// Outputs returns the list of possible outputs and their schema for the workflow.
 	Outputs() map[string]schema.StepOutput
+	DataModel() *schema.ScopeSchema
 }
 
 type workflowEngine struct {
@@ -123,9 +124,11 @@ func (w workflowEngine) Parse(
 		return nil, err
 	}
 
-	return &engineWorkflow{
-		workflow: preparedWorkflow,
-	}, nil
+	//return &engineWorkflow{
+	//	workflow: preparedWorkflow,
+	//}, nil
+	ew := &engineWorkflow{workflow: preparedWorkflow}
+	return ew, nil
 }
 
 // StepWorkflowPaths finds all the file paths to workflows referenced
@@ -234,3 +237,5 @@ func (e engineWorkflow) Outputs() map[string]schema.StepOutput {
 	}
 	return outputs
 }
+
+func (e engineWorkflow) DataModel() *schema.ScopeSchema { return e.workflow.DataModel() }

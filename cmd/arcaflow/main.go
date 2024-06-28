@@ -203,6 +203,38 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 		return ExitCodeInvalidData
 	}
 
+	//wfInputSchema, err := workflow.InputSchema().SelfSerialize()
+	//if err != nil {
+	//	logger.Errorf("Failed to seriailize workflow input schema (%v)", err)
+	//	return ExitCodeInvalidData
+	//}
+	wfInputSchema := workflow.InputSchema()
+	//wfInputSchemaBytes, err := yaml.Marshal(wfInputSchema)
+	//if err != nil {
+	//	logger.Errorf("Failed to marshal workflow input schema (%v)", err)
+	//}
+	fmt.Printf("~~~~~input schema~~~~~\n%s\n~~~~~~~~~\n", wfInputSchema.SerializeForHuman(map[string]any{}))
+
+	wfInputSchemaYaml, err := yaml.Marshal(wfInputSchema.SerializeForHuman(map[string]any{}))
+	if err != nil {
+		logger.Errorf("Failed to marshal workflow serialization for human (%v)", err)
+	}
+	fmt.Printf("~~~~~yamlized/pretty input schema~~~~~\n%s\n~~~~~~~~~\n", string(wfInputSchemaYaml))
+	//wfSchema, err := workflow.DataModel().SelfSerialize()
+	//if err != nil {
+	//	logger.Errorf("Failed to serialize workflow (%v)", err)
+	//	return ExitCodeInvalidData
+	//}
+	//wfSchemaBytes, err := yaml.Marshal(workflow.DataModel())
+	//if err != nil {
+	//	logger.Errorf("Failed to marshal workflow (%v)", err)
+	//	return ExitCodeInvalidData
+	//}
+	//fmt.Printf("~~~wf schema~\n%v\n~~~~~~~\n", string(wfSchemaBytes))
+	//wfOutputSchema := workflow.Outputs()
+	//wfOutputSchemaYamlBytes, _ := yaml.Marshal(wfOutputSchema)
+	//fmt.Printf("~~~output schema~\n%v\n~~~~~~~\n", string(wfOutputSchemaYamlBytes))
+
 	outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 	if err != nil {
 		logger.Errorf("Workflow execution failed (%v)", err)
