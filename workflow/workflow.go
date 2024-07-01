@@ -35,9 +35,10 @@ type executableWorkflow struct {
 	stepRunData       map[string]map[string]any
 	workflowContext   map[string][]byte
 	internalDataModel *schema.ScopeSchema
-	runnableSteps     map[string]step.RunnableStep
-	lifecycles        map[string]step.Lifecycle[step.LifecycleStageWithSchema]
-	outputSchema      map[string]*schema.StepOutputSchema
+	// All of these fields have the step ID as the key.
+	runnableSteps map[string]step.RunnableStep
+	lifecycles    map[string]step.Lifecycle[step.LifecycleStageWithSchema]
+	outputSchema  map[string]*schema.StepOutputSchema
 }
 
 func (e *executableWorkflow) OutputSchema() map[string]*schema.StepOutputSchema {
@@ -82,7 +83,6 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		},
 		callableFunctions: e.callableFunctions,
 		dag:               e.dag.Clone(),
-		inputsNotified:    make(map[string]struct{}, len(e.dag.ListNodes())),
 		runningSteps:      make(map[string]step.RunningStep, len(e.dag.ListNodes())),
 		outputDataChannel: make(chan outputDataType, 1),
 		outputDone:        false,
@@ -168,8 +168,11 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 	if err != nil {
 		return "", nil, fmt.Errorf("bug: cannot obtain input node (%w)", err)
 	}
-	if err := inputNode.Remove(); err != nil {
-		return "", nil, fmt.Errorf("failed to remove input node from DAG (%w)", err)
+	if err := l.dag.PushStartingNodes(); err != nil {
+		return "", nil, fmt.Errorf("failed to setup starting nodes in DAG (%w)", err)
+	}
+	if err := inputNode.ResolveNode(dgraph.Resolved); err != nil {
+		return "", nil, fmt.Errorf("failed to resolve input node in DAG (%w)", err)
 	}
 
 	func() {
@@ -229,7 +232,6 @@ type loopState struct {
 	data              map[string]any
 	dag               dgraph.DirectedGraph[*DAGItem]
 	callableFunctions map[string]schema.CallableFunction
-	inputsNotified    map[string]struct{}
 	runningSteps      map[string]step.RunningStep
 	outputDataChannel chan outputDataType
 	outputDone        bool
@@ -280,10 +282,10 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		l.cancel()
 		return
 	}
-	l.logger.Debugf("Removed node '%s' from the DAG", stageNode.ID())
-	if err := stageNode.Remove(); err != nil {
-		l.logger.Errorf("Failed to remove stage node ID %s (%w)", stageNode.ID(), err)
-		l.recentErrors <- fmt.Errorf("failed to remove stage node ID %s (%w)", stageNode.ID(), err)
+	l.logger.Debugf("Resolving node %q in the DAG", stageNode.ID())
+	if err := stageNode.ResolveNode(dgraph.Resolved); err != nil {
+		l.logger.Errorf("Failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
+		l.recentErrors <- fmt.Errorf("failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
 		l.cancel()
 		return
 	}
@@ -295,11 +297,12 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 			l.cancel()
 			return
 		}
-		// Removes the node from the DAG. This results in the nodes not having inbound connections, allowing them to be processed.
-		l.logger.Debugf("Removed node '%s' from the DAG", outputNode.ID())
-		if err := outputNode.Remove(); err != nil {
-			l.logger.Errorf("Failed to remove output node ID %s (%w)", outputNode.ID(), err)
-			l.recentErrors <- fmt.Errorf("failed to remove output node ID %s (%w)", outputNode.ID(), err)
+		// Resolves the node in the DAG. This allows us to know which nodes are
+		// ready for processing due to all dependencies being resolved.
+		l.logger.Debugf("Resolving node %q in the DAG", outputNode.ID())
+		if err := outputNode.ResolveNode(dgraph.Resolved); err != nil {
+			l.logger.Errorf("Failed to resolve output node ID %s (%w)", outputNode.ID(), err)
+			l.recentErrors <- fmt.Errorf("failed to resolve output node ID %s (%w)", outputNode.ID(), err)
 			l.cancel()
 			return
 		}
@@ -322,32 +325,29 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 	l.notifySteps()
 }
 
-// notifySteps is a function we can call to go through all DAG nodes that have no inbound connections and
-// provide step inputs based on expressions.
+// notifySteps is a function we can call to go through all DAG nodes that are marked
+// ready and provides step inputs based on expressions.
 // The lock should be acquired by the caller before this is called.
 func (l *loopState) notifySteps() { //nolint:gocognit
-	// This function goes through the DAG and feeds the input to all steps that have no further inbound
-	// dependencies.
-	//
-	// This function could be further optimized if there was a DAG that contained not only the steps, but the
-	// concrete values that needed to be updated. This would make it possible to completely forego the need to
-	// iterate through the input.
+	readyNodes := l.dag.PopReadyNodes()
+	l.logger.Debugf("Currently %d DAG nodes are ready. Now processing them.", len(readyNodes))
 
-	nodesWithoutInbound := l.dag.ListNodesWithoutInboundConnections()
-	l.logger.Debugf("Currently %d DAG nodes have no inbound connection. Now processing them.", len(nodesWithoutInbound))
-
-	// nodesWithoutInbound have all dependencies resolved. No inbound connection.
-	// Also includes nodes that are not for running, like an input.
-	for nodeID, node := range nodesWithoutInbound {
-		if _, ok := l.inputsNotified[nodeID]; ok {
+	// Can include runnable nodes, nodes that cannot be resolved, and nodes that are not for running, like an input.
+	for nodeID, resolutionStatus := range readyNodes {
+		if resolutionStatus == dgraph.Unresolvable {
+			l.logger.Debugf("Disregarding node %q with resolution %q", nodeID, resolutionStatus)
 			continue
 		}
 		l.logger.Debugf("Processing step node %s", nodeID)
-		l.inputsNotified[nodeID] = struct{}{}
+		node, err := l.dag.GetNodeByID(nodeID)
+		if err != nil {
+			panic(fmt.Errorf("failed to get node %s (%w)", nodeID, err))
+		}
+		nodeItem := node.Item()
 		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
-		inputData := node.Item().Data
+		inputData := nodeItem.Data
 		if inputData == nil {
-			// No input data is needed.
+			// No input data is needed. This is often the case for input nodes.
 			continue
 		}
 		// Resolve any expressions in the input data.
@@ -358,24 +358,24 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		}
 
 		// This switch checks to see if it's a node that needs to be run.
-		switch node.Item().Kind {
+		switch nodeItem.Kind {
 		case DAGItemKindStepStage:
-			if node.Item().DataSchema == nil {
+			if nodeItem.DataSchema == nil {
 				// This should only happen if the stage doesn't have any input fields.
 				// This may not even get called. That should be checked.
 				break
 			}
 			// We have a stage we can proceed with. Let's provide it with input.
 			// Tries to match the schema
-			if _, err := node.Item().DataSchema.Unserialize(untypedInputData); err != nil {
-				l.logger.Errorf("Bug: schema evaluation resulted in invalid data for %s (%v)", node.ID(), err)
-				l.recentErrors <- fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", node.ID(), err)
+			if _, err := nodeItem.DataSchema.Unserialize(untypedInputData); err != nil {
+				l.logger.Errorf("Bug: schema evaluation resulted in invalid data for %s (%v)", nodeID, err)
+				l.recentErrors <- fmt.Errorf("bug: schema evaluation resulted in invalid data for %s (%w)", nodeID, err)
 				l.cancel()
 				return
 			}
 
 			// This check is here just to make sure it has the required fields set
-			if node.Item().StepID == "" || node.Item().StageID == "" {
+			if nodeItem.StepID == "" || nodeItem.StageID == "" {
 				// This shouldn't happen
 				panic("Step or stage ID missing")
 			}
@@ -387,12 +387,12 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			}
 			// Sends it to the plugin
 			l.logger.Debugf("Providing stage input for %s...", nodeID)
-			if err := l.runningSteps[node.Item().StepID].ProvideStageInput(
-				node.Item().StageID,
+			if err := l.runningSteps[nodeItem.StepID].ProvideStageInput(
+				nodeItem.StageID,
 				typedInputData,
 			); err != nil {
-				l.logger.Errorf("Bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
-				l.recentErrors <- fmt.Errorf("bug: failed to provide input to step %s (%w)", node.Item().StepID, err)
+				l.logger.Errorf("Bug: failed to provide input to step %s (%w)", nodeItem.StepID, err)
+				l.recentErrors <- fmt.Errorf("bug: failed to provide input to step %s (%w)", nodeItem.StepID, err)
 				l.cancel()
 				return
 			}
@@ -408,7 +408,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 				// other copies of this should be attempting to write to the output
 				// data channel. This is required to prevent the goroutine from stalling.
 				l.outputDataChannel <- outputDataType{
-					outputID:   node.Item().OutputID,
+					outputID:   nodeItem.OutputID,
 					outputData: untypedInputData,
 				}
 				// Since this is the only thread accessing the channel, it should be
@@ -416,7 +416,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 				close(l.outputDataChannel)
 			}
 
-			if err := node.Remove(); err != nil {
+			if err := node.ResolveNode(dgraph.Resolved); err != nil {
 				l.logger.Errorf("BUG: Error occurred while removing workflow output node (%w)", err)
 			}
 		}
@@ -424,63 +424,21 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 }
 
 type stateCounters struct {
-	starting              int
-	waitingWithInbound    int
-	waitingWithoutInbound int
-	running               int
-	finished              int
+	starting int
+	waiting  int
+	running  int
+	finished int
 }
 
-func (l *loopState) countStates() stateCounters {
-	counters := struct {
-		starting              int
-		waitingWithInbound    int
-		waitingWithoutInbound int
-		running               int
-		finished              int
-	}{
-		0,
-		0,
-		0,
-		0,
-		0,
-	}
+func (l *loopState) countStates() (counters stateCounters) {
 	for stepID, runningStep := range l.runningSteps {
 		switch runningStep.State() {
 		case step.RunningStepStateStarting:
 			counters.starting++
 			l.logger.Debugf("Step %s is currently starting.", stepID)
 		case step.RunningStepStateWaitingForInput:
-			connectionsMsg := ""
-			dagNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, runningStep.CurrentStage()))
-			switch {
-			case err != nil:
-				l.logger.Warningf("Failed to get DAG node for the debug message (%w)", err)
-				counters.waitingWithInbound++
-			case dagNode == nil:
-				l.logger.Warningf("Failed to get DAG node for the debug message. Returned nil", err)
-				counters.waitingWithInbound++
-			default:
-				inboundConnections, err := dagNode.ListInboundConnections()
-				if err != nil {
-					l.logger.Warningf("Error while listing inbound connections. (%w)", err)
-				}
-				if len(inboundConnections) > 0 {
-					counters.waitingWithInbound++
-				} else {
-					counters.waitingWithoutInbound++
-				}
-
-				i := 0
-				for k := range inboundConnections {
-					if i > 0 {
-						connectionsMsg += ", "
-					}
-					connectionsMsg += k
-					i++
-				}
-			}
-			l.logger.Debugf("Step %s, stage %s, is currently waiting for input from '%s'.", stepID, runningStep.CurrentStage(), connectionsMsg)
+			counters.waiting++
+			l.logger.Debugf("Step %s is currently waiting.", stepID)
 		case step.RunningStepStateRunning:
 			counters.running++
 			l.logger.Debugf("Step %s is currently running.", stepID)
@@ -495,15 +453,16 @@ func (l *loopState) countStates() stateCounters {
 func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 	// Here we make sure we don't have a deadlock.
 	counters := l.countStates()
+	hasReadyNodes := l.dag.HasReadyNodes()
 	l.logger.Infof(
-		"There are currently %d steps starting, %d waiting for input, %d ready for input, %d running, %d finished",
+		"There are currently %d steps starting, %d waiting, %d running, %d finished. HasReadyNodes: %t",
 		counters.starting,
-		counters.waitingWithInbound,
-		counters.waitingWithoutInbound,
+		counters.waiting,
 		counters.running,
 		counters.finished,
+		hasReadyNodes,
 	)
-	if counters.starting == 0 && counters.running == 0 && counters.waitingWithoutInbound == 0 && !l.outputDone {
+	if counters.starting == 0 && counters.running == 0 && !hasReadyNodes && !l.outputDone {
 		if retries <= 0 {
 			l.recentErrors <- &ErrNoMorePossibleSteps{
 				l.dag,
