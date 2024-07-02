@@ -65,7 +65,8 @@ func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
 		return data.Value(), nil
 	case yaml.TypeIDMap:
 		result := make(map[string]any, len(data.MapKeys()))
-		for _, key := range data.MapKeys() {
+		mapkeys := data.MapKeys()
+		for _, key := range mapkeys {
 			node, _ := data.MapKey(key)
 			var err error
 			result[key], err = yamlBuildExpressions(node, append(path, key))
