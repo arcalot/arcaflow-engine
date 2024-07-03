@@ -51,10 +51,42 @@ func TestOutputFailed(t *testing.T) {
 	_, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{"name": "Arca Lot"})
 	assert.Nil(t, outputData)
 	assert.Error(t, err)
-	var typedError *workflow.ErrNoMorePossibleSteps
+
+	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
 		t.Fatalf("incorrect error type returned: %T", err)
 	}
+}
+
+var simpleValidLiteralInputWaitWorkflowDefinition = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_1:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+outputs:
+  a:
+    b: !expr $.steps.wait_1.outputs
+`
+
+func TestSimpleValidWaitWorkflow(t *testing.T) {
+	// Just a single wait
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowDefinition),
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "a")
 }
 
 var stepCancellationWorkflowDefinition = `
@@ -247,37 +279,6 @@ func TestDeploymentStepCancellation(t *testing.T) {
 	assert.LessThan(t, duration.Milliseconds(), 200)
 }
 
-var simpleValidLiteralInputWaitWorkflowDefinition = `
-version: v0.2.0
-input:
-  root: RootObject
-  objects:
-    RootObject:
-      id: RootObject
-      properties: {}
-steps:
-  wait_1:
-    plugin:
-      src: "n/a"
-      deployment_type: "builtin"
-    step: wait
-    input:
-      wait_time_ms: 0
-outputs:
-  a:
-    b: !expr $.steps.wait_1.outputs
-`
-
-func TestSimpleValidWaitWorkflow(t *testing.T) {
-	// Just a single wait
-	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
-		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowDefinition),
-	)
-	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
-	assert.NoError(t, err)
-	assert.Equals(t, outputID, "a")
-}
-
 func TestWithDoubleSerializationDetection(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, simpleValidLiteralInputWaitWorkflowDefinition),
@@ -306,7 +307,8 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 			map[string]any{},
 		},
 	}
-	for _, i := range testIter {
+	for i, testData := range testIter {
+		t.Logf("Starting iteration %d", i)
 		errorDetect := util.NewInvalidSerializationDetectorSchema()
 		// Inject the error detector into the object
 		rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
@@ -316,10 +318,10 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			i.defaultSpec,
+			testData.defaultSpec,
 			nil,
 		)
-		outputID, _, err := preparedWorkflow.Execute(context.Background(), i.input)
+		outputID, _, err := preparedWorkflow.Execute(context.Background(), testData.input)
 		assert.NoError(t, err)
 		assert.Equals(t, outputID, "a")
 		// Confirm that, while we did no double-unserializations or double-serializations,
@@ -751,7 +753,12 @@ func TestMissingInputsFailedDeployment(t *testing.T) {
 	)
 	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
 	assert.Error(t, err)
+	t.Logf("Test output: %s", err.Error())
 	assert.Equals(t, outputID, "")
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T", err)
+	}
 }
 
 var missingInputsWrongOutputWorkflowDefinition = `
@@ -1190,7 +1197,7 @@ steps:
       wait_time_ms: 0
     stop_if: $.input.step_cancelled
 outputs:
-  success:
+  did-not-cancel:
     simple_wait_output: !expr $.steps.simple_wait.outputs.success
 `
 
@@ -1206,11 +1213,14 @@ func TestInputCancelledStepWorkflow(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, inputCancelledStepWorkflow),
 	)
-	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"step_cancelled": true,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot construct any output")
+	assert.Equals(t, outputID, "")
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T", err)
+	}
 }
 
 var inputDisabledStepWorkflow = `
@@ -1234,7 +1244,7 @@ steps:
       wait_time_ms: 20
     enabled: !expr $.input.step_enabled
 outputs:
-  success:
+  workflow-success:
     simple_wait_output: !expr $.steps.simple_wait.outputs.success
 `
 
@@ -1252,13 +1262,16 @@ func TestInputDisabledStepWorkflow(t *testing.T) {
 		"step_enabled": true,
 	})
 	assert.NoError(t, err)
-	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputID, "workflow-success")
 	// The workflow should fail with it disabled because the output cannot be resolved.
 	_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
 		"step_enabled": false,
 	})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot construct any output")
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T", err)
+	}
 }
 
 var dynamicDisabledStepWorkflow = `
@@ -1310,6 +1323,7 @@ func TestDelayedDisabledStepWorkflow(t *testing.T) {
 	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"sleep_time": 20,
 	})
+	// TODO: This is failing here unexpectedly.
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "success")
 	// Fail with a non-20ms input.
@@ -1366,6 +1380,157 @@ func TestExpressionWithWhitespace(t *testing.T) {
 		"trailing-newline":    "Plugin slept for 0 ms.",
 	})
 }
+
+var multiDependencyFailureWorkflowWithDisabling = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        fail_purposefully:
+          type:
+            type_id: bool
+steps:
+  disabled_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr '!$.input.fail_purposefully'
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 5000
+outputs:
+  workflow-success:
+    simple_wait_output: !expr $.steps.disabled_step.outputs.success
+    long_wait_output: !expr $.steps.long_wait.outputs.success
+`
+
+func TestMultiDependencyWorkflowFailureWithDisabling(t *testing.T) {
+	// Tests failure when one dependency fails immediately, and the other one fails later.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDisabling),
+	)
+	startTime := time.Now() // Right before execute to not include pre-processing time.
+	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"fail_purposefully": true,
+	})
+	duration := time.Since(startTime)
+	assert.Error(t, err)
+	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	assert.LessThan(t, duration.Seconds(), 4) // It will take 5 seconds if it fails to fail early.
+}
+
+var multiDependencyFailureWorkflowWithCancellation = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        fail_purposefully:
+          type:
+            type_id: bool
+steps:
+  canceled_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    stop_if: !expr '$.input.fail_purposefully'
+    deploy:
+      deployer_name: "test-impl"
+      deploy_time: 50 # 50 ms of delay to make the cancellation more reliable.
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 5000
+outputs:
+  workflow-success:
+    simple_wait_output: !expr $.steps.canceled_step.outputs.success
+    long_wait_output: !expr $.steps.long_wait.outputs.success
+`
+
+func TestMultiDependencyWorkflowFailureWithCancellation(t *testing.T) {
+	// Tests failure when one dependency fails immediately, and the other one fails later.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithCancellation),
+	)
+	startTime := time.Now() // Right before execute to not include pre-processing time.
+	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"fail_purposefully": true,
+	})
+	duration := time.Since(startTime)
+	assert.Error(t, err)
+	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	assert.LessThan(t, duration.Seconds(), 4) // It will take 5 seconds if it fails to fail early.
+}
+
+var multiDependencyFailureWorkflowWithErrorOut = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        fail_purposefully:
+          type:
+            type_id: bool
+steps:
+  disabled_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr $.input.fail_purposefully
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 7000
+outputs:
+  workflow-success:
+    simple_wait_output: !expr $.steps.disabled_step.outputs.success
+    simple_wait_output: !expr $.steps.long_wait.outputs.success
+`
+
+func TestMultiDependencyWorkflowFailureWithErrorOut(t *testing.T) {
+	// Tests failure when one dependency fails immediately, and the other one fails later.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithErrorOut),
+	)
+	startTime := time.Now() // Right before execute to not include pre-processing time.
+	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"fail_purposefully": true,
+	})
+	duration := time.Since(startTime)
+	assert.Error(t, err)
+	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	// If it takes 5 seconds, then there was a deadlock in the client.
+	// If it takes 6 seconds, then it waited for the second step.
+	assert.LessThan(t, duration.Milliseconds(), 5500)
+}
+
+// TODO: Have a version of these tests that depends on outputs instead of outputs.success
+// This is required due to them being separate nodes that need to be marked unresolvable.
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{

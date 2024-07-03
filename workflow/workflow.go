@@ -72,6 +72,12 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 	// We use an internal cancel function to abort the workflow if something bad happens.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	outputNodes := make(map[string]dgraph.Node[*DAGItem])
+	for _, node := range e.dag.ListNodes() {
+		if node.Item().Kind == DAGItemKindOutput {
+			outputNodes[node.ID()] = node
+		}
+	}
 
 	l := &loopState{
 		logger: e.logger.WithLabel("source", "workflow"),
@@ -86,9 +92,11 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		runningSteps:      make(map[string]step.RunningStep, len(e.dag.ListNodes())),
 		outputDataChannel: make(chan outputDataType, 1),
 		outputDone:        false,
+		waitingOutputs:    outputNodes,
 		cancel:            cancel,
 		workflowContext:   e.workflowContext,
 		recentErrors:      make(chan error, 20), // Big buffer in case there are lots of subsequent errors.
+		lifecycles:        e.lifecycles,
 	}
 
 	l.lock.Lock()
@@ -140,6 +148,16 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 					e.logger.Debugf("Step %s completed with stage '%s'...", stepID, previousStage)
 				}
 				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput, wg)
+			},
+			onStepStageFailure: func(step step.RunningStep, stage string, wg *sync.WaitGroup, err error) {
+				if err == nil {
+					e.logger.Debugf("Step %q stage %q declared that it will not produce an output", stepID, stage)
+				} else {
+					e.logger.Debugf("Step %q stage %q declared that it will not produce an output (%s)", stepID, stage, err.Error())
+				}
+				l.unresolveOutputs(stepID, stage, nil)
+				l.unresolveStageNode(stepID, stage)
+				l.notifySteps()
 			},
 		}
 		e.logger.Debugf("Launching step %s...", stepID)
@@ -235,9 +253,12 @@ type loopState struct {
 	runningSteps      map[string]step.RunningStep
 	outputDataChannel chan outputDataType
 	outputDone        bool
-	recentErrors      chan error
-	cancel            context.CancelFunc
-	workflowContext   map[string][]byte
+	// waitingOutputs keeps track of all workflow output nodes to know when the workflow fails.
+	waitingOutputs  map[string]dgraph.Node[*DAGItem]
+	recentErrors    chan error
+	cancel          context.CancelFunc
+	workflowContext map[string][]byte
+	lifecycles      map[string]step.Lifecycle[step.LifecycleStageWithSchema]
 }
 
 // getLastError gathers the last errors. If there are several, it creates a new one that consolidates them.
@@ -317,12 +338,60 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 				*previousStageOutput,
 			)
 		}
+		// Unresolve all alternative output ID nodes.
+		// Use the lifecycle to find the possible output IDs
+		l.unresolveOutputs(stepID, *previousStage, previousStageOutputID)
 
 		// Placing data from the output into the general data structure
 		l.data[WorkflowStepsKey].(map[string]any)[stepID].(map[string]any)[*previousStage] = map[string]any{}
 		l.data[WorkflowStepsKey].(map[string]any)[stepID].(map[string]any)[*previousStage].(map[string]any)[*previousStageOutputID] = *previousStageOutput
 	}
 	l.notifySteps()
+}
+
+// Marks the outputs of that stage unresolvable.
+// Optionally skip an output that should not unresolve.
+// Does not (un)resolve the non-output node for that stage.
+// To prevent a deadlock, this `notifySteps()` should be called at some point after this is called.
+func (l *loopState) unresolveOutputs(stepID string, stageID string, skippedOutput *string) {
+	stages := l.lifecycles[stepID].Stages
+	for _, stage := range stages {
+		if stage.ID != stageID {
+			continue
+		}
+		for stageOutputID, _ := range stage.Outputs {
+			if skippedOutput != nil && stageOutputID == *skippedOutput {
+				continue
+			}
+			unresolvableOutputNode, err := l.dag.GetNodeByID(GetOutputNodeID(stepID, stage.ID, stageOutputID))
+			if err != nil {
+				l.logger.Warningf("Could not get DAG node %s (%s)", stepID+"."+stage.ID+"."+stageOutputID, err.Error())
+				continue
+			}
+			l.logger.Debugf("Will unresolve node %s in the DAG", stepID+"."+stage.ID+"."+stageOutputID)
+			err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
+			if err != nil {
+				l.logger.Errorf("Error while unresolving node %s in DAG (%s)", unresolvableOutputNode.ID(), err.Error())
+			}
+		}
+	}
+}
+
+// unresolves the stage node for the step's stage.
+// Does not (un)resolve the outputs of that node. For that, call unresolveOutputs() instead or
+// in addition to calling this function.
+// To prevent a deadlock, this `notifySteps()` should be called at some point after this is called.
+func (l *loopState) unresolveStageNode(stepID string, stageID string) {
+	unresolvableOutputNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, stageID))
+	if err != nil {
+		l.logger.Warningf("Could not get DAG node %s (%s)", stepID+"."+stageID, err.Error())
+		return
+	}
+	l.logger.Debugf("Will unresolve node %s in the DAG", stepID+"."+stageID)
+	err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
+	if err != nil {
+		l.logger.Errorf("Error while unresolving node %s in DAG (%s)", unresolvableOutputNode.ID(), err.Error())
+	}
 }
 
 // notifySteps is a function we can call to go through all DAG nodes that are marked
@@ -332,24 +401,39 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 	readyNodes := l.dag.PopReadyNodes()
 	l.logger.Debugf("Currently %d DAG nodes are ready. Now processing them.", len(readyNodes))
 
-	// Can include runnable nodes, nodes that cannot be resolved, and nodes that are not for running, like an input.
+	// Can include runnable nodes, nodes that cannot be resolved, and nodes that are not for running, like inputs.
 	for nodeID, resolutionStatus := range readyNodes {
-		if resolutionStatus == dgraph.Unresolvable {
-			l.logger.Debugf("Disregarding node %q with resolution %q", nodeID, resolutionStatus)
-			continue
-		}
+		failed := resolutionStatus == dgraph.Unresolvable
 		l.logger.Debugf("Processing step node %s", nodeID)
 		node, err := l.dag.GetNodeByID(nodeID)
 		if err != nil {
 			panic(fmt.Errorf("failed to get node %s (%w)", nodeID, err))
 		}
 		nodeItem := node.Item()
+		if failed {
+			if nodeItem.Kind == DAGItemKindOutput {
+				l.logger.Debugf("Output node %s failed", nodeID)
+				// Check to see if there are any remaining output nodes, and if there aren't,
+				// cancel the context.
+				delete(l.waitingOutputs, nodeID)
+				if len(l.waitingOutputs) == 0 {
+					l.recentErrors <- &ErrNoMorePossibleOutputs{
+						l.dag,
+					}
+					l.cancel()
+				}
+			} else {
+				l.logger.Debugf("Disregarding failed node %s with type %s", nodeID, nodeItem.Kind)
+			}
+			continue
+		}
 		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
 		inputData := nodeItem.Data
 		if inputData == nil {
 			// No input data is needed. This is often the case for input nodes.
 			continue
 		}
+
 		// Resolve any expressions in the input data.
 		// untypedInputData stores the resolved data
 		untypedInputData, err := l.resolveExpressions(inputData, l.data)
@@ -468,6 +552,7 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 				l.dag,
 			}
 			l.logger.Debugf("DAG:\n%s", l.dag.Mermaid())
+			l.logger.Errorf("TERMINATING WORKFLOW; Errors below this error may be due to the early termination")
 			l.cancel()
 		} else {
 			// Retry. There are times when all the steps are in a transition state.
@@ -476,7 +561,9 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 			wg.Add(1)
 			go func() {
 				time.Sleep(5 * time.Millisecond)
+				l.lock.Lock()
 				l.checkForDeadlocks(retries-1, wg)
+				l.lock.Unlock()
 				wg.Done()
 			}()
 		}
@@ -538,6 +625,12 @@ type stageChangeHandler struct {
 		previousStageOutput *any,
 		wg *sync.WaitGroup,
 	)
+	onStepStageFailure func(
+		step step.RunningStep,
+		stage string,
+		wg *sync.WaitGroup,
+		err error,
+	)
 }
 
 func (s stageChangeHandler) OnStageChange(
@@ -560,4 +653,13 @@ func (s stageChangeHandler) OnStepComplete(
 	wg *sync.WaitGroup,
 ) {
 	s.onStepComplete(step, previousStage, previousStageOutputID, previousStageOutput, wg)
+}
+
+func (s stageChangeHandler) OnStepStageFailure(
+	step step.RunningStep,
+	stage string,
+	wg *sync.WaitGroup,
+	err error,
+) {
+	s.onStepStageFailure(step, stage, wg, err)
 }

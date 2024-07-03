@@ -292,7 +292,7 @@ func (p *pluginProvider) LoadSchema(inputs map[string]any, _ map[string][]byte) 
 			requestedDeploymentType, pluginSource, err)
 	}
 	// Set up the ATP connection
-	transport := atp.NewClientWithLogger(pluginConnector, p.logger)
+	transport := atp.NewClientWithLogger(pluginConnector, p.logger.WithLabel("source", "atp-client"))
 	// Read the schema information
 	s, err := transport.ReadSchema()
 	if err != nil {
@@ -957,6 +957,9 @@ func (r *runningStep) run() {
 	if !enabled {
 		r.transitionToDisabled()
 		return
+	} else {
+		// It's enabled, so the disabled stage will not occur.
+		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
 	}
 	if err := r.startStage(container); err != nil {
 		r.startFailed(err)
@@ -1055,7 +1058,7 @@ func (r *runningStep) enableStage() (bool, error) {
 
 func (r *runningStep) startStage(container deployer.Plugin) error {
 	r.logger.Debugf("Starting stage for step %s/%s", r.runID, r.pluginStepID)
-	atpClient := atp.NewClientWithLogger(container, r.logger)
+	atpClient := atp.NewClientWithLogger(container, r.logger.WithLabel("source", "atp-client"))
 	var inputReceivedEarly bool
 	r.lock.Lock()
 	r.atpClient = atpClient
@@ -1118,9 +1121,12 @@ func (r *runningStep) startStage(container deployer.Plugin) error {
 		return fmt.Errorf("schema mismatch between local and remote deployed plugin in step %s/%s, unserializing input failed (%w)", r.runID, r.pluginStepID, err)
 	}
 
+	r.wg.Add(1)
+
 	// Runs the ATP client in a goroutine in order to wait for it.
 	// On context done, the deployer has 30 seconds before it will error out.
 	go func() {
+		defer r.wg.Done()
 		result := r.atpClient.Execute(
 			schema.Input{RunID: r.runID, ID: r.pluginStepID, InputData: runInput},
 			r.signalToStep,
@@ -1180,6 +1186,13 @@ func (r *runningStep) deployFailed(err error) {
 		Error: err.Error(),
 	})
 	r.completeStep(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
+	// If deployment fails, enabling, disabled, starting, running, and output cannot occur.
+	err = fmt.Errorf("deployment failed for step %s/%s", r.runID, r.pluginStepID)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDEnabling), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDStarting), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
 }
 
 func (r *runningStep) transitionToCancelled() {
@@ -1188,6 +1201,14 @@ func (r *runningStep) transitionToCancelled() {
 	r.transitionStage(StageIDCancelled, step.RunningStepStateRunning)
 	// Cancelled currently has no output.
 	r.transitionStage(StageIDCancelled, step.RunningStepStateFinished)
+
+	// This is called after deployment. So everything after deployment cannot occur.
+	err := fmt.Errorf("step %s/%s cancelled", r.runID, r.pluginStepID)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDEnabling), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDStarting), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
 }
 
 func (r *runningStep) transitionToDisabled() {
@@ -1207,6 +1228,11 @@ func (r *runningStep) transitionToDisabled() {
 		schema.PointerTo("output"),
 		&disabledOutput,
 	)
+
+	err := fmt.Errorf("step %s/%s disabled", r.runID, r.pluginStepID)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDStarting), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
 }
 
 func (r *runningStep) startFailed(err error) {
@@ -1221,6 +1247,9 @@ func (r *runningStep) startFailed(err error) {
 	})
 
 	r.completeStep(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
+
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
 }
 
 func (r *runningStep) runFailed(err error) {
@@ -1234,6 +1263,8 @@ func (r *runningStep) runFailed(err error) {
 		Output: err.Error(),
 	})
 	r.completeStep(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
+
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
 }
 
 // TransitionStage transitions the stage to the specified stage, and the state to the specified state.
