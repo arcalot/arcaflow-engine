@@ -51,7 +51,7 @@ func (y yamlConverter) FromYAML(data []byte) (*Workflow, error) {
 
 func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
 	if data.Tag() == "!expr" {
-		if data.Type() != yaml.TypeIDString {
+		if data.ArcaType() != yaml.TypeIDString {
 			return nil, fmt.Errorf("!!expr found on non-string node at %s", strings.Join(path, " -> "))
 		}
 		expr, err := expressions.New(data.Value())
@@ -60,7 +60,7 @@ func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
 		}
 		return expr, nil
 	}
-	switch data.Type() {
+	switch data.ArcaType() {
 	case yaml.TypeIDString:
 		return data.Value(), nil
 	case yaml.TypeIDMap:
@@ -86,6 +86,6 @@ func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
 		}
 		return result, nil
 	default:
-		return nil, fmt.Errorf("invalid YAML node type: %s", data.Type())
+		return nil, fmt.Errorf("invalid YAML node type: %s", data.ArcaType())
 	}
 }

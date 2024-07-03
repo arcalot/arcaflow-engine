@@ -6,7 +6,10 @@ import (
 	//"gopkg.in/yaml.v3"
 	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/token"
 )
+
+const BoolTag token.ReservedTagKeyword = "!!bool"
 
 // New creates a new YAML parser.
 func New() Parser {
@@ -44,7 +47,7 @@ const (
 
 // Node is a simplified representation of a YAML node.
 type Node interface {
-	Type() TypeID
+	ArcaType() TypeID
 	// Tag returns a YAML tag if any.
 	Tag() string
 	// Contents returns the contents as further Node items. For maps, this will contain exactly two nodes, while
@@ -119,7 +122,7 @@ func (n node) Contents() []Node {
 	return n.contents
 }
 
-func (n node) Type() TypeID {
+func (n node) ArcaType() TypeID {
 	return n.typeID
 }
 
@@ -144,7 +147,7 @@ func (p parser) Parse(data []byte) (Node, error) {
 
 func (p parser) transform(n *ast.Node) (Node, error) {
 	var mappingNode *ast.MappingNode
-	//var mappingValueNode *ast.MappingValueNode
+	var mappingValueNode *ast.MappingValueNode
 	var sequenceNode *ast.SequenceNode
 	var scalarNode ast.ScalarNode
 	arcaNode := node{contents: make([]Node, 0), nodeMap: make(map[string]Node)}
@@ -154,10 +157,10 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 	case ast.MappingType:
 		arcaNode.typeID = TypeIDMap
 		mappingNode = (*n).(*ast.MappingNode)
-	//case ast.MappingValueType:
-	//	arcaNode.typeID = TypeIDMap
-	//	mappingValueNode := (*n).(*ast.MappingValueNode)
-	//	return p.transform(&mappingValueNode.Value)
+	case ast.MappingValueType:
+		arcaNode.typeID = TypeIDMap
+		mappingValueNode = (*n).(*ast.MappingValueNode)
+		//return p.transform(&mappingValueNode.Value)
 	case ast.SequenceType:
 		arcaNode.typeID = TypeIDSequence
 		sequenceNode = (*n).(*ast.SequenceNode)
@@ -171,32 +174,57 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 	case ast.DocumentType:
 		docNode := (*n).(*ast.DocumentNode)
 		return p.transform(&docNode.Body)
-	default:
-		var ok bool
+	case ast.BoolType:
+		arcaNode.tag = string(BoolTag)
 		arcaNode.typeID = TypeIDString
-		scalarNode, ok = (*n).(ast.ScalarNode)
-		if !ok {
-			return nil, fmt.Errorf("unsupported node type: %s", (*n).Type())
-		}
+		scalarNode = (*n).(ast.ScalarNode)
+	case ast.IntegerType:
+		arcaNode.tag = string(token.IntegerTag)
+		arcaNode.typeID = TypeIDString
+		scalarNode = (*n).(ast.ScalarNode)
+	case ast.FloatType:
+		arcaNode.tag = string(token.FloatTag)
+		arcaNode.typeID = TypeIDString
+		scalarNode = (*n).(ast.ScalarNode)
+	case ast.StringType:
+		arcaNode.tag = string(token.StringTag)
+		arcaNode.typeID = TypeIDString
+		scalarNode = (*n).(ast.ScalarNode)
+	case ast.NullType:
+		arcaNode.tag = string(token.NullTag)
+
+	default:
+		//var ok bool
+
+		//if !ok {
+		return nil, fmt.Errorf("unsupported node type: %s", (*n).Type())
+		//}
 	}
 
+	var mapIter *ast.MapNodeIter
 	if mappingNode != nil {
-		mapIter := mappingNode.MapRange()
+		mapIter = mappingNode.MapRange()
+	} else if mappingValueNode != nil {
+		mapIter = mappingValueNode.MapRange()
+	}
+	if mapIter != nil {
 		for mapIter.Next() {
 			subNodeKey := mapIter.Key().String()
 			subNode := mapIter.Value()
 			//valueNode := subNode.(*ast.MappingValueNode)
-			mappingValueNode, ok := subNode.(*ast.MappingValueNode)
-			if ok {
-				subNode = mappingValueNode.Value
-			}
+			//mappingValueNode, ok := subNode.(*ast.MappingValueNode)
+			//if ok {
+			//	subNode = mappingValueNode.Value
+			//}
 			subContent, err := p.transform(&subNode)
 			if err != nil {
 				return nil, err
 			}
 			arcaNode.nodeMap[subNodeKey] = subContent
 		}
+		arcaNode.tag = string(token.MappingTag)
 	}
+
 	if sequenceNode != nil {
 		for _, subNode := range sequenceNode.Values {
 			subContent, err := p.transform(&subNode)
@@ -205,6 +233,7 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 			}
 			arcaNode.contents = append(arcaNode.contents, subContent)
 		}
+		arcaNode.tag = string(token.SequenceTag)
 	}
 	if scalarNode != nil {
 		arcaNode.value = fmt.Sprintf("%v", scalarNode.GetValue())

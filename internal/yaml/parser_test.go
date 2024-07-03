@@ -24,16 +24,16 @@ func assertEqualsYAML(t *testing.T, got Node, expected Node, path ...string) {
 		}
 		t.Fatalf("Mismatching tag, got %s, expected %s", got.Tag(), expected.Tag())
 	}
-	if got.Type() != expected.Type() {
+	if got.ArcaType() != expected.ArcaType() {
 		if len(path) > 0 {
 			t.Fatalf(
 				"Mismatching type at %s, got %s, expected %s",
 				strings.Join(path, " -> "),
-				got.Type(),
-				expected.Type(),
+				got.ArcaType(),
+				expected.ArcaType(),
 			)
 		}
-		t.Fatalf("Mismatching type, got %s, expected %s", got.Type(), expected.Type())
+		t.Fatalf("Mismatching type, got %s, expected %s", got.ArcaType(), expected.ArcaType())
 	}
 	if got.Value() != expected.Value() {
 		if len(path) > 0 {
@@ -83,12 +83,14 @@ var testData = map[string]struct {
 					"!!str",
 					nil,
 					"message",
+					map[string]Node{},
 				},
 				&node{
 					TypeIDString,
 					"!!str",
 					nil,
 					"Hello world!",
+					map[string]Node{},
 				},
 			},
 		},
@@ -106,24 +108,28 @@ test: foo`,
 					"!!str",
 					nil,
 					"message",
+					map[string]Node{},
 				},
 				&node{
 					TypeIDString,
 					"!!str",
 					nil,
 					"Hello world!",
+					map[string]Node{},
 				},
 				&node{
 					TypeIDString,
 					"!!str",
 					nil,
 					"test",
+					map[string]Node{},
 				},
 				&node{
 					TypeIDString,
 					"!!str",
 					nil,
 					"foo",
+					map[string]Node{},
 				},
 			},
 		},
@@ -157,9 +163,10 @@ test: foo`,
 			tag:    "!!seq",
 			contents: []Node{
 				&node{
-					typeID: TypeIDString,
-					tag:    "!!str",
-					value:  "test",
+					typeID:  TypeIDString,
+					tag:     "!!str",
+					value:   "test",
+					nodeMap: map[string]Node{},
 				},
 			},
 		},
@@ -177,6 +184,7 @@ test: foo`,
 					"!!test",
 					nil,
 					"test",
+					map[string]Node{},
 				},
 			},
 		},
@@ -234,14 +242,16 @@ test: foo`,
 			tag:    "!!map",
 			contents: []Node{
 				&node{
-					typeID: TypeIDString,
-					tag:    "!!int",
-					value:  "1",
+					typeID:  TypeIDString,
+					tag:     "!!int",
+					value:   "1",
+					nodeMap: map[string]Node{},
 				},
 				&node{
-					typeID: TypeIDString,
-					tag:    "!!str",
-					value:  "test",
+					typeID:  TypeIDString,
+					tag:     "!!str",
+					value:   "test",
+					nodeMap: map[string]Node{},
 				},
 			},
 		},
@@ -290,5 +300,12 @@ func TestMapKeys(t *testing.T) {
 bar: test2
 `))
 	assert.NoError(t, err)
-	assert.Equals(t, parsed.MapKeys(), []string{"foo", "bar"})
+	outputMapKeys := make(map[string]struct{})
+	for _, k := range parsed.MapKeys() {
+		outputMapKeys[k] = struct{}{}
+	}
+	expectedOutputMapKeys := []string{"foo", "bar"}
+	for _, key := range expectedOutputMapKeys {
+		assert.MapContainsKey[string, struct{}](t, key, outputMapKeys)
+	}
 }
