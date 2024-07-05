@@ -136,12 +136,12 @@ func (p parser) Parse(data []byte) (Node, error) {
 	if err := yaml.Unmarshal(data, &n); err != nil {
 		return nil, err
 	}
-	return p.transform(&n)
+	return p.transform(&n, "")
 }
 
 // transform converts an instance of ast.Node to the arcaflow engine's
 // yaml.Node
-func (p parser) transform(n *ast.Node) (Node, error) {
+func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, error) {
 	var mappingNode *ast.MappingNode
 	var mappingValueNode *ast.MappingValueNode
 	var sequenceNode *ast.SequenceNode
@@ -163,13 +163,14 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 		// currently this assumes the user only ever makes use of the !!expr tag
 		arcaNode.typeID = TypeIDString
 		tagNode := (*n).(*ast.TagNode)
-		arcaNode.tag = tagNode.GetToken().Value
+		//arcaNode.tag = tagNode.GetToken().Value
 		//arcaNode.value = tagNode.BaseNode
-		arcaNode.value = tagNode.Value.(*ast.StringNode).Value
+		//arcaNode.value = tagNode.Value.(*ast.StringNode).Value
+		return p.transform(&tagNode.Value, token.ReservedTagKeyword(tagNode.GetToken().Value))
 	case ast.DocumentType:
 		docNode := (*n).(*ast.DocumentNode)
 		// we need to recursively transform nodes in non-empty container nodes
-		return p.transform(&docNode.Body)
+		return p.transform(&docNode.Body, "")
 	case ast.BoolType:
 		arcaNode.tag = string(BoolTag)
 		arcaNode.typeID = TypeIDString
@@ -183,6 +184,10 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 		arcaNode.typeID = TypeIDString
 		scalarNode = (*n).(ast.ScalarNode)
 	case ast.StringType:
+		arcaNode.tag = string(token.StringTag)
+		arcaNode.typeID = TypeIDString
+		scalarNode = (*n).(ast.ScalarNode)
+	case ast.LiteralType:
 		arcaNode.tag = string(token.StringTag)
 		arcaNode.typeID = TypeIDString
 		scalarNode = (*n).(ast.ScalarNode)
@@ -208,7 +213,7 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 			//if ok {
 			//	subNode = mappingValueNode.Value
 			//}
-			subContent, err := p.transform(&subNode)
+			subContent, err := p.transform(&subNode, "")
 			if err != nil {
 				return nil, err
 			}
@@ -218,7 +223,7 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 	}
 	if sequenceNode != nil {
 		for _, subNode := range sequenceNode.Values {
-			subContent, err := p.transform(&subNode)
+			subContent, err := p.transform(&subNode, "")
 			if err != nil {
 				return nil, err
 			}
@@ -229,6 +234,10 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 
 	if scalarNode != nil {
 		arcaNode.value = fmt.Sprintf("%v", scalarNode.GetValue())
+	}
+
+	if tag != "" {
+		arcaNode.tag = string(tag)
 	}
 
 	return &arcaNode, nil
