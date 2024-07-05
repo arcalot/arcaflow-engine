@@ -96,7 +96,7 @@ func (d *InvalidSerializationDetectorSchema) TypeID() schema.TypeID {
 	return schema.TypeIDString // This is a subset of a string schema.
 }
 
-// ReflectedType returns the reflect.Type for a string.
+// ReflectedType returns the reflect.ArcaType for a string.
 func (d *InvalidSerializationDetectorSchema) ReflectedType() reflect.Type {
 	return reflect.TypeOf("")
 }

@@ -99,7 +99,7 @@ func (p *pluginProvider) ProviderSchema() map[string]*schema.PropertySchema {
 					"deployment_type": schema.NewPropertySchema(
 						schema.NewStringSchema(schema.PointerTo[int64](1), nil, nil),
 						schema.NewDisplayValue(
-							schema.PointerTo("Type"),
+							schema.PointerTo("ArcaType"),
 							schema.PointerTo(
 								fmt.Sprintf("Deployment type [%s]",
 									keysString(p.deployerRegistry.DeploymentTypes()))),

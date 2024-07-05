@@ -5,15 +5,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/loadfile"
-	"gopkg.in/yaml.v3"
+	//"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 // These variables are filled using ldflags during the build process with Goreleaser.
@@ -209,16 +212,53 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 	//	return ExitCodeInvalidData
 	//}
 	wfInputSchema := workflow.InputSchema()
-	//wfInputSchemaBytes, err := yaml.Marshal(wfInputSchema)
-	//if err != nil {
-	//	logger.Errorf("Failed to marshal workflow input schema (%v)", err)
-	//}
-	fmt.Printf("~~~~~input schema~~~~~\n%s\n~~~~~~~~~\n", wfInputSchema.SerializeForHuman(map[string]any{}))
+	//fmt.Printf("~~~~~input schema~~~~~\n%s\n~~~~~~~~~\n", wfInputSchema.SerializeForHuman(map[string]any{}))
 
-	wfInputSchemaYaml, err := yaml.Marshal(wfInputSchema.SerializeForHuman(map[string]any{}))
+	//encodeOptionsEnum := []yaml.EncodeOption{yaml.Flow(true)}
+	//encodeOptionsEnum := []yaml.EncodeOption{}
+	//
+	yaml.RegisterCustomMarshaler[*schema.PropertySchema](func(s *schema.PropertySchema) ([]byte, error) {
+		result := fmt.Sprintf("%s", s.TypeID()) + "\n"
+
+		display := s.Display()
+		if display != nil {
+			displayName := display.Name()
+			if displayName != nil {
+				result += *displayName + "\n"
+			}
+			description := display.Description()
+			if description != nil {
+				result += *description + "\n"
+			}
+		}
+		return []byte(result), nil
+	})
+
+	yaml.RegisterCustomMarshaler[*schema.StringEnumSchema](func(s *schema.StringEnumSchema) ([]byte, error) {
+
+		//var buf bytes.Buffer
+		//if err := enumEncoder.Encode(s); err != nil {
+		//	return nil, errors.Wrapf(err, "failed to marshal")
+		//}
+		enumValues := []string{}
+		for key, _ := range s.ValidValues() {
+			enumValues = append(enumValues, fmt.Sprintf("%v", key))
+		}
+		//_, err := buf.Write([]byte(strings.Join(enumValues, ",")))
+		//if err != nil {
+		//	return nil, errors.Wrapf(err, "failed to marshal")
+		//}
+		return []byte(strings.Join(enumValues, ",")), nil
+	})
+	//encodeOptions := []yaml.EncodeOption{}
+	wfInputSchemaYaml, err := yaml.MarshalWithOptions(wfInputSchema)
 	if err != nil {
 		logger.Errorf("Failed to marshal workflow serialization for human (%v)", err)
 	}
+	//err = enumEncoder.Close()
+	//if err != nil {
+	//	logger.Errorf("Error closing enum encoder %v", err)
+	//}
 	fmt.Printf("~~~~~yamlized/pretty input schema~~~~~\n%s\n~~~~~~~~~\n", string(wfInputSchemaYaml))
 	//wfSchema, err := workflow.DataModel().SelfSerialize()
 	//if err != nil {
