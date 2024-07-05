@@ -190,7 +190,8 @@ func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, erro
 	case ast.LiteralType:
 		arcaNode.tag = string(token.StringTag)
 		arcaNode.typeID = TypeIDString
-		scalarNode = (*n).(ast.ScalarNode)
+		literalNode := (*n).(*ast.LiteralNode)
+		scalarNode = any(literalNode.Value).(ast.ScalarNode)
 	case ast.NullType:
 		arcaNode.tag = string(token.NullTag)
 	default:
