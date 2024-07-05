@@ -2,6 +2,7 @@ package yaml
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
@@ -137,6 +138,17 @@ func (p parser) Parse(data []byte) (Node, error) {
 		return nil, err
 	}
 	return p.transform(&n, "")
+}
+
+func FloatFixedPrecisionLength(flt string) int {
+	floatStrings := strings.Split(flt, ".")
+	if len(floatStrings) == 1 {
+		return 1
+	}
+	if len(floatStrings[1]) == 0 {
+		return 1
+	}
+	return len(floatStrings[1])
 }
 
 // transform converts an instance of ast.Node to the arcaflow engine's
