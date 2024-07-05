@@ -202,13 +202,13 @@ var testData = map[string]struct {
 	//	raw: "true",
 	//},
 	"float": {
-		input: `1.0`,
+		input: `1.1`,
 		expectedOutput: &node{
 			typeID: TypeIDString,
 			tag:    "!!float",
-			value:  "1.0",
+			value:  "1.1",
 		},
-		raw: "1.0",
+		raw: "1.1",
 	},
 	//"null": {
 	//	input: `null`,
