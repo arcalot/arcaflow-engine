@@ -3,6 +3,7 @@ package yaml
 import (
 	"fmt"
 
+	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/token"
 )
@@ -45,7 +46,7 @@ const (
 
 // Node is a simplified representation of a YAML node.
 type Node interface {
-	ArcaType() TypeID
+	Type() TypeID
 	// Tag returns a YAML tag if any.
 	Tag() string
 	// Contents returns the contents as further Node items. For maps, this will contain exactly two nodes, while
@@ -87,11 +88,6 @@ func (n node) MapKey(key string) (Node, bool) {
 	if value, ok := n.nodeMap[key]; ok {
 		return value, true
 	}
-	//for i := 0; i < len(n.contents); i += 2 {
-	//	if key == n.contents[i].Raw() {
-	//		return n.contents[i+1], true
-	//	}
-	//}
 	return nil, false
 }
 
@@ -120,7 +116,7 @@ func (n node) Contents() []Node {
 	return n.contents
 }
 
-func (n node) ArcaType() TypeID {
+func (n node) Type() TypeID {
 	return n.typeID
 }
 
@@ -158,12 +154,11 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 	case ast.MappingValueType:
 		arcaNode.typeID = TypeIDMap
 		mappingValueNode = (*n).(*ast.MappingValueNode)
-		//return p.transform(&mappingValueNode.Value)
 	case ast.SequenceType:
 		arcaNode.typeID = TypeIDSequence
 		sequenceNode = (*n).(*ast.SequenceNode)
-		//arcaNode.contents = make([]Node, len(sequenceNode.Values))
 	case ast.TagType:
+		// currently this assumes the user only ever makes use of the !!expr tag
 		arcaNode.typeID = TypeIDString
 		tagNode := (*n).(*ast.TagNode)
 		arcaNode.tag = tagNode.GetToken().Value
@@ -190,13 +185,8 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 		scalarNode = (*n).(ast.ScalarNode)
 	case ast.NullType:
 		arcaNode.tag = string(token.NullTag)
-
 	default:
-		//var ok bool
-
-		//if !ok {
 		return nil, fmt.Errorf("unsupported node type: %s", (*n).Type())
-		//}
 	}
 
 	var mapIter *ast.MapNodeIter
