@@ -192,9 +192,9 @@ func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, erro
 	case ast.FloatType:
 		arcaNode.tag = string(token.FloatTag)
 		arcaNode.typeID = TypeIDString
+		// must use token to get expected decimal precision for numbers with
+		// trailing zeros after decimal
 		arcaNode.value = (*n).GetToken().Value
-
-		//scalarNode = (*n).(ast.ScalarNode)
 	case ast.StringType:
 		arcaNode.tag = string(token.StringTag)
 		arcaNode.typeID = TypeIDString
