@@ -553,9 +553,8 @@ func getReadEnvVarFunction() schema.CallableFunction {
 			envVarValue, envVarPresent := os.LookupEnv(envVarName)
 			if envVarPresent {
 				return envVarValue
-			} else {
-				return defaultValue
 			}
+			return defaultValue
 		},
 	)
 	if err != nil {
