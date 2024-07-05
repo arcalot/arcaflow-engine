@@ -139,6 +139,8 @@ func (p parser) Parse(data []byte) (Node, error) {
 	return p.transform(&n)
 }
 
+// transform converts an instance of ast.Node to the arcaflow engine's
+// yaml.Node
 func (p parser) transform(n *ast.Node) (Node, error) {
 	var mappingNode *ast.MappingNode
 	var mappingValueNode *ast.MappingValueNode
@@ -166,6 +168,7 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 		arcaNode.value = tagNode.Value.(*ast.StringNode).Value
 	case ast.DocumentType:
 		docNode := (*n).(*ast.DocumentNode)
+		// we need to recursively transform nodes in non-empty container nodes
 		return p.transform(&docNode.Body)
 	case ast.BoolType:
 		arcaNode.tag = string(BoolTag)
@@ -195,6 +198,7 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 	} else if mappingValueNode != nil {
 		mapIter = mappingValueNode.MapRange()
 	}
+	// we need to recursively transform nodes in non-empty container nodes
 	if mapIter != nil {
 		for mapIter.Next() {
 			subNodeKey := mapIter.Key().String()
@@ -212,7 +216,6 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 		}
 		arcaNode.tag = string(token.MappingTag)
 	}
-
 	if sequenceNode != nil {
 		for _, subNode := range sequenceNode.Values {
 			subContent, err := p.transform(&subNode)
@@ -223,6 +226,7 @@ func (p parser) transform(n *ast.Node) (Node, error) {
 		}
 		arcaNode.tag = string(token.SequenceTag)
 	}
+
 	if scalarNode != nil {
 		arcaNode.value = fmt.Sprintf("%v", scalarNode.GetValue())
 	}
