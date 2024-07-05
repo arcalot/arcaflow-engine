@@ -2,8 +2,6 @@ package yaml
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/token"
@@ -140,16 +138,16 @@ func (p parser) Parse(data []byte) (Node, error) {
 	return p.transform(&n, "")
 }
 
-func FloatFixedPrecisionLength(flt string) int {
-	floatStrings := strings.Split(flt, ".")
-	if len(floatStrings) == 1 {
-		return 1
-	}
-	if len(floatStrings[1]) == 0 {
-		return 1
-	}
-	return len(floatStrings[1])
-}
+//func FloatFixedPrecisionLength(flt string) int {
+//	floatStrings := strings.Split(flt, ".")
+//	if len(floatStrings) == 1 {
+//		return 1
+//	}
+//	if len(floatStrings[1]) == 0 {
+//		return 1
+//	}
+//	return len(floatStrings[1])
+//}
 
 // transform converts an instance of ast.Node to the arcaflow engine's
 // yaml.Node
@@ -194,7 +192,9 @@ func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, erro
 	case ast.FloatType:
 		arcaNode.tag = string(token.FloatTag)
 		arcaNode.typeID = TypeIDString
-		scalarNode = (*n).(ast.ScalarNode)
+		arcaNode.value = (*n).GetToken().Value
+
+		//scalarNode = (*n).(ast.ScalarNode)
 	case ast.StringType:
 		arcaNode.tag = string(token.StringTag)
 		arcaNode.typeID = TypeIDString
