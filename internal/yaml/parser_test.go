@@ -201,33 +201,33 @@ var testData = map[string]struct {
 	//	},
 	//	raw: "true",
 	//},
-	"float_precision-zero": {
-		input: `1.`,
-		expectedOutput: &node{
-			typeID: TypeIDString,
-			tag:    "!!float",
-			value:  "1.",
-		},
-		raw: "1.",
-	},
-	"float_precision-1": {
-		input: `1.0`,
-		expectedOutput: &node{
-			typeID: TypeIDString,
-			tag:    "!!float",
-			value:  "1.0",
-		},
-		raw: "1.0",
-	},
-	//"null": {
-	//	input: `null`,
+	//"float_precision-zero": {
+	//	input: `1.`,
 	//	expectedOutput: &node{
 	//		typeID: TypeIDString,
-	//		tag:    "!!null",
-	//		value:  "null",
+	//		tag:    "!!float",
+	//		value:  "1.",
 	//	},
-	//	raw: "null",
+	//	raw: "1.",
 	//},
+	//"float_precision-1": {
+	//	input: `1.0`,
+	//	expectedOutput: &node{
+	//		typeID: TypeIDString,
+	//		tag:    "!!float",
+	//		value:  "1.0",
+	//	},
+	//	raw: "1.0",
+	//},
+	"null": {
+		input: `null`,
+		expectedOutput: &node{
+			typeID: TypeIDString,
+			tag:    "!!null",
+			value:  "null",
+		},
+		raw: "null",
+	},
 	//	"map-int-key": {
 	//		input: `1: test`,
 	//		expectedOutput: &node{

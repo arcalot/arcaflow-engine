@@ -206,6 +206,7 @@ func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, erro
 		scalarNode = any(literalNode.Value).(ast.ScalarNode)
 	case ast.NullType:
 		arcaNode.tag = string(token.NullTag)
+		arcaNode.value = (*n).GetToken().Value
 	default:
 		return nil, fmt.Errorf("unsupported node type: %s", (*n).Type())
 	}
