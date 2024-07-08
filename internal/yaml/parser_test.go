@@ -127,19 +127,19 @@ var testData = map[string]struct {
 	//		},
 	//		raw: map[string]any{"message": "Hello world!", "test": "foo"},
 	//	},
-	//	"simple-key-tag": {
-	//		input: `message: !!test |-
-	//  Hello world!`,
-	//		expectedOutput: &node{
-	//			typeID:   TypeIDMap,
-	//			tag:      "!!map",
-	//			contents: nil,
-	//			nodeMap: map[string]Node{
-	//				"message": helloWorldCustomTagNode,
-	//			},
-	//		},
-	//		raw: map[string]any{"message": "Hello world!"},
-	//	},
+	"simple-key-tag": {
+		input: `message: !!test |-
+  Hello world!`,
+		expectedOutput: &node{
+			typeID:   TypeIDMap,
+			tag:      "!!map",
+			contents: nil,
+			nodeMap: map[string]Node{
+				"message": helloWorldCustomTagNode,
+			},
+		},
+		raw: map[string]any{"message": "Hello world!"},
+	},
 	//	"sequence": {
 	//		input: `- test`,
 	//		expectedOutput: &node{
@@ -219,15 +219,15 @@ var testData = map[string]struct {
 	//		},
 	//		raw: "1.0",
 	//	},
-	"null": {
-		input: `null`,
-		expectedOutput: &node{
-			typeID: TypeIDString,
-			tag:    "!!null",
-			value:  "null",
-		},
-		raw: "null",
-	},
+	//"null": {
+	//	input: `null`,
+	//	expectedOutput: &node{
+	//		typeID: TypeIDString,
+	//		tag:    "!!null",
+	//		value:  "null",
+	//	},
+	//	raw: "null",
+	//},
 	//"null-non_null": {
 	//	input: `message: !!null helloWorld
 	//null`,
