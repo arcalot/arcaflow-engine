@@ -19,8 +19,9 @@ func EmptyNode() Node {
 	return &node{
 		typeID:   TypeIDString,
 		tag:      "!!null",
-		contents: nil,
 		value:    "",
+		contents: nil,
+		nodeMap:  nil,
 	}
 }
 
@@ -135,7 +136,7 @@ func (p parser) Parse(data []byte) (Node, error) {
 	if err := yaml.Unmarshal(data, &n); err != nil {
 		return nil, err
 	}
-	return p.transform(&n, "")
+	return p.transform(&n)
 }
 
 //func FloatFixedPrecisionLength(flt string) int {
@@ -151,36 +152,40 @@ func (p parser) Parse(data []byte) (Node, error) {
 
 // transform converts an instance of ast.Node to the arcaflow engine's
 // yaml.Node
-func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, error) {
+func (p parser) transform(n *ast.Node) (Node, error) {
 	var mappingNode *ast.MappingNode
 	var mappingValueNode *ast.MappingValueNode
 	var sequenceNode *ast.SequenceNode
 	var scalarNode ast.ScalarNode
+	tagExplicit := ""
 	arcaNode := node{contents: make([]Node, 0), nodeMap: make(map[string]Node)}
+
+	// tag nodes do not exist in the engine's yaml ast, so they need to be
+	// replaced by their child value node
+	if (*n).Type() == ast.TagType {
+		arcaNode.typeID = TypeIDString
+		tagNode := (*n).(*ast.TagNode)
+		tagExplicit = string(token.ReservedTagKeyword(tagNode.GetToken().Value))
+		n = &tagNode.Value
+	}
+
 	switch (*n).Type() {
 	case 0:
 		return nil, fmt.Errorf("empty YAML file given")
 	case ast.MappingType:
 		arcaNode.typeID = TypeIDMap
 		mappingNode = (*n).(*ast.MappingNode)
+		arcaNode.tag = string(token.MappingTag)
 	case ast.MappingValueType:
 		arcaNode.typeID = TypeIDMap
 		mappingValueNode = (*n).(*ast.MappingValueNode)
 	case ast.SequenceType:
 		arcaNode.typeID = TypeIDSequence
 		sequenceNode = (*n).(*ast.SequenceNode)
-	case ast.TagType:
-		// currently this assumes the user only ever makes use of the !!expr tag
-		arcaNode.typeID = TypeIDString
-		tagNode := (*n).(*ast.TagNode)
-		//arcaNode.tag = tagNode.GetToken().Value
-		//arcaNode.value = tagNode.BaseNode
-		//arcaNode.value = tagNode.Value.(*ast.StringNode).Value
-		return p.transform(&tagNode.Value, token.ReservedTagKeyword(tagNode.GetToken().Value))
 	case ast.DocumentType:
 		docNode := (*n).(*ast.DocumentNode)
 		// we need to recursively transform nodes in non-empty container nodes
-		return p.transform(&docNode.Body, "")
+		return p.transform(&docNode.Body)
 	case ast.BoolType:
 		arcaNode.tag = string(BoolTag)
 		arcaNode.typeID = TypeIDString
@@ -222,12 +227,7 @@ func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, erro
 		for mapIter.Next() {
 			subNodeKey := mapIter.Key().String()
 			subNode := mapIter.Value()
-			//valueNode := subNode.(*ast.MappingValueNode)
-			//mappingValueNode, ok := subNode.(*ast.MappingValueNode)
-			//if ok {
-			//	subNode = mappingValueNode.Value
-			//}
-			subContent, err := p.transform(&subNode, "")
+			subContent, err := p.transform(&subNode)
 			if err != nil {
 				return nil, err
 			}
@@ -235,9 +235,10 @@ func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, erro
 		}
 		arcaNode.tag = string(token.MappingTag)
 	}
+
 	if sequenceNode != nil {
 		for _, subNode := range sequenceNode.Values {
-			subContent, err := p.transform(&subNode, "")
+			subContent, err := p.transform(&subNode)
 			if err != nil {
 				return nil, err
 			}
@@ -250,8 +251,9 @@ func (p parser) transform(n *ast.Node, tag token.ReservedTagKeyword) (Node, erro
 		arcaNode.value = fmt.Sprintf("%v", scalarNode.GetValue())
 	}
 
-	if tag != "" {
-		arcaNode.tag = string(tag)
+	// overwrite implicit tags with explicit tags
+	if tagExplicit != "" {
+		arcaNode.tag = tagExplicit
 	}
 
 	return &arcaNode, nil

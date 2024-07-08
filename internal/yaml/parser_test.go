@@ -101,18 +101,18 @@ var testData = map[string]struct {
 	expectedOutput *node
 	raw            any
 }{
-	//"simple-key": {
-	//	input: `message: Hello world!`,
-	//	expectedOutput: &node{
-	//		typeID:   TypeIDMap,
-	//		tag:      "!!map",
-	//		contents: nil,
-	//		nodeMap: map[string]Node{
-	//			keyMessage: &helloWorldNode,
+	//	"simple-key": {
+	//		input: `message: Hello world!`,
+	//		expectedOutput: &node{
+	//			typeID:   TypeIDMap,
+	//			tag:      "!!map",
+	//			contents: nil,
+	//			nodeMap: map[string]Node{
+	//				keyMessage: &helloWorldNode,
+	//			},
 	//		},
+	//		raw: map[string]any{"message": "Hello world!"},
 	//	},
-	//	raw: map[string]any{"message": "Hello world!"},
-	//},
 	//	"double-key": {
 	//		input: `message: Hello world!
 	//test: foo`,
@@ -127,98 +127,98 @@ var testData = map[string]struct {
 	//		},
 	//		raw: map[string]any{"message": "Hello world!", "test": "foo"},
 	//	},
-	//"simple-key-tag": {
-	//	input: `message: !!test |-
-	//Hello world!`,
-	//	expectedOutput: &node{
-	//		typeID:   TypeIDMap,
-	//		tag:      "!!map",
-	//		contents: nil,
-	//		nodeMap: map[string]Node{
-	//			"message": helloWorldCustomTagNode,
-	//		},
-	//	},
-	//	raw: map[string]any{"message": "Hello world!"},
-	//},
-	//"sequence": {
-	//	input: `- test`,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDSequence,
-	//		tag:    "!!seq",
-	//		contents: []Node{
-	//			&node{
-	//				typeID:  TypeIDString,
-	//				tag:     "!!str",
-	//				value:   "test",
-	//				nodeMap: map[string]Node{},
+	//	"simple-key-tag": {
+	//		input: `message: !!test |-
+	//  Hello world!`,
+	//		expectedOutput: &node{
+	//			typeID:   TypeIDMap,
+	//			tag:      "!!map",
+	//			contents: nil,
+	//			nodeMap: map[string]Node{
+	//				"message": helloWorldCustomTagNode,
 	//			},
 	//		},
+	//		raw: map[string]any{"message": "Hello world!"},
 	//	},
-	//	raw: []any{"test"},
-	//},
-	//"sequence-tags": {
-	//	input: `- !!test |-
-	//test`,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDSequence,
-	//		tag:    "!!seq",
-	//		contents: []Node{
-	//			&node{
-	//				TypeIDString,
-	//				"!!test",
-	//				nil,
-	//				"test",
-	//				nil,
+	//	"sequence": {
+	//		input: `- test`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDSequence,
+	//			tag:    "!!seq",
+	//			contents: []Node{
+	//				&node{
+	//					typeID:  TypeIDString,
+	//					tag:     "!!str",
+	//					value:   "test",
+	//					nodeMap: map[string]Node{},
+	//				},
 	//			},
 	//		},
+	//		raw: []any{"test"},
 	//	},
-	//	raw: []any{"test"},
-	//},
-	//"string": {
-	//	input: `test`,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDString,
-	//		tag:    "!!str",
-	//		value:  "test",
+	//	"sequence-tags": {
+	//		input: `- !!test |-
+	//  test`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDSequence,
+	//			tag:    "!!seq",
+	//			contents: []Node{
+	//				&node{
+	//					TypeIDString,
+	//					"!!test",
+	//					nil,
+	//					"test",
+	//					nil,
+	//				},
+	//			},
+	//		},
+	//		raw: []any{"test"},
 	//	},
-	//	raw: "test",
-	//},
-	//"int": {
-	//	input: `1`,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDString,
-	//		tag:    "!!int",
-	//		value:  "1",
+	//	"string": {
+	//		input: `test`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDString,
+	//			tag:    "!!str",
+	//			value:  "test",
+	//		},
+	//		raw: "test",
 	//	},
-	//	raw: "1",
-	//},
-	//"bool": {
-	//	input: `true`,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDString,
-	//		tag:    "!!bool",
-	//		value:  "true",
+	//	"int": {
+	//		input: `1`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDString,
+	//			tag:    "!!int",
+	//			value:  "1",
+	//		},
+	//		raw: "1",
 	//	},
-	//	raw: "true",
-	//},
-	//"float_precision-zero": {
-	//	input: `1.`,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDString,
-	//		tag:    "!!float",
-	//		value:  "1.",
+	//	"bool": {
+	//		input: `true`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDString,
+	//			tag:    "!!bool",
+	//			value:  "true",
+	//		},
+	//		raw: "true",
 	//	},
-	//	raw: "1.",
-	//},
-	//"float_precision-1": {
-	//	input: `1.0`,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDString,
-	//		tag:    "!!float",
-	//		value:  "1.0",
+	//	"float_precision-zero": {
+	//		input: `1.`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDString,
+	//			tag:    "!!float",
+	//			value:  "1.",
+	//		},
+	//		raw: "1.",
 	//	},
-	//	raw: "1.0",
-	//},
+	//	"float_precision-1": {
+	//		input: `1.0`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDString,
+	//			tag:    "!!float",
+	//			value:  "1.0",
+	//		},
+	//		raw: "1.0",
+	//	},
 	"null": {
 		input: `null`,
 		expectedOutput: &node{
@@ -228,6 +228,16 @@ var testData = map[string]struct {
 		},
 		raw: "null",
 	},
+	//"null-non_null": {
+	//	input: `message: !!null helloWorld
+	//null`,
+	//	expectedOutput: &node{
+	//		typeID: TypeIDString,
+	//		tag:    "!!null",
+	//		value:  "null",
+	//	},
+	//	raw: "null",
+	//},
 	//	"map-int-key": {
 	//		input: `1: test`,
 	//		expectedOutput: &node{
