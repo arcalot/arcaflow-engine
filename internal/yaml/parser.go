@@ -152,19 +152,11 @@ func (p parser) transform(n *ast.Node) (node, error) {
 		// replaced by their child value node
 		tagNode := (*n).(*ast.TagNode)
 		tagExplicit := string(token.ReservedTagKeyword(tagNode.GetToken().Value))
-		var childNode Node
+		var childNode node
 		childNode, err = p.transform(&tagNode.Value)
 		if err == nil {
-			var childNodeMap map[string]Node
-			if childNode.Type() == TypeIDMap {
-				childNodeMap = childNode.Raw().(map[string]Node)
-			}
-			arcaNode = node{
-				tag:      tagExplicit,
-				typeID:   childNode.Type(),
-				value:    childNode.Value(),
-				contents: childNode.Contents(),
-				nodeMap:  childNodeMap}
+			childNode.tag = tagExplicit
+			arcaNode = childNode
 		}
 	case ast.DocumentType:
 		docNode := (*n).(*ast.DocumentNode)
