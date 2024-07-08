@@ -101,18 +101,18 @@ var testData = map[string]struct {
 	expectedOutput *node
 	raw            any
 }{
-	//"simple-key": {
-	//	input: `message: Hello world!`,
-	//	expectedOutput: &node{
-	//		typeID:   TypeIDMap,
-	//		tag:      "!!map",
-	//		contents: nil,
-	//		nodeMap: map[string]Node{
-	//			keyMessage: &helloWorldNode,
+	//	"simple-key": {
+	//		input: `message: Hello world!`,
+	//		expectedOutput: &node{
+	//			typeID:   TypeIDMap,
+	//			tag:      "!!map",
+	//			contents: nil,
+	//			nodeMap: map[string]Node{
+	//				keyMessage: &helloWorldNode,
+	//			},
 	//		},
+	//		raw: map[string]any{"message": "Hello world!"},
 	//	},
-	//	raw: map[string]any{"message": "Hello world!"},
-	//},
 	//	"double-key": {
 	//		input: `message: Hello world!
 	//test: foo`,
@@ -127,73 +127,73 @@ var testData = map[string]struct {
 	//		},
 	//		raw: map[string]any{"message": "Hello world!", "test": "foo"},
 	//	},
-	"seq-map": {
-		input: `- message_1: Hello world 1
-  message_2: Hello world 2
-- message_3: Hello world 3
-	`,
-		expectedOutput: &node{
-			typeID: TypeIDSequence,
-			tag:    "!!seq",
-			contents: []Node{
-				node{
-					TypeIDMap,
-					"!!map",
-					[]Node{},
-					"",
-					map[string]Node{
-						"message_1": node{
-							TypeIDString,
-							"!!str",
-							[]Node{},
-							"Hello world 1",
-							map[string]Node{},
-						},
-						"message_2": node{
-							TypeIDString,
-							"!!str",
-							[]Node{},
-							"Hello world 2",
-							map[string]Node{},
-						},
-					},
-				},
-				node{
-					TypeIDMap,
-					"!!map",
-					[]Node{},
-					"",
-					map[string]Node{
-						"message_3": node{
-							TypeIDString,
-							"!!str",
-							[]Node{},
-							"Hello world 3",
-							map[string]Node{},
-						},
-					},
-				},
-			},
-			nodeMap: map[string]Node{},
-		},
-		raw: []any{
-			map[string]any{"message_1": "Hello world 1", "message_2": "Hello world 2"},
-			map[string]any{"message_3": "Hello world 3"},
-		},
-	},
-	//"simple-key-tag": {
-	//	input: `message: !!test |-
-	//Hello world!`,
-	//	expectedOutput: &node{
-	//		typeID:   TypeIDMap,
-	//		tag:      "!!map",
-	//		contents: nil,
-	//		nodeMap: map[string]Node{
-	//			"message": helloWorldCustomTagNode,
+	//	"seq-map": {
+	//		input: `- message_1: Hello world 1
+	//  message_2: Hello world 2
+	//- message_3: Hello world 3
+	//	`,
+	//		expectedOutput: &node{
+	//			typeID: TypeIDSequence,
+	//			tag:    "!!seq",
+	//			contents: []Node{
+	//				node{
+	//					TypeIDMap,
+	//					"!!map",
+	//					[]Node{},
+	//					"",
+	//					map[string]Node{
+	//						"message_1": node{
+	//							TypeIDString,
+	//							"!!str",
+	//							[]Node{},
+	//							"Hello world 1",
+	//							map[string]Node{},
+	//						},
+	//						"message_2": node{
+	//							TypeIDString,
+	//							"!!str",
+	//							[]Node{},
+	//							"Hello world 2",
+	//							map[string]Node{},
+	//						},
+	//					},
+	//				},
+	//				node{
+	//					TypeIDMap,
+	//					"!!map",
+	//					[]Node{},
+	//					"",
+	//					map[string]Node{
+	//						"message_3": node{
+	//							TypeIDString,
+	//							"!!str",
+	//							[]Node{},
+	//							"Hello world 3",
+	//							map[string]Node{},
+	//						},
+	//					},
+	//				},
+	//			},
+	//			nodeMap: map[string]Node{},
+	//		},
+	//		raw: []any{
+	//			map[string]any{"message_1": "Hello world 1", "message_2": "Hello world 2"},
+	//			map[string]any{"message_3": "Hello world 3"},
 	//		},
 	//	},
-	//	raw: map[string]any{"message": "Hello world!"},
-	//},
+	//	"simple-key-tag": {
+	//		input: `message: !!test |-
+	//  Hello world!`,
+	//		expectedOutput: &node{
+	//			typeID:   TypeIDMap,
+	//			tag:      "!!map",
+	//			contents: nil,
+	//			nodeMap: map[string]Node{
+	//				"message": helloWorldCustomTagNode,
+	//			},
+	//		},
+	//		raw: map[string]any{"message": "Hello world!"},
+	//	},
 	//	"sequence": {
 	//		input: `- test`,
 	//		expectedOutput: &node{
@@ -273,8 +273,35 @@ var testData = map[string]struct {
 	//		},
 	//		raw: "1.0",
 	//	},
-	//"null": {
+	//"empty-file": {
+	//	input: ``,
+	//	expectedOutput: &node{
+	//		typeID: TypeIDString,
+	//		tag:    "!!null",
+	//		value:  "null",
+	//	},
+	//	raw: "null",
+	//},
+	//"null-file": {
 	//	input: `null`,
+	//	expectedOutput: &node{
+	//		typeID: TypeIDString,
+	//		tag:    "!!null",
+	//		value:  "null",
+	//	},
+	//	raw: "null",
+	//},
+	"empty-seq": {
+		input: `[]`,
+		expectedOutput: &node{
+			typeID: TypeIDString,
+			tag:    "!!null",
+			value:  "null",
+		},
+		raw: "null",
+	},
+	//"empty-map": {
+	//	input: `{}`,
 	//	expectedOutput: &node{
 	//		typeID: TypeIDString,
 	//		tag:    "!!null",

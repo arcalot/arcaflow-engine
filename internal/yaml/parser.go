@@ -174,16 +174,19 @@ func (p parser) transform(n *ast.Node) (node, error) {
 		arcaNode.typeID = TypeIDMap
 		arcaNode.tag = string(token.MappingTag)
 		mappingNode := (*n).(*ast.MappingNode)
+		// we need to recursively transform nodes in non-empty container nodes
 		arcaNode, err = p.fillNodeMap(mappingNode.MapRange(), arcaNode)
 	case ast.MappingValueType:
 		arcaNode.typeID = TypeIDMap
 		arcaNode.tag = string(token.MappingTag)
 		mappingValueNode := (*n).(*ast.MappingValueNode)
+		// we need to recursively transform nodes in non-empty container nodes
 		arcaNode, err = p.fillNodeMap(mappingValueNode.MapRange(), arcaNode)
 	case ast.SequenceType:
 		arcaNode.typeID = TypeIDSequence
 		arcaNode.tag = string(token.SequenceTag)
 		sequenceNode := (*n).(*ast.SequenceNode)
+		// we need to recursively transform nodes in non-empty container nodes
 		for _, subNode := range sequenceNode.Values {
 			subContent, err := p.transform(&subNode)
 			if err != nil {
