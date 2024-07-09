@@ -36,7 +36,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 	splitStringFunction := getSplitStringFunction()
 	loadFileFunction := getReadFileFunction()
 	// OS call functions
-	readEnvVarFunction := getReadEnvVarFunction()
+	getEnvVarFunction := getGetEnvVarFunction()
 	// Data transformation functions
 	bindConstantsFunction := getBindConstantsFunction()
 
@@ -59,7 +59,7 @@ func GetFunctions() map[string]schema.CallableFunction {
 		toUpperFunction.ID():                toUpperFunction,
 		splitStringFunction.ID():            splitStringFunction,
 		loadFileFunction.ID():               loadFileFunction,
-		readEnvVarFunction.ID():             readEnvVarFunction,
+		getEnvVarFunction.ID():              getEnvVarFunction,
 		bindConstantsFunction.ID():          bindConstantsFunction,
 	}
 
@@ -532,20 +532,20 @@ func getReadFileFunction() schema.CallableFunction {
 	return funcSchema
 }
 
-func getReadEnvVarFunction() schema.CallableFunction {
+func getGetEnvVarFunction() schema.CallableFunction {
 	funcSchema, err := schema.NewCallableFunction(
-		"readEnvVar",
+		"getEnvVar",
 		[]schema.Type{
-			schema.NewStringSchema(nil, nil, nil), // env var key name
+			schema.NewStringSchema(nil, nil, nil), // env var name
 			schema.NewStringSchema(nil, nil, nil), // default value
 		},
 		schema.NewStringSchema(nil, nil, nil),
 		false,
 		schema.NewDisplayValue(
-			schema.PointerTo("readFile"),
+			schema.PointerTo("getEnvVar"),
 			schema.PointerTo(
 				"Returns the value of a system environment variable.\n"+
-					"Param 1: The key name of the environment variable.\n"+
+					"Param 1: The name of the environment variable.\n"+
 					"Param 2: The value to return if the environment variable is not present."),
 			nil,
 		),

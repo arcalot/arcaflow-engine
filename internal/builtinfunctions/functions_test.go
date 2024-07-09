@@ -1022,8 +1022,8 @@ func TestReadEnvVarFunction(t *testing.T) {
 	defaultEnvVarValue := "default"
 	assert.NoError(t, os.Setenv(knownPresentEnvVarKey, knownEnvVarValue))
 	assert.NoError(t, os.Unsetenv(knownNotPresentEnvVarKey))
-	assert.MapContainsKey(t, "readEnvVar", builtinfunctions.GetFunctions())
-	readEnvVarFunction := builtinfunctions.GetFunctions()["readEnvVar"]
+	assert.MapContainsKey(t, "getEnvVar", builtinfunctions.GetFunctions())
+	readEnvVarFunction := builtinfunctions.GetFunctions()["getEnvVar"]
 	// Test the present env var
 	result, err := readEnvVarFunction.Call([]any{knownPresentEnvVarKey, defaultEnvVarValue})
 	assert.NoError(t, err)
