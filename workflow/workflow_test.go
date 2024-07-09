@@ -1323,7 +1323,6 @@ func TestDelayedDisabledStepWorkflow(t *testing.T) {
 	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"sleep_time": 20,
 	})
-	// TODO: This is failing here unexpectedly.
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "success")
 	// Fail with a non-20ms input.
@@ -1426,6 +1425,10 @@ func TestMultiDependencyWorkflowFailureWithDisabling(t *testing.T) {
 	duration := time.Since(startTime)
 	assert.Error(t, err)
 	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T", err)
+	}
 	assert.LessThan(t, duration.Seconds(), 4) // It will take 5 seconds if it fails to fail early.
 }
 
@@ -1461,7 +1464,7 @@ steps:
       wait_time_ms: 5000
 outputs:
   workflow-success:
-    simple_wait_output: !expr $.steps.canceled_step.outputs.success
+    cancelled_step_output: !expr $.steps.canceled_step.outputs.success
     long_wait_output: !expr $.steps.long_wait.outputs.success
 `
 
@@ -1477,6 +1480,10 @@ func TestMultiDependencyWorkflowFailureWithCancellation(t *testing.T) {
 	duration := time.Since(startTime)
 	assert.Error(t, err)
 	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T", err)
+	}
 	assert.LessThan(t, duration.Seconds(), 4) // It will take 5 seconds if it fails to fail early.
 }
 
@@ -1508,8 +1515,8 @@ steps:
       wait_time_ms: 7000
 outputs:
   workflow-success:
-    simple_wait_output: !expr $.steps.disabled_step.outputs.success
-    simple_wait_output: !expr $.steps.long_wait.outputs.success
+    disabled_output: !expr $.steps.disabled_step.outputs.success
+    long_wait_output: !expr $.steps.long_wait.outputs.success
 `
 
 func TestMultiDependencyWorkflowFailureWithErrorOut(t *testing.T) {
@@ -1524,13 +1531,73 @@ func TestMultiDependencyWorkflowFailureWithErrorOut(t *testing.T) {
 	duration := time.Since(startTime)
 	assert.Error(t, err)
 	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T", err)
+	}
 	// If it takes 5 seconds, then there was a deadlock in the client.
 	// If it takes 6 seconds, then it waited for the second step.
 	assert.LessThan(t, duration.Milliseconds(), 5500)
 }
 
-// TODO: Have a version of these tests that depends on outputs instead of outputs.success
-// This is required due to them being separate nodes that need to be marked unresolvable.
+var multiDependencyFailureWorkflowWithDeployFailure = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        fail_purposefully:
+          type:
+            type_id: bool
+steps:
+  failed_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    deploy:
+      deployer_name: "test-impl"
+      deploy_succeed: !expr '!$.input.fail_purposefully'
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 7000
+outputs:
+  workflow-success:
+    simple_wait_output: !expr $.steps.failed_step.outputs
+    simple_wait_output: !expr $.steps.long_wait.outputs
+`
+
+func TestMultiDependencyWorkflowFailureWithDeployFailure(t *testing.T) {
+	// Tests failure when one dependency fails immediately, and the other one fails later.
+	// In this specific test the output depends on the `steps.step_name.outputs` node
+	// instead of the `steps.step_name.outputs.success` node because they are handled
+	// differently in the engine.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDeployFailure),
+	)
+	startTime := time.Now() // Right before execute to not include pre-processing time.
+	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"fail_purposefully": true,
+	})
+	duration := time.Since(startTime)
+	assert.Error(t, err)
+	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T", err)
+	}
+	// If it takes 5 seconds, then there was a deadlock in the client.
+	// If it takes 6 seconds, then it waited for the second step.
+	assert.LessThan(t, duration.Milliseconds(), 5500)
+}
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{
