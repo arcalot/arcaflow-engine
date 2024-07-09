@@ -1014,7 +1014,7 @@ func TestBuildSchemaNames(t *testing.T) {
 	}
 }
 
-func TestReadEnvVarFunction(t *testing.T) {
+func TestGetEnvVarFunction(t *testing.T) {
 	// Set the env variables to get below.
 	knownPresentEnvVarKey := "test_known_present_env_var_key"
 	knownNotPresentEnvVarKey := "test_known_not_present_env_var_key"
@@ -1023,13 +1023,13 @@ func TestReadEnvVarFunction(t *testing.T) {
 	assert.NoError(t, os.Setenv(knownPresentEnvVarKey, knownEnvVarValue))
 	assert.NoError(t, os.Unsetenv(knownNotPresentEnvVarKey))
 	assert.MapContainsKey(t, "getEnvVar", builtinfunctions.GetFunctions())
-	readEnvVarFunction := builtinfunctions.GetFunctions()["getEnvVar"]
+	getEnvVarFunction := builtinfunctions.GetFunctions()["getEnvVar"]
 	// Test the present env var
-	result, err := readEnvVarFunction.Call([]any{knownPresentEnvVarKey, defaultEnvVarValue})
+	result, err := getEnvVarFunction.Call([]any{knownPresentEnvVarKey, defaultEnvVarValue})
 	assert.NoError(t, err)
 	assert.Equals(t, result, any(knownEnvVarValue))
 	// Test the missing env var
-	result, err = readEnvVarFunction.Call([]any{knownNotPresentEnvVarKey, defaultEnvVarValue})
+	result, err = getEnvVarFunction.Call([]any{knownNotPresentEnvVarKey, defaultEnvVarValue})
 	assert.NoError(t, err)
 	assert.Equals(t, result, any(defaultEnvVarValue))
 }
