@@ -241,7 +241,7 @@ type ErrNoMorePossibleOutputs struct {
 
 // Error returns an explanation on why the error happened.
 func (e ErrNoMorePossibleOutputs) Error() string {
-	return fmt.Sprintf("all outputs marked as unresolvable")
+	return "all outputs marked as unresolvable"
 }
 
 // ErrInvalidState indicates that the workflow failed due to an invalid state.

@@ -957,10 +957,11 @@ func (r *runningStep) run() {
 	if !enabled {
 		r.transitionToDisabled()
 		return
-	} else {
-		// It's enabled, so the disabled stage will not occur.
-		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
 	}
+
+	// It's enabled, so the disabled stage will not occur.
+	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
+
 	if err := r.startStage(container); err != nil {
 		r.startFailed(err)
 		return
