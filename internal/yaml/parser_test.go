@@ -292,7 +292,6 @@ test: foo`,
 	},
 	"empty-map": {
 		input: `{}`,
-		error: false,
 		expectedOutput: &node{
 			typeID: TypeIDMap,
 			tag:    "!!map",
@@ -302,7 +301,6 @@ test: foo`,
 	},
 	"empty-seq": {
 		input: `[]`,
-		error: false,
 		expectedOutput: &node{
 			typeID:   TypeIDSequence,
 			tag:      "!!seq",
@@ -314,7 +312,6 @@ test: foo`,
 	},
 	"map-int-key": {
 		input: `1: test`,
-		error: false,
 		expectedOutput: &node{
 			typeID:   TypeIDMap,
 			tag:      "!!map",
