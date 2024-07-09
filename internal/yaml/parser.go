@@ -136,6 +136,9 @@ func (p parser) Parse(data []byte) (Node, error) {
 	if err := yaml.Unmarshal(data, &n); err != nil {
 		return nil, err
 	}
+	if n == nil {
+		return node{}, fmt.Errorf("empty YAML file given")
+	}
 	return p.transform(&n)
 }
 
