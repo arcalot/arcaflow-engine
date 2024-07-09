@@ -140,9 +140,10 @@ func (p parser) Parse(data []byte) (Node, error) {
 }
 
 // transform converts an instance of ast.Node to the arcaflow engine's
-// yaml.Node
+// yaml.node
 func (p parser) transform(n *ast.Node) (node, error) {
 	arcaNode := node{contents: make([]Node, 0), nodeMap: make(map[string]Node)}
+	var childArcaNode node
 	var err error
 	switch (*n).Type() {
 	case 0:
@@ -152,40 +153,48 @@ func (p parser) transform(n *ast.Node) (node, error) {
 		// replaced by their child value node
 		tagNode := (*n).(*ast.TagNode)
 		tagExplicit := string(token.ReservedTagKeyword(tagNode.GetToken().Value))
-		var childNode node
-		childNode, err = p.transform(&tagNode.Value)
+		childArcaNode, err = p.transform(&tagNode.Value)
 		if err == nil {
-			childNode.tag = tagExplicit
-			arcaNode = childNode
+			childArcaNode.tag = tagExplicit
+			arcaNode = childArcaNode
 		}
 	case ast.DocumentType:
 		docNode := (*n).(*ast.DocumentNode)
-		// we need to recursively transform nodes in non-empty container nodes
+		// recursively transform nodes in non-empty container nodes
 		arcaNode, err = p.transform(&docNode.Body)
 	case ast.MappingType:
 		arcaNode.typeID = TypeIDMap
 		arcaNode.tag = string(token.MappingTag)
 		mappingNode := (*n).(*ast.MappingNode)
-		// we need to recursively transform nodes in non-empty container nodes
+		// recursively transform nodes in non-empty container nodes
 		arcaNode, err = p.fillNodeMap(mappingNode.MapRange(), arcaNode)
 	case ast.MappingValueType:
 		arcaNode.typeID = TypeIDMap
 		arcaNode.tag = string(token.MappingTag)
 		mappingValueNode := (*n).(*ast.MappingValueNode)
-		// we need to recursively transform nodes in non-empty container nodes
+		// recursively transform nodes in non-empty container nodes
 		arcaNode, err = p.fillNodeMap(mappingValueNode.MapRange(), arcaNode)
 	case ast.SequenceType:
 		arcaNode.typeID = TypeIDSequence
 		arcaNode.tag = string(token.SequenceTag)
 		sequenceNode := (*n).(*ast.SequenceNode)
-		// we need to recursively transform nodes in non-empty container nodes
+		// recursively transform nodes in non-empty container nodes
 		for _, subNode := range sequenceNode.Values {
-			subContent, err := p.transform(&subNode)
+			childArcaNode, err = p.transform(&subNode)
 			if err != nil {
 				return node{}, err
 			}
-			arcaNode.contents = append(arcaNode.contents, subContent)
+			arcaNode.contents = append(arcaNode.contents, childArcaNode)
 		}
+	case ast.LiteralType:
+		arcaNode.tag = string(token.StringTag)
+		arcaNode.typeID = TypeIDString
+		literalNode := (*n).(*ast.LiteralNode)
+		scalarNode := any(literalNode.Value).(ast.ScalarNode)
+		arcaNode.value = fmt.Sprintf("%v", scalarNode.GetValue())
+	case ast.NullType:
+		arcaNode.tag = string(token.NullTag)
+		arcaNode.value = (*n).GetToken().Value
 	case ast.FloatType:
 		arcaNode.tag = string(token.FloatTag)
 		arcaNode.typeID = TypeIDString
@@ -207,15 +216,6 @@ func (p parser) transform(n *ast.Node) (node, error) {
 		arcaNode.typeID = TypeIDString
 		scalarNode := (*n).(ast.ScalarNode)
 		arcaNode.value = fmt.Sprintf("%v", scalarNode.GetValue())
-	case ast.LiteralType:
-		arcaNode.tag = string(token.StringTag)
-		arcaNode.typeID = TypeIDString
-		literalNode := (*n).(*ast.LiteralNode)
-		scalarNode := any(literalNode.Value).(ast.ScalarNode)
-		arcaNode.value = fmt.Sprintf("%v", scalarNode.GetValue())
-	case ast.NullType:
-		arcaNode.tag = string(token.NullTag)
-		arcaNode.value = (*n).GetToken().Value
 	default:
 		return node{}, fmt.Errorf("unsupported node type: %s", (*n).Type())
 	}
