@@ -231,76 +231,75 @@ var testData = map[string]struct {
 	//		},
 	//		raw: []any{"test"},
 	//	},
-	//	"string": {
-	//		input: `test`,
-	//		expectedOutput: &node{
-	//			typeID: TypeIDString,
-	//			tag:    "!!str",
-	//			value:  "test",
-	//		},
-	//		raw: "test",
-	//	},
-	//	"int": {
-	//		input: `1`,
-	//		expectedOutput: &node{
-	//			typeID: TypeIDString,
-	//			tag:    "!!int",
-	//			value:  "1",
-	//		},
-	//		raw: "1",
-	//	},
-	//	"bool": {
-	//		input: `true`,
-	//		expectedOutput: &node{
-	//			typeID: TypeIDString,
-	//			tag:    "!!bool",
-	//			value:  "true",
-	//		},
-	//		raw: "true",
-	//	},
-	//	"float_precision-zero": {
-	//		input: `1.`,
-	//		expectedOutput: &node{
-	//			typeID: TypeIDString,
-	//			tag:    "!!float",
-	//			value:  "1.",
-	//		},
-	//		raw: "1.",
-	//	},
-	//	"float_precision-1": {
-	//		input: `1.0`,
-	//		expectedOutput: &node{
-	//			typeID: TypeIDString,
-	//			tag:    "!!float",
-	//			value:  "1.0",
-	//		},
-	//		raw: "1.0",
-	//	},
-	//"empty-file": {
-	//	input:          ``,
-	//	error:          true,
-	//	errorStr:       emptyYaml,
-	//	expectedOutput: &node{},
-	//	raw:            nil,
-	//},
-	//"null-file": {
-	//	input:          `null`,
-	//	error:          true,
-	//	errorStr:       emptyYaml,
-	//	expectedOutput: &node{},
-	//	raw:            nil,
-	//},
-	//"empty-map": {
-	//	input:    `{}`,
-	//	error:    true,
-	//	errorStr: emptyYaml,
-	//	expectedOutput: &node{
-	//		typeID: TypeIDMap,
-	//		tag:    "!!map",
-	//		value:  "",
-	//	},
-	//	raw: nil,
-	//},
+	"string": {
+		input: `test`,
+		expectedOutput: &node{
+			typeID: TypeIDString,
+			tag:    "!!str",
+			value:  "test",
+		},
+		raw: "test",
+	},
+	"int": {
+		input: `1`,
+		expectedOutput: &node{
+			typeID: TypeIDString,
+			tag:    "!!int",
+			value:  "1",
+		},
+		raw: "1",
+	},
+	"bool": {
+		input: `true`,
+		expectedOutput: &node{
+			typeID: TypeIDString,
+			tag:    "!!bool",
+			value:  "true",
+		},
+		raw: "true",
+	},
+	"float_precision-zero": {
+		input: `1.`,
+		expectedOutput: &node{
+			typeID: TypeIDString,
+			tag:    "!!float",
+			value:  "1.",
+		},
+		raw: "1.",
+	},
+	"float_precision-1": {
+		input: `1.0`,
+		expectedOutput: &node{
+			typeID: TypeIDString,
+			tag:    "!!float",
+			value:  "1.0",
+		},
+		raw: "1.0",
+	},
+	"empty-file": {
+		input:          ``,
+		error:          true,
+		errorStr:       emptyYaml,
+		expectedOutput: &node{},
+		raw:            nil,
+	},
+	"null-file": {
+		input:          `null`,
+		error:          true,
+		errorStr:       emptyYaml,
+		expectedOutput: &node{},
+		raw:            nil,
+	},
+	"empty-map": {
+		input: `{}`,
+		error: false,
+		expectedOutput: &node{
+			typeID: TypeIDMap,
+			tag:    "!!map",
+			value:  "",
+		},
+		raw: map[string]any{},
+	},
 	"empty-seq": {
 		input: `[]`,
 		error: false,
@@ -313,27 +312,12 @@ var testData = map[string]struct {
 		},
 		raw: []any{},
 	},
-
 	"map-int-key": {
 		input: `1: test`,
 		error: false,
 		expectedOutput: &node{
-			typeID: TypeIDMap,
-			tag:    "!!map",
-			//contents: []Node{
-			//	&node{
-			//		typeID:  TypeIDString,
-			//		tag:     "!!int",
-			//		value:   "1",
-			//		nodeMap: map[string]Node{},
-			//	},
-			//	&node{
-			//		typeID:  TypeIDString,
-			//		tag:     "!!str",
-			//		value:   "test",
-			//		nodeMap: map[string]Node{},
-			//	},
-			//},
+			typeID:   TypeIDMap,
+			tag:      "!!map",
 			contents: []Node{},
 			nodeMap: map[string]Node{
 				"1": &node{
