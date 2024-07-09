@@ -359,7 +359,7 @@ func (l *loopState) unresolveOutputs(stepID string, stageID string, skippedOutpu
 		if stage.ID != stageID {
 			continue
 		}
-		for stageOutputID, _ := range stage.Outputs {
+		for stageOutputID := range stage.Outputs {
 			if skippedOutput != nil && stageOutputID == *skippedOutput {
 				continue
 			}
