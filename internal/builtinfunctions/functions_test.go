@@ -6,6 +6,7 @@ import (
 	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/pluginsdk/schema"
 	"math"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -1011,4 +1012,24 @@ func TestBuildSchemaNames(t *testing.T) {
 			assert.Equals(t, outputNames, lclInput.expectedResult)
 		})
 	}
+}
+
+func TestGetEnvVarFunction(t *testing.T) {
+	// Set the env variables to get below.
+	knownPresentEnvVarKey := "test_known_present_env_var_key"
+	knownNotPresentEnvVarKey := "test_known_not_present_env_var_key"
+	knownEnvVarValue := "known value"
+	defaultEnvVarValue := "default"
+	assert.NoError(t, os.Setenv(knownPresentEnvVarKey, knownEnvVarValue))
+	assert.NoError(t, os.Unsetenv(knownNotPresentEnvVarKey))
+	assert.MapContainsKey(t, "getEnvVar", builtinfunctions.GetFunctions())
+	getEnvVarFunction := builtinfunctions.GetFunctions()["getEnvVar"]
+	// Test the present env var
+	result, err := getEnvVarFunction.Call([]any{knownPresentEnvVarKey, defaultEnvVarValue})
+	assert.NoError(t, err)
+	assert.Equals(t, result, any(knownEnvVarValue))
+	// Test the missing env var
+	result, err = getEnvVarFunction.Call([]any{knownNotPresentEnvVarKey, defaultEnvVarValue})
+	assert.NoError(t, err)
+	assert.Equals(t, result, any(defaultEnvVarValue))
 }
