@@ -307,7 +307,7 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 			map[string]any{},
 		},
 	}
-	for i, testData := range testIter {
+	for _, testData := range testIter {
 		errorDetect := util.NewInvalidSerializationDetectorSchema()
 		// Inject the error detector into the object
 		rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
