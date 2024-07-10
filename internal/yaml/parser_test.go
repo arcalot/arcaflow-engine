@@ -73,33 +73,43 @@ const customTag = "!!test"
 var helloWorldNode = node{
 	TypeIDString,
 	"!!str",
-	nil,
+	[]Node{},
 	"Hello world!",
-	nil,
+	map[string]Node{},
 }
 
 var helloWorldCustomTagNode = node{
 	TypeIDString,
 	customTag,
-	nil,
+	[]Node{},
 	"Hello world!",
-	nil,
-}
-
-var fooNode = node{
-	TypeIDString,
-	"!!str",
-	nil,
-	"foo",
-	nil,
+	map[string]Node{},
 }
 
 const keyMessage = "message"
-const keyTest = "test"
+
+const doubleKeyInput = `
+message: Hello world!
+test: foo`
+
+const seqOfMapsInput = `
+- message_1: Hello world 1
+  message_2: Hello world 2
+- message_3: Hello world 3
+`
+
+const customKeyTagInput = `
+message: !!test |-
+  Hello world!
+`
+
+const seqTagInput = `
+- !!test |-
+  test
+`
 
 var testData = map[string]struct {
 	input          string
-	error          bool
 	errorStr       string
 	expectedOutput *node
 	raw            any
@@ -117,24 +127,26 @@ var testData = map[string]struct {
 		raw: map[string]any{"message": "Hello world!"},
 	},
 	"double-key": {
-		input: `message: Hello world!
-test: foo`,
+		input: doubleKeyInput,
 		expectedOutput: &node{
 			typeID:   TypeIDMap,
 			tag:      "!!map",
 			contents: nil,
 			nodeMap: map[string]Node{
 				keyMessage: &helloWorldNode,
-				keyTest:    &fooNode,
+				"test": &node{
+					TypeIDString,
+					"!!str",
+					nil,
+					"foo",
+					nil,
+				},
 			},
 		},
 		raw: map[string]any{"message": "Hello world!", "test": "foo"},
 	},
 	"seq-map": {
-		input: `- message_1: Hello world 1
-  message_2: Hello world 2
-- message_3: Hello world 3
-			`,
+		input: seqOfMapsInput,
 		expectedOutput: &node{
 			typeID: TypeIDSequence,
 			tag:    "!!seq",
@@ -185,14 +197,13 @@ test: foo`,
 		},
 	},
 	"simple-key-tag": {
-		input: `message: !!test |-
-  Hello world!`,
+		input: customKeyTagInput,
 		expectedOutput: &node{
 			typeID:   TypeIDMap,
 			tag:      "!!map",
 			contents: nil,
 			nodeMap: map[string]Node{
-				"message": helloWorldCustomTagNode,
+				keyMessage: &helloWorldCustomTagNode,
 			},
 		},
 		raw: map[string]any{"message": "Hello world!"},
@@ -214,8 +225,7 @@ test: foo`,
 		raw: []any{"test"},
 	},
 	"sequence-tags": {
-		input: `- !!test |-
-  test`,
+		input: seqTagInput,
 		expectedOutput: &node{
 			typeID: TypeIDSequence,
 			tag:    "!!seq",
@@ -278,14 +288,12 @@ test: foo`,
 	},
 	"empty-file": {
 		input:          ``,
-		error:          true,
 		errorStr:       emptyYaml,
 		expectedOutput: &node{},
 		raw:            nil,
 	},
 	"null-file": {
 		input:          `null`,
-		error:          true,
 		errorStr:       emptyYaml,
 		expectedOutput: &node{},
 		raw:            nil,
@@ -338,11 +346,10 @@ func TestYAMLParsing(t *testing.T) {
 			t.Parallel()
 			p := New()
 			output, err := p.Parse([]byte(testCase.input))
-			if err == nil && testCase.error {
+			if err == nil && len(testCase.errorStr) > 0 {
 				t.Fatalf("No error returned")
 			}
-			if err != nil && !testCase.error {
-				//t.Fatalf("Unexpected error returned: %v", err)
+			if err != nil && len(testCase.errorStr) > 0 {
 				assert.Contains(t, err.Error(), testCase.errorStr)
 			}
 			assertEqualsYAML(t, output, testCase.expectedOutput)
