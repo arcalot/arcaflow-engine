@@ -149,8 +149,6 @@ func (p parser) transform(n *ast.Node) (node, error) {
 	var childArcaNode node
 	var err error
 	switch (*n).Type() {
-	case 0:
-		return node{}, fmt.Errorf("empty YAML file given")
 	case ast.TagType:
 		// tag nodes do not exist in the engine's yaml ast, so they need to be
 		// replaced by their child value node
