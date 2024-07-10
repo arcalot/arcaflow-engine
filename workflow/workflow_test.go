@@ -308,7 +308,6 @@ func TestWithDoubleSerializationDetection(t *testing.T) {
 		},
 	}
 	for i, testData := range testIter {
-		t.Logf("Starting iteration %d", i)
 		errorDetect := util.NewInvalidSerializationDetectorSchema()
 		// Inject the error detector into the object
 		rootObject.PropertiesValue["error_detector"] = schema.NewPropertySchema(
@@ -1414,7 +1413,7 @@ outputs:
 `
 
 func TestMultiDependencyWorkflowFailureWithDisabling(t *testing.T) {
-	// Tests failure when one dependency fails immediately, and the other one fails later.
+	// Tests failure when one dependency is disabled immediately, and the other one completes later.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDisabling),
 	)
@@ -1469,7 +1468,7 @@ outputs:
 `
 
 func TestMultiDependencyWorkflowFailureWithCancellation(t *testing.T) {
-	// Tests failure when one dependency fails immediately, and the other one fails later.
+	// Tests failure when one dependency is cancelled immediately, and the other one completes later.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithCancellation),
 	)
@@ -1520,7 +1519,8 @@ outputs:
 `
 
 func TestMultiDependencyWorkflowFailureWithErrorOut(t *testing.T) {
-	// Tests failure when one dependency fails immediately, and the other one fails later.
+	// Tests failure when one dependency fails due to the wrong output immediately, and the
+	// other one completes later.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithErrorOut),
 	)
@@ -1576,9 +1576,10 @@ outputs:
 `
 
 func TestMultiDependencyWorkflowFailureWithDeployFailure(t *testing.T) {
-	// Tests failure when one dependency fails immediately, and the other one fails later.
-	// In this specific test the output depends on the `steps.step_name.outputs` node
-	// instead of the `steps.step_name.outputs.success` node because they are handled
+	// Tests failure when one dependency fails (due to failed deployment) immediately,
+	// and the other one fails later.
+	// In this specific test the output depends on the `steps.failed_step.outputs` node
+	// instead of the `steps.failed_step.outputs.success` node because they are handled
 	// differently in the engine.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDeployFailure),

@@ -368,10 +368,10 @@ func (l *loopState) markOutputsUnresolvable(stepID string, stageID string, skipp
 				l.logger.Warningf("Could not get DAG node %s (%s)", stepID+"."+stage.ID+"."+stageOutputID, err.Error())
 				continue
 			}
-			l.logger.Debugf("Will resolve node %s in the DAG as unresolvable", stepID+"."+stage.ID+"."+stageOutputID)
+			l.logger.Debugf("Will mark node %s in the DAG as unresolvable", stepID+"."+stage.ID+"."+stageOutputID)
 			err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
 			if err != nil {
-				l.logger.Errorf("Error while resolving node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
+				l.logger.Errorf("Error while marking node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
 			}
 		}
 	}
@@ -387,10 +387,10 @@ func (l *loopState) markStageNodeUnresolvable(stepID string, stageID string) {
 		l.logger.Warningf("Could not get DAG node %s (%s)", stepID+"."+stageID, err.Error())
 		return
 	}
-	l.logger.Debugf("Will resolve node %s in the DAG as unresolvable", stepID+"."+stageID)
+	l.logger.Debugf("Will mark node %s in the DAG as unresolvable", stepID+"."+stageID)
 	err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
 	if err != nil {
-		l.logger.Errorf("Error while resolving node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
+		l.logger.Errorf("Error while marking node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
 	}
 }
 
