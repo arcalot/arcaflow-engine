@@ -5,6 +5,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/token"
+	"strings"
 )
 
 const BoolTag token.ReservedTagKeyword = "!!bool"
@@ -131,9 +132,24 @@ func (n node) Value() string {
 type parser struct {
 }
 
+func removeLeftLF(src string) string {
+	return strings.TrimLeft(strings.TrimLeft(strings.TrimLeft(src, "\r"), "\n"), "\r\n")
+}
+
+func RemoveAllLineEndWhitespace(src string) string {
+	var strBuilder strings.Builder
+	for _, k := range strings.Split(src, "\r\n") {
+		strBuilder.WriteString(strings.TrimRight(k, " ") + "\n")
+	}
+	return strBuilder.String()
+}
+
 func (p parser) Parse(data []byte) (Node, error) {
+	// goccy's yaml decoder has a bug involving trailing whitespace before
+	// the line end character
+	trimmedData := RemoveAllLineEndWhitespace(string(data))
 	var n ast.Node
-	if err := yaml.Unmarshal(data, &n); err != nil {
+	if err := yaml.Unmarshal([]byte(trimmedData), &n); err != nil {
 		return nil, err
 	}
 	if n == nil {
