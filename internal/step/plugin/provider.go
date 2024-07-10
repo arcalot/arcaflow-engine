@@ -688,6 +688,7 @@ func (r *runnableStep) Start(input map[string]any, runID string, stageChangeHand
 		runID:              runID,
 	}
 
+	s.wg.Add(1) // Wait for the run to finish before closing.
 	go s.run()
 
 	return s, nil
@@ -922,8 +923,8 @@ func (r *runningStep) closeComponents(closeATP bool) error {
 	return nil
 }
 
+// Note: Caller must add 1 to the waitgroup before calling.
 func (r *runningStep) run() {
-	r.wg.Add(1) // Wait for the run to finish before closing.
 	defer func() {
 		r.cancel()  // Close before WaitGroup done
 		r.wg.Done() // Done. Close may now exit.
