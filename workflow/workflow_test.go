@@ -1519,7 +1519,7 @@ outputs:
 `
 
 func TestMultiDependencyWorkflowFailureWithErrorOut(t *testing.T) {
-	// Tests failure when one dependency fails due to the wrong output immediately, and the
+	// Tests failure when one dependency fails immediately due to the wrong output, and the
 	// other one completes later.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithErrorOut),
