@@ -1176,6 +1176,27 @@ func (r *runningStep) runStage() error {
 	return nil
 }
 
+func (r *runningStep) markStageFailures(firstStage StageID, err error) {
+	switch firstStage {
+	case StageIDEnabling:
+		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDEnabling), &r.wg, err)
+		fallthrough
+	case StageIDDisabled:
+		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
+		fallthrough
+	case StageIDStarting:
+		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDStarting), &r.wg, err)
+		fallthrough
+	case StageIDRunning:
+		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
+		fallthrough
+	case StageIDOutput:
+		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
+	default:
+		panic("unknown StageID")
+	}
+}
+
 func (r *runningStep) deployFailed(err error) {
 	r.logger.Debugf("Deploy failed stage for step %s/%s", r.runID, r.pluginStepID)
 	r.transitionStage(StageIDDeployFailed, step.RunningStepStateRunning)
@@ -1189,11 +1210,7 @@ func (r *runningStep) deployFailed(err error) {
 	r.completeStep(StageIDDeployFailed, step.RunningStepStateFinished, &outputID, &output)
 	// If deployment fails, enabling, disabled, starting, running, and output cannot occur.
 	err = fmt.Errorf("deployment failed for step %s/%s", r.runID, r.pluginStepID)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDEnabling), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDStarting), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
+	r.markStageFailures(StageIDEnabling, err)
 }
 
 func (r *runningStep) transitionToCancelled() {
@@ -1205,11 +1222,9 @@ func (r *runningStep) transitionToCancelled() {
 
 	// This is called after deployment. So everything after deployment cannot occur.
 	err := fmt.Errorf("step %s/%s cancelled", r.runID, r.pluginStepID)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDEnabling), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDStarting), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
+	// Note: This function is only called if it's cancelled during the deployment phase.
+	// If that changes, the stage IDs marked as failed need to be changed.
+	r.markStageFailures(StageIDEnabling, err)
 }
 
 func (r *runningStep) transitionToDisabled() {
@@ -1231,9 +1246,8 @@ func (r *runningStep) transitionToDisabled() {
 	)
 
 	err := fmt.Errorf("step %s/%s disabled", r.runID, r.pluginStepID)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDStarting), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
+	r.markStageFailures(StageIDStarting, err)
+
 }
 
 func (r *runningStep) startFailed(err error) {
@@ -1249,8 +1263,8 @@ func (r *runningStep) startFailed(err error) {
 
 	r.completeStep(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
 
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDRunning), &r.wg, err)
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
+	r.markStageFailures(StageIDRunning, err)
+
 }
 
 func (r *runningStep) runFailed(err error) {
@@ -1265,7 +1279,7 @@ func (r *runningStep) runFailed(err error) {
 	})
 	r.completeStep(StageIDCrashed, step.RunningStepStateFinished, &outputID, &output)
 
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDOutput), &r.wg, err)
+	r.markStageFailures(StageIDOutput, err)
 }
 
 // TransitionStage transitions the stage to the specified stage, and the state to the specified state.

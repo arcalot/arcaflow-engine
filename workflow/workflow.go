@@ -155,8 +155,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				} else {
 					e.logger.Debugf("Step %q stage %q declared that it will not produce an output (%s)", stepID, stage, err.Error())
 				}
-				l.unresolveOutputs(stepID, stage, nil)
-				l.unresolveStageNode(stepID, stage)
+				l.markOutputsUnresolvable(stepID, stage, nil)
+				l.markStageNodeUnresolvable(stepID, stage)
 				l.notifySteps()
 			},
 		}
@@ -338,9 +338,9 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 				*previousStageOutput,
 			)
 		}
-		// Unresolve all alternative output ID nodes.
+		// Mark all alternative output ID nodes as unresolvable.
 		// Use the lifecycle to find the possible output IDs
-		l.unresolveOutputs(stepID, *previousStage, previousStageOutputID)
+		l.markOutputsUnresolvable(stepID, *previousStage, previousStageOutputID)
 
 		// Placing data from the output into the general data structure
 		l.data[WorkflowStepsKey].(map[string]any)[stepID].(map[string]any)[*previousStage] = map[string]any{}
@@ -352,8 +352,8 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 // Marks the outputs of that stage unresolvable.
 // Optionally skip an output that should not unresolve.
 // Does not (un)resolve the non-output node for that stage.
-// To prevent a deadlock, this `notifySteps()` should be called at some point after this is called.
-func (l *loopState) unresolveOutputs(stepID string, stageID string, skippedOutput *string) {
+// To prevent a deadlock, `notifySteps()` should be called at some point after this is called.
+func (l *loopState) markOutputsUnresolvable(stepID string, stageID string, skippedOutput *string) {
 	stages := l.lifecycles[stepID].Stages
 	for _, stage := range stages {
 		if stage.ID != stageID {
@@ -368,29 +368,29 @@ func (l *loopState) unresolveOutputs(stepID string, stageID string, skippedOutpu
 				l.logger.Warningf("Could not get DAG node %s (%s)", stepID+"."+stage.ID+"."+stageOutputID, err.Error())
 				continue
 			}
-			l.logger.Debugf("Will unresolve node %s in the DAG", stepID+"."+stage.ID+"."+stageOutputID)
+			l.logger.Debugf("Will resolve node %s in the DAG as unresolvable", stepID+"."+stage.ID+"."+stageOutputID)
 			err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
 			if err != nil {
-				l.logger.Errorf("Error while unresolving node %s in DAG (%s)", unresolvableOutputNode.ID(), err.Error())
+				l.logger.Errorf("Error while resolving node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
 			}
 		}
 	}
 }
 
-// unresolves the stage node for the step's stage.
-// Does not (un)resolve the outputs of that node. For that, call unresolveOutputs() instead or
+// Marks the stage node for the step's stage as unresolvable.
+// Does not (un)resolve the outputs of that node. For that, call markOutputsUnresolvable() instead or
 // in addition to calling this function.
-// To prevent a deadlock, this `notifySteps()` should be called at some point after this is called.
-func (l *loopState) unresolveStageNode(stepID string, stageID string) {
+// To prevent a deadlock, `notifySteps()` should be called at some point after this is called.
+func (l *loopState) markStageNodeUnresolvable(stepID string, stageID string) {
 	unresolvableOutputNode, err := l.dag.GetNodeByID(GetStageNodeID(stepID, stageID))
 	if err != nil {
 		l.logger.Warningf("Could not get DAG node %s (%s)", stepID+"."+stageID, err.Error())
 		return
 	}
-	l.logger.Debugf("Will unresolve node %s in the DAG", stepID+"."+stageID)
+	l.logger.Debugf("Will resolve node %s in the DAG as unresolvable", stepID+"."+stageID)
 	err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
 	if err != nil {
-		l.logger.Errorf("Error while unresolving node %s in DAG (%s)", unresolvableOutputNode.ID(), err.Error())
+		l.logger.Errorf("Error while resolving node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
 	}
 }
 
