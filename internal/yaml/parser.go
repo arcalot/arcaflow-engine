@@ -142,8 +142,8 @@ func (p parser) Parse(data []byte) (Node, error) {
 	return p.transform(&n)
 }
 
-// transform converts an instance of ast.Node to the arcaflow engine's
-// yaml.node
+// transform converts an instance of goccy's yaml ast to the arcaflow engine's
+// yaml ast
 func (p parser) transform(n *ast.Node) (node, error) {
 	arcaNode := node{contents: make([]Node, 0), nodeMap: make(map[string]Node)}
 	var childArcaNode node
@@ -199,7 +199,7 @@ func (p parser) transform(n *ast.Node) (node, error) {
 	case ast.FloatType:
 		arcaNode.tag = string(token.FloatTag)
 		arcaNode.typeID = TypeIDString
-		// must use token to get expected decimal precision for numbers with
+		// must use token to get expected significant figures for numbers with
 		// trailing zeros after decimal
 		arcaNode.value = (*n).GetToken().Value
 	case ast.BoolType:
