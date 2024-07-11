@@ -136,20 +136,24 @@ func removeLeftLF(src string) string {
 	return strings.TrimLeft(strings.TrimLeft(strings.TrimLeft(src, "\r"), "\n"), "\r\n")
 }
 
-func RemoveAllLineEndWhitespace(src string) string {
+func RemoveAllLineEndSpaces(src string) string {
 	var strBuilder strings.Builder
-	for _, k := range strings.Split(src, "\r\n") {
-		strBuilder.WriteString(strings.TrimRight(k, " ") + "\n")
+	for _, k := range strings.Split(src, "\n") {
+		s := strings.TrimRight(k, "\r ")
+		strBuilder.WriteString(s + "\n")
 	}
 	return strBuilder.String()
 }
 
 func (p parser) Parse(data []byte) (Node, error) {
-	// goccy's yaml decoder has a bug involving trailing whitespace before
+	// goccy's yaml decoder has a bug involving trailing spaces before
 	// the line end character
-	trimmedData := RemoveAllLineEndWhitespace(string(data))
+	out := RemoveAllLineEndSpaces(fmt.Sprintf("msg1: abc '\n'\nmsg2: def\nmsg3: ghi"))
+	fmt.Printf("%v\n", out)
+
+	//trimmedData := RemoveAllLineEndSpaces(string(data))
 	var n ast.Node
-	if err := yaml.Unmarshal([]byte(trimmedData), &n); err != nil {
+	if err := yaml.Unmarshal(data, &n); err != nil {
 		return nil, err
 	}
 	if n == nil {
