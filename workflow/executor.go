@@ -313,10 +313,7 @@ func (e *executor) processSteps(
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
 }
 
-func applyLifecycleScopes(
-	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
-	typedInput schema.Scope,
-) error {
+func BuildNamespacedScopes(stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema]) map[string]map[string]*schema.ObjectSchema {
 	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	for workflowStepID, stepLifecycle := range stepLifecycles {
 		for _, stage := range stepLifecycle.Stages {
@@ -329,7 +326,14 @@ func applyLifecycleScopes(
 			addOutputNamespacedScopes(allNamespaces, stage, prefix+"outputs.")
 		}
 	}
-	return applyAllNamespaces(allNamespaces, typedInput)
+	return allNamespaces
+}
+
+func applyLifecycleScopes(
+	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
+	typedInput schema.Scope,
+) error {
+	return applyAllNamespaces(BuildNamespacedScopes(stepLifecycles), typedInput)
 }
 
 // applyAllNamespaces applies all namespaces to the given scope.
