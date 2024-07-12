@@ -313,6 +313,8 @@ func (e *executor) processSteps(
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
 }
 
+// BuildNamespacedScopes creates a map of a workflow's steps' lifecycles to
+// the object schemas that exist during that lifecycle.
 func BuildNamespacedScopes(stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema]) map[string]map[string]*schema.ObjectSchema {
 	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	for workflowStepID, stepLifecycle := range stepLifecycles {
