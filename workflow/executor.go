@@ -121,7 +121,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 	}
 
 	// Apply step lifecycle objects to the input scope
-	err = applyLifecycleScopes(stepLifecycles, typedInput)
+	err = applyLifecycleNamespaces(stepLifecycles, typedInput)
 	if err != nil {
 		return nil, err
 	}
@@ -313,29 +313,29 @@ func (e *executor) processSteps(
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
 }
 
-// BuildNamespacedScopes creates a map of a workflow's steps' lifecycles to
-// the object schemas that exist during that lifecycle.
-func BuildNamespacedScopes(stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema]) map[string]map[string]*schema.ObjectSchema {
+// BuildNamespaces creates a namespaced collection of objects for the inputs
+// and outputs of each step's lifecycle's stage.
+func BuildNamespaces(stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema]) map[string]map[string]*schema.ObjectSchema {
 	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	for workflowStepID, stepLifecycle := range stepLifecycles {
 		for _, stage := range stepLifecycle.Stages {
 			prefix := "$.steps." + workflowStepID + "." + stage.ID + "."
 			// Apply inputs
 			// Example with stage "starting": $.steps.wait_step.starting.inputs.
-			addInputNamespacedScopes(allNamespaces, stage, prefix+"inputs.")
+			addInputNamespaces(allNamespaces, stage, prefix+"inputs.")
 			// Apply outputs
 			// Example with stage "outputs": $.steps.wait_step.outputs.outputs.
-			addOutputNamespacedScopes(allNamespaces, stage, prefix+"outputs.")
+			addOutputNamespaces(allNamespaces, stage, prefix+"outputs.")
 		}
 	}
 	return allNamespaces
 }
 
-func applyLifecycleScopes(
+func applyLifecycleNamespaces(
 	stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema],
 	typedInput schema.Scope,
 ) error {
-	return applyAllNamespaces(BuildNamespacedScopes(stepLifecycles), typedInput)
+	return applyAllNamespaces(BuildNamespaces(stepLifecycles), typedInput)
 }
 
 // applyAllNamespaces applies all namespaces to the given scope.
@@ -365,13 +365,13 @@ func applyAllNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema
 	)
 }
 
-func addOutputNamespacedScopes(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
+func addOutputNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
 	for outputID, outputSchema := range stage.Outputs {
 		addScopesWithReferences(allNamespaces, outputSchema.Schema(), prefix+outputID)
 	}
 }
 
-func addInputNamespacedScopes(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
+func addInputNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
 	for inputID, inputSchemaProperty := range stage.InputSchema {
 		var inputSchemaType = inputSchemaProperty.Type()
 		// Extract item values from lists (like for ForEach)
