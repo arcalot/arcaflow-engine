@@ -71,6 +71,10 @@ type ExecutableWorkflow interface {
 
 	// OutputSchema returns the schema for the possible outputs of this workflow.
 	OutputSchema() map[string]*schema.StepOutputSchema
+
+	// Namespaces returns a namespaced collection of objects for the inputs
+	// and outputs of each stage in the step's lifecycles.
+	Namespaces() map[string]map[string]*schema.ObjectSchema
 }
 
 type executor struct {
@@ -350,6 +354,14 @@ func applyAllNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema
 		return nil // Success
 	}
 	// Now on the error path. Provide useful debug info.
+	return fmt.Errorf(
+		"error validating references for workflow input (%w)\nAvailable namespaces and objects:%s",
+		err,
+		BuildNamespaceString(allNamespaces),
+	)
+}
+
+func BuildNamespaceString(allNamespaces map[string]map[string]*schema.ObjectSchema) string {
 	availableObjects := ""
 	for namespace, objects := range allNamespaces {
 		availableObjects += "\n\t" + namespace + ":"
@@ -358,11 +370,7 @@ func applyAllNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema
 		}
 	}
 	availableObjects += "\n" // Since this is a multi-line error message, ending with a newline is clearer.
-	return fmt.Errorf(
-		"error validating references for workflow input (%w)\nAvailable namespaces and objects:%s",
-		err,
-		availableObjects,
-	)
+	return availableObjects
 }
 
 func addOutputNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
