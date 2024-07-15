@@ -361,6 +361,8 @@ func applyAllNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema
 	)
 }
 
+// BuildNamespaceString creates a human-readable string representation of the
+// namespace scoped objects.
 func BuildNamespaceString(allNamespaces map[string]map[string]*schema.ObjectSchema) string {
 	availableObjects := ""
 	for namespace, objects := range allNamespaces {
