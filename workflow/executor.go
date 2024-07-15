@@ -314,7 +314,7 @@ func (e *executor) processSteps(
 }
 
 // BuildNamespaces creates a namespaced collection of objects for the inputs
-// and outputs of each step's lifecycle's stage.
+// and outputs of each stage in the step's lifecycles.
 func BuildNamespaces(stepLifecycles map[string]step.Lifecycle[step.LifecycleStageWithSchema]) map[string]map[string]*schema.ObjectSchema {
 	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	for workflowStepID, stepLifecycle := range stepLifecycles {
