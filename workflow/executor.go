@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/util"
 	"reflect"
 	"strings"
 
@@ -357,22 +358,8 @@ func applyAllNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema
 	return fmt.Errorf(
 		"error validating references for workflow input (%w)\nAvailable namespaces and objects:%s",
 		err,
-		BuildNamespaceString(allNamespaces),
+		util.BuildNamespaceString(allNamespaces),
 	)
-}
-
-// BuildNamespaceString creates a human-readable string representation of the
-// namespace scoped objects.
-func BuildNamespaceString(allNamespaces map[string]map[string]*schema.ObjectSchema) string {
-	availableObjects := ""
-	for namespace, objects := range allNamespaces {
-		availableObjects += "\n\t" + namespace + ":"
-		for objectID := range objects {
-			availableObjects += " " + objectID
-		}
-	}
-	availableObjects += "\n" // Since this is a multi-line error message, ending with a newline is clearer.
-	return availableObjects
 }
 
 func addOutputNamespaces(allNamespaces map[string]map[string]*schema.ObjectSchema, stage step.LifecycleStageWithSchema, prefix string) {
