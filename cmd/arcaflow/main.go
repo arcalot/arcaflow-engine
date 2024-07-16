@@ -58,19 +58,22 @@ func main() {
 	dir := "."
 	workflowFile := "workflow.yaml"
 	printVersion := false
+	getNamespaces := false
 
 	const (
-		versionUsage  = "Print Arcaflow Engine version and exit."
-		configUsage   = "The path to the Arcaflow configuration file to load, if any."
-		inputUsage    = "The path to the workflow input file to load, if any."
-		contextUsage  = "The path to the workflow directory to run from."
-		workflowUsage = "The path to the workflow file to load."
+		versionUsage       = "Print Arcaflow Engine version and exit."
+		configUsage        = "The path to the Arcaflow configuration file to load, if any."
+		inputUsage         = "The path to the workflow input file to load, if any."
+		contextUsage       = "The path to the workflow directory to run from."
+		workflowUsage      = "The path to the workflow file to load."
+		getNamespacesUsage = "Show the namespaces available to this workflow."
 	)
 	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
 	flag.StringVar(&configFile, "config", configFile, configUsage)
 	flag.StringVar(&input, "input", input, inputUsage)
 	flag.StringVar(&dir, "context", dir, contextUsage)
 	flag.StringVar(&workflowFile, "workflow", workflowFile, workflowUsage)
+	flag.BoolVar(&getNamespaces, "get-namespaces", getNamespaces, getNamespacesUsage)
 
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
@@ -183,10 +186,10 @@ func main() {
 		}
 	}
 
-	os.Exit(runWorkflow(flow, fileCtx, RequiredFileKeyWorkflow, logger, inputData))
+	os.Exit(runWorkflow(flow, fileCtx, RequiredFileKeyWorkflow, logger, inputData, getNamespaces))
 }
 
-func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflowFile string, logger log.Logger, inputData []byte) int {
+func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflowFile string, logger log.Logger, inputData []byte, getNamespaces bool) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctrlC := make(chan os.Signal, 4) // We expect up to three ctrl-C inputs. Plus one extra to buffer in case.
 	signal.Notify(ctrlC, os.Interrupt)
@@ -203,25 +206,30 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 		return ExitCodeInvalidData
 	}
 
-	outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
-	if err != nil {
-		logger.Errorf("Workflow execution failed (%v)", err)
-		return ExitCodeWorkflowFailed
+	if getNamespaces {
+		_, _ = os.Stdout.Write([]byte(workflow.Namespaces()))
+	} else {
+		outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
+		if err != nil {
+			logger.Errorf("Workflow execution failed (%v)", err)
+			return ExitCodeWorkflowFailed
+		}
+		data, err := yaml.Marshal(
+			map[string]any{
+				"output_id":   outputID,
+				"output_data": outputData,
+			},
+		)
+		if err != nil {
+			logger.Errorf("Failed to marshal output (%v)", err)
+			return ExitCodeInvalidData
+		}
+		_, _ = os.Stdout.Write(data)
+		if outputError {
+			return ExitCodeWorkflowErrorOutput
+		}
 	}
-	data, err := yaml.Marshal(
-		map[string]any{
-			"output_id":   outputID,
-			"output_data": outputData,
-		},
-	)
-	if err != nil {
-		logger.Errorf("Failed to marshal output (%v)", err)
-		return ExitCodeInvalidData
-	}
-	_, _ = os.Stdout.Write(data)
-	if outputError {
-		return ExitCodeWorkflowErrorOutput
-	}
+	
 	return ExitCodeOK
 }
 
