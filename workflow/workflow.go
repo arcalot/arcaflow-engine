@@ -57,6 +57,7 @@ func (e *executableWorkflow) DAG() dgraph.DirectedGraph[*DAGItem] {
 
 // Namespaces returns a namespaced collection of objects for the inputs
 // and outputs of each stage in the step's lifecycles.
+// It maps namespace id (path) to object id to object schema.
 func (e *executableWorkflow) Namespaces() map[string]map[string]*schema.ObjectSchema {
 	return BuildNamespaces(e.lifecycles)
 }
