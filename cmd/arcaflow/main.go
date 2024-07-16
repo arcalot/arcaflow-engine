@@ -207,7 +207,7 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 	}
 
 	if getNamespaces {
-		_, _ = os.Stdout.Write([]byte(workflow.Namespaces()))
+		_, _ = os.Stdout.Write([]byte(buildNamespaceResponse(workflow)))
 	} else {
 		outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 		if err != nil {
@@ -229,7 +229,7 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 			return ExitCodeWorkflowErrorOutput
 		}
 	}
-	
+
 	return ExitCodeOK
 }
 
@@ -265,4 +265,10 @@ func loadYamlFile(configFile string) (any, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func buildNamespaceResponse(workflow engine.Workflow) string {
+	namespaceTblStr := "Available objects and their namespaces:\n"
+	namespaceTblStr += workflow.Namespaces()
+	return namespaceTblStr
 }
