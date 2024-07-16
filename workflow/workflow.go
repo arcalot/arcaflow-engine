@@ -55,6 +55,13 @@ func (e *executableWorkflow) DAG() dgraph.DirectedGraph[*DAGItem] {
 	return e.dag
 }
 
+// Namespaces returns a namespaced collection of objects for the inputs
+// and outputs of each stage in the step's lifecycles.
+// It maps namespace id (path) to object id to object schema.
+func (e *executableWorkflow) Namespaces() map[string]map[string]*schema.ObjectSchema {
+	return BuildNamespaces(e.lifecycles)
+}
+
 // Execute runs the workflow with the specified input. You can use the context variable to abort the workflow execution
 // (e.g. when the user presses Ctrl+C).
 func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (outputID string, outputData any, err error) { //nolint:gocognit
