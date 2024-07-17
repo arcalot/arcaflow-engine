@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 
 	"go.arcalot.io/log/v2"
@@ -277,8 +278,9 @@ func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger l
 
 	// write header
 	for _, col := range columns {
-		_, _ = fmt.Fprintf(w, col, "\t")
+		_, _ = fmt.Fprint(w, strings.ToUpper(col), "\t")
 	}
+	_, _ = fmt.Fprintln(w)
 
 	// write each row
 	allNamespaces := workflow.Namespaces()
@@ -290,7 +292,7 @@ func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger l
 		_, _ = fmt.Fprintln(w)
 	}
 	_, _ = fmt.Fprintln(w)
-	
+
 	_ = w.Flush()
 	return nil
 }
