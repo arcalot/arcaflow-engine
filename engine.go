@@ -8,7 +8,6 @@ import (
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/builtinfunctions"
 	"go.flow.arcalot.io/engine/internal/step"
-	"go.flow.arcalot.io/engine/internal/util"
 	"go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/loadfile"
 	"go.flow.arcalot.io/engine/workflow"
@@ -57,7 +56,7 @@ type Workflow interface {
 	InputSchema() schema.Scope
 	// Outputs returns the list of possible outputs and their schema for the workflow.
 	Outputs() map[string]schema.StepOutput
-	Namespaces() string
+	Namespaces() map[string]map[string]*schema.ObjectSchema
 }
 
 type workflowEngine struct {
@@ -237,6 +236,7 @@ func (e engineWorkflow) Outputs() map[string]schema.StepOutput {
 	return outputs
 }
 
-func (e engineWorkflow) Namespaces() string {
-	return util.BuildNamespaceString(e.workflow.Namespaces())
+func (e engineWorkflow) Namespaces() map[string]map[string]*schema.ObjectSchema {
+	//return util.BuildNamespaceString(e.workflow.Namespaces())
+	return e.workflow.Namespaces()
 }

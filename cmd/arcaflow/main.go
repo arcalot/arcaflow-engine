@@ -5,9 +5,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"text/tabwriter"
 
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
@@ -207,7 +209,8 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 	}
 
 	if getNamespaces {
-		_, _ = os.Stdout.Write([]byte(buildNamespaceResponse(workflow)))
+		//_, _ = os.Stdout.Write([]byte(buildNamespaceResponse(workflow)))
+		printNamespaceResponse(os.Stdout, workflow, logger)
 	} else {
 		outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 		if err != nil {
@@ -267,8 +270,46 @@ func loadYamlFile(configFile string) (any, error) {
 	return data, nil
 }
 
-func buildNamespaceResponse(workflow engine.Workflow) string {
-	namespaceTblStr := "Available objects and their namespaces:\n"
-	namespaceTblStr += workflow.Namespaces()
-	return namespaceTblStr
+func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger log.Logger) error {
+	tabwriterPadding := 3
+	w := tabwriter.NewWriter(os.Stdout, 6, 4, tabwriterPadding, ' ', tabwriter.FilterHTML)
+	_, err := fmt.Fprintln(w, "NAMESPACE\tOBJECT")
+	if err != nil {
+		return err
+	}
+	allNamespaces := workflow.Namespaces()
+	for namespace, objects := range allNamespaces {
+		_, err := fmt.Fprintf(w, "%s\t", namespace)
+		if err != nil {
+			return err
+		}
+		for objectID := range objects {
+			_, err := fmt.Fprintf(w, "%s ", objectID)
+			if err != nil {
+				return err
+			}
+		}
+		_, err = fmt.Fprintln(w)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fmt.Fprintln(w)
+	if err != nil {
+		return err
+	}
+
+	err = w.Flush()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
+
+//func buildNamespaceResponse(workflow engine.Workflow) string {
+//	namespaceTblStr := "Available objects and their namespaces:\n"
+//	namespaceTblStr += "NAMESPACE\tOBJECT\n"
+//	namespaceTblStr += workflow.Namespaces()
+//	return namespaceTblStr
+//}
