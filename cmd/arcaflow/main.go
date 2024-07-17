@@ -272,19 +272,19 @@ func loadYamlFile(configFile string) (any, error) {
 
 func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger log.Logger) error {
 	tabwriterPadding := 3
-	w := tabwriter.NewWriter(os.Stdout, 6, 4, tabwriterPadding, ' ', tabwriter.FilterHTML)
+	w := tabwriter.NewWriter(output, 6, 4, tabwriterPadding, ' ', tabwriter.FilterHTML)
 	_, err := fmt.Fprintln(w, "NAMESPACE\tOBJECT")
 	if err != nil {
 		return err
 	}
 	allNamespaces := workflow.Namespaces()
 	for namespace, objects := range allNamespaces {
-		_, err := fmt.Fprintf(w, "%s\t", namespace)
+		_, err := fmt.Fprint(w, namespace, "\t")
 		if err != nil {
 			return err
 		}
 		for objectID := range objects {
-			_, err := fmt.Fprintf(w, "%s ", objectID)
+			_, err := fmt.Fprint(w, objectID, " ")
 			if err != nil {
 				return err
 			}
