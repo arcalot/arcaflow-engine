@@ -44,3 +44,19 @@ func TestUnnestLongerHappy(t *testing.T) {
 	}
 	assert.Equals(t, util.UnnestLongerSorted(input), expOut)
 }
+
+func TestSwapColumnsHappy(t *testing.T) {
+	dfIn := [][]string{
+		{"fruit", "tomato"},
+		{"fruit", "cucumber"},
+		{"veggie", "spinach"},
+		{"veggie", "carrot"},
+	}
+	expDf := [][]string{
+		{"tomato", "fruit"},
+		{"cucumber", "fruit"},
+		{"spinach", "veggie"},
+		{"carrot", "veggie"},
+	}
+	assert.Equals(t, util.SwapColumns(dfIn), expDf)
+}
