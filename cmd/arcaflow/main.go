@@ -283,7 +283,6 @@ func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger l
 	}
 	_, _ = fmt.Fprintln(w)
 
-	// write each row
 	allNamespaces := workflow.Namespaces()
 	semistructuredData := map[string][]string{}
 	for namespace, objects := range allNamespaces {
@@ -293,6 +292,7 @@ func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger l
 	}
 	df := util.UnnestLongerSorted(semistructuredData)
 	df = util.SwapColumns(df)
+	// write each row
 	for _, row := range df {
 		_, _ = fmt.Fprintln(w, row[0], "\t", row[1])
 	}
