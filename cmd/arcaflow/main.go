@@ -297,6 +297,8 @@ func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger l
 	return nil
 }
 
+//func printTwoColumnTableBody()
+
 //func buildNamespaceResponse(workflow engine.Workflow) string {
 //	namespaceTblStr := "Available objects and their namespaces:\n"
 //	namespaceTblStr += "NAMESPACE\tOBJECT\n"
