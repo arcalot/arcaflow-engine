@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/util"
 	"io"
 	"os"
 	"os/signal"
@@ -274,7 +275,7 @@ func loadYamlFile(configFile string) (any, error) {
 func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger log.Logger) error {
 	tabwriterPadding := 3
 	w := tabwriter.NewWriter(output, 6, 4, tabwriterPadding, ' ', tabwriter.FilterHTML)
-	columns := []string{"namespace", "object"}
+	columns := []string{"object", "namespace"}
 
 	// write header
 	for _, col := range columns {
@@ -284,15 +285,26 @@ func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger l
 
 	// write each row
 	allNamespaces := workflow.Namespaces()
+	semistructuredData := map[string][]string{}
 	for namespace, objects := range allNamespaces {
-		_, _ = fmt.Fprint(w, namespace, "\t")
-		for objectID := range objects {
-			_, _ = fmt.Fprint(w, objectID, " ")
+		for objName, _ := range objects {
+			semistructuredData[namespace] = append(semistructuredData[namespace], objName)
 		}
-		_, _ = fmt.Fprintln(w)
 	}
-	_, _ = fmt.Fprintln(w)
-
+	df := util.UnnestLongerSorted(semistructuredData)
+	df = util.SwapColumns(df)
+	for _, row := range df {
+		_, _ = fmt.Fprintln(w, row[0], "\t", row[1])
+	}
+	//for namespace, objects := range df {
+	//	_, _ = fmt.Fprint(w, namespace, "\t")
+	//	for objectID := range objects {
+	//		_, _ = fmt.Fprint(w, objectID, " ")
+	//	}
+	//	_, _ = fmt.Fprintln(w)
+	//}
+	//_, _ = fmt.Fprintln(w)
+	//
 	_ = w.Flush()
 	return nil
 }
