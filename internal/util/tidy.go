@@ -21,7 +21,9 @@ func UnnestLongerSorted(twoColDf map[string][]string) [][]string {
 
 func SwapColumns(df [][]string) [][]string {
 	for k := range df {
-		df[k][0], df[k][1] = df[k][1], df[k][0]
+		if len(df[k]) == 2 {
+			df[k][0], df[k][1] = df[k][1], df[k][0]
+		}
 	}
 	return df
 }
