@@ -237,6 +237,5 @@ func (e engineWorkflow) Outputs() map[string]schema.StepOutput {
 }
 
 func (e engineWorkflow) Namespaces() map[string]map[string]*schema.ObjectSchema {
-	//return util.BuildNamespaceString(e.workflow.Namespaces())
 	return e.workflow.Namespaces()
 }
