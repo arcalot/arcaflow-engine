@@ -4,6 +4,9 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/tableprinter"
+	"go.flow.arcalot.io/engine/internal/tidy"
+	"io"
 	"reflect"
 	"sync"
 	"time"
@@ -567,4 +570,17 @@ func (s stageChangeHandler) OnStepComplete(
 	wg *sync.WaitGroup,
 ) {
 	s.onStepComplete(step, previousStage, previousStageOutputID, previousStageOutput, wg)
+}
+
+// PrintNamespaceResponse constructs and writes a tidy table of workflow
+// Objects and their namespaces to the given output destination.
+func PrintNamespaceResponse(output io.Writer, allNamespaces map[string]map[string]*schema.ObjectSchema, logger log.Logger) {
+	if len(allNamespaces) == 0 {
+		logger.Warningf("No namespaces found in workflow")
+		return
+	}
+	groupLists := tidy.ExtractGroupedLists[*schema.ObjectSchema](allNamespaces)
+	df := tidy.UnnestLongerSorted(groupLists)
+	df = tidy.SwapColumns(df)
+	tableprinter.PrintTwoColumnTable(output, []string{"object", "namespace"}, df)
 }
