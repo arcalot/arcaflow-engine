@@ -1,4 +1,6 @@
-package printers
+// Package tableprinter provides behavior to write tabular data to a given
+// destination.
+package tableprinter
 
 import (
 	"fmt"
@@ -24,16 +26,18 @@ func NewTabWriter(output io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(output, tabwriterMinWidth, tabwriterWidth, tabwriterPadding, tabwriterPadChar, tabwriterFlags)
 }
 
+// PrintTwoColumnTable writes a two column table with headers to a given
+// output destination.
 func PrintTwoColumnTable(output io.Writer, headers []string, rows [][]string) {
 	w := NewTabWriter(output)
 
-	// write column headers
+	// column headers are at the top, so they are written first
 	for _, col := range headers {
 		_, _ = fmt.Fprint(w, strings.ToUpper(col), "\t")
 	}
 	_, _ = fmt.Fprintln(w)
 
-	// write rows
+	// rows form the body of the table
 	for _, row := range rows {
 		_, _ = fmt.Fprintln(w, row[0], "\t", row[1])
 	}
@@ -41,6 +45,8 @@ func PrintTwoColumnTable(output io.Writer, headers []string, rows [][]string) {
 	_ = w.Flush()
 }
 
+// PrintNamespaceResponse constructs and writes a table of workflow Objects and
+// their namespaces to the given output destination.
 func PrintNamespaceResponse(output io.Writer, allNamespaces map[string]map[string]*schema.ObjectSchema, logger log.Logger) {
 	if len(allNamespaces) == 0 {
 		logger.Warningf("No namespaces found in workflow")

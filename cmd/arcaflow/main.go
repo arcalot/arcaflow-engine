@@ -8,7 +8,6 @@ import (
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
-	"go.flow.arcalot.io/engine/internal/printers"
 	"go.flow.arcalot.io/engine/loadfile"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -207,7 +206,7 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 	}
 
 	if getNamespaces {
-		printers.PrintNamespaceResponse(os.Stdout, workflow.Namespaces(), logger)
+		tablePrinter.PrintNamespaceResponse(os.Stdout, workflow.Namespaces(), logger)
 	} else {
 		outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 		if err != nil {
