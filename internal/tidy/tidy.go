@@ -1,11 +1,11 @@
-package util
+package tidy
 
 import "sort"
 
 func UnnestLongerSorted(twoColDf map[string][]string) [][]string {
 	df := [][]string{}
 	groupNames := []string{}
-	for name, _ := range twoColDf {
+	for name := range twoColDf {
 		groupNames = append(groupNames, name)
 	}
 	sort.Strings(groupNames)
@@ -31,7 +31,7 @@ func SwapColumns(df [][]string) [][]string {
 func ExtractGroupedLists[T any](data map[string]map[string]T) map[string][]string {
 	groupLists := map[string][]string{}
 	for namespace, objects := range data {
-		for objName, _ := range objects {
+		for objName := range objects {
 			groupLists[namespace] = append(groupLists[namespace], objName)
 		}
 	}

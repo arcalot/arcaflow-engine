@@ -1,8 +1,8 @@
-package util_test
+package tidy_test
 
 import (
 	"go.arcalot.io/assert"
-	"go.flow.arcalot.io/engine/internal/util"
+	"go.flow.arcalot.io/engine/internal/tidy"
 	"sort"
 	"testing"
 )
@@ -42,12 +42,12 @@ func TestUnnestLongerSortedHappy(t *testing.T) {
 		battleGroup:    battle,
 		probeGroup:     probe,
 	}
-	assert.Equals(t, util.UnnestLongerSorted(input), expOut)
+	assert.Equals(t, tidy.UnnestLongerSorted(input), expOut)
 }
 
 func TestUnnestLongerSortedEmpty(t *testing.T) {
 	input := map[string][]string{}
-	assert.Equals(t, util.UnnestLongerSorted(input), [][]string{})
+	assert.Equals(t, tidy.UnnestLongerSorted(input), [][]string{})
 }
 
 func TestUnnestLongerSortedEmptyGroup(t *testing.T) {
@@ -58,7 +58,7 @@ func TestUnnestLongerSortedEmptyGroup(t *testing.T) {
 	expOut := [][]string{
 		{"G", "g"},
 	}
-	assert.Equals(t, util.UnnestLongerSorted(input), expOut)
+	assert.Equals(t, tidy.UnnestLongerSorted(input), expOut)
 }
 
 func TestSwapColumnsHappy(t *testing.T) {
@@ -117,6 +117,6 @@ func TestSwapColumnsHappy(t *testing.T) {
 		},
 	}
 	for _, tc := range testData {
-		assert.Equals(t, util.SwapColumns(tc.input), tc.expected)
+		assert.Equals(t, tidy.SwapColumns(tc.input), tc.expected)
 	}
 }
