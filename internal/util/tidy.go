@@ -27,3 +27,13 @@ func SwapColumns(df [][]string) [][]string {
 	}
 	return df
 }
+
+func ExtractGroupLists(data map[string]map[string]any) map[string][]string {
+	semistructuredData := map[string][]string{}
+	for namespace, objects := range data {
+		for objName, _ := range objects {
+			semistructuredData[namespace] = append(semistructuredData[namespace], objName)
+		}
+	}
+	return semistructuredData
+}

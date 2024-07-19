@@ -5,19 +5,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go.arcalot.io/log/v2"
+	"go.flow.arcalot.io/engine"
+	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/util"
+	"go.flow.arcalot.io/engine/loadfile"
+	"go.flow.arcalot.io/pluginsdk/schema"
+	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
-	"text/tabwriter"
-
-	"go.arcalot.io/log/v2"
-	"go.flow.arcalot.io/engine"
-	"go.flow.arcalot.io/engine/config"
-	"go.flow.arcalot.io/engine/loadfile"
-	"gopkg.in/yaml.v3"
 )
 
 // These variables are filled using ldflags during the build process with Goreleaser.
@@ -273,38 +271,21 @@ func loadYamlFile(configFile string) (any, error) {
 }
 
 func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger log.Logger) error {
-	tabwriterPadding := 3
-	w := tabwriter.NewWriter(output, 6, 4, tabwriterPadding, ' ', tabwriter.FilterHTML)
-	columns := []string{"object", "namespace"}
 
-	// write header
-	for _, col := range columns {
-		_, _ = fmt.Fprint(w, strings.ToUpper(col), "\t")
-	}
-	_, _ = fmt.Fprintln(w)
-
-	allNamespaces := workflow.Namespaces()
-	semistructuredData := map[string][]string{}
+	var allNamespaces map[string]map[string]*schema.ObjectSchema = workflow.Namespaces()
+	//var data = allNamespaces.(map[string]map[string]any)
+	groupLists := map[string][]string{}
 	for namespace, objects := range allNamespaces {
 		for objName, _ := range objects {
-			semistructuredData[namespace] = append(semistructuredData[namespace], objName)
+			groupLists[namespace] = append(groupLists[namespace], objName)
 		}
 	}
-	df := util.UnnestLongerSorted(semistructuredData)
+	//var groups map[string]map[string]any = workflow.Namespaces()
+
+	//groupLists := util.ExtractGroupLists(semistructuredData)
+	df := util.UnnestLongerSorted(groupLists)
 	df = util.SwapColumns(df)
-	// write each row
-	for _, row := range df {
-		_, _ = fmt.Fprintln(w, row[0], "\t", row[1])
-	}
-	//for namespace, objects := range df {
-	//	_, _ = fmt.Fprint(w, namespace, "\t")
-	//	for objectID := range objects {
-	//		_, _ = fmt.Fprint(w, objectID, " ")
-	//	}
-	//	_, _ = fmt.Fprintln(w)
-	//}
-	//_, _ = fmt.Fprintln(w)
-	//
-	_ = w.Flush()
+
+	util.PrintTwoColumnTable(output, []string{"object", "namespace"}, df)
 	return nil
 }
