@@ -10,9 +10,7 @@ import (
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/internal/util"
 	"go.flow.arcalot.io/engine/loadfile"
-	"go.flow.arcalot.io/pluginsdk/schema"
 	"gopkg.in/yaml.v3"
-	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -209,8 +207,7 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 	}
 
 	if getNamespaces {
-		//_, _ = os.Stdout.Write([]byte(buildNamespaceResponse(workflow)))
-		printNamespaceResponse(os.Stdout, workflow, logger)
+		util.PrintNamespaceResponse(os.Stdout, workflow.Namespaces(), logger)
 	} else {
 		outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
 		if err != nil {
@@ -268,12 +265,4 @@ func loadYamlFile(configFile string) (any, error) {
 		return nil, err
 	}
 	return data, nil
-}
-
-func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger log.Logger) error {
-	groupLists := util.ExtractGroupedLists[*schema.ObjectSchema](workflow.Namespaces())
-	df := util.UnnestLongerSorted(groupLists)
-	df = util.SwapColumns(df)
-	util.PrintTwoColumnTable(output, []string{"object", "namespace"}, df)
-	return nil
 }

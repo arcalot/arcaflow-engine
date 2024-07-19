@@ -2,6 +2,8 @@ package util
 
 import (
 	"fmt"
+	"go.arcalot.io/log/v2"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	"io"
 	"strings"
 	"text/tabwriter"
@@ -36,4 +38,15 @@ func PrintTwoColumnTable(output io.Writer, headers []string, rows [][]string) {
 	}
 
 	_ = w.Flush()
+}
+
+func PrintNamespaceResponse(output io.Writer, allNamespaces map[string]map[string]*schema.ObjectSchema, logger log.Logger) {
+	if len(allNamespaces) == 0 {
+		logger.Warningf("No namespaces found in workflow")
+		return
+	}
+	groupLists := ExtractGroupedLists[*schema.ObjectSchema](allNamespaces)
+	df := UnnestLongerSorted(groupLists)
+	df = SwapColumns(df)
+	PrintTwoColumnTable(output, []string{"object", "namespace"}, df)
 }
