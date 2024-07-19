@@ -9,6 +9,7 @@ import (
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
 	"go.flow.arcalot.io/engine/loadfile"
+	"go.flow.arcalot.io/engine/workflow"
 	"gopkg.in/yaml.v3"
 	"os"
 	"os/signal"
@@ -199,16 +200,16 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 		cancel()
 	}()
 
-	workflow, err := flow.Parse(fileCtx, workflowFile)
+	workFlowObj, err := flow.Parse(fileCtx, workflowFile)
 	if err != nil {
 		logger.Errorf("Invalid workflow (%v)", err)
 		return ExitCodeInvalidData
 	}
 
 	if getNamespaces {
-		tablePrinter.PrintNamespaceResponse(os.Stdout, workflow.Namespaces(), logger)
+		workflow.PrintNamespaceResponse(os.Stdout, workFlowObj.Namespaces(), logger)
 	} else {
-		outputID, outputData, outputError, err := workflow.Run(ctx, inputData)
+		outputID, outputData, outputError, err := workFlowObj.Run(ctx, inputData)
 		if err != nil {
 			logger.Errorf("Workflow execution failed (%v)", err)
 			return ExitCodeWorkflowFailed
