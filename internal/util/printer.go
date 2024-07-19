@@ -24,13 +24,13 @@ func NewTabWriter(output io.Writer) *tabwriter.Writer {
 func PrintTwoColumnTable(output io.Writer, headers []string, rows [][]string) {
 	w := NewTabWriter(output)
 
-	// write header
+	// write column headers
 	for _, col := range headers {
 		_, _ = fmt.Fprint(w, strings.ToUpper(col), "\t")
 	}
 	_, _ = fmt.Fprintln(w)
 
-	// write each row
+	// write rows
 	for _, row := range rows {
 		_, _ = fmt.Fprintln(w, row[0], "\t", row[1])
 	}

@@ -271,21 +271,9 @@ func loadYamlFile(configFile string) (any, error) {
 }
 
 func printNamespaceResponse(output io.Writer, workflow engine.Workflow, logger log.Logger) error {
-
-	var allNamespaces map[string]map[string]*schema.ObjectSchema = workflow.Namespaces()
-	//var data = allNamespaces.(map[string]map[string]any)
-	groupLists := map[string][]string{}
-	for namespace, objects := range allNamespaces {
-		for objName, _ := range objects {
-			groupLists[namespace] = append(groupLists[namespace], objName)
-		}
-	}
-	//var groups map[string]map[string]any = workflow.Namespaces()
-
-	//groupLists := util.ExtractGroupLists(semistructuredData)
+	groupLists := util.ExtractGroupedLists[*schema.ObjectSchema](workflow.Namespaces())
 	df := util.UnnestLongerSorted(groupLists)
 	df = util.SwapColumns(df)
-
 	util.PrintTwoColumnTable(output, []string{"object", "namespace"}, df)
 	return nil
 }
