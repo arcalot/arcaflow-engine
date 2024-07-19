@@ -2,10 +2,16 @@ package tableprinter_test
 
 import (
 	"bytes"
-	"fmt"
+	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/internal/tableprinter"
 	"testing"
 )
+
+const basicTwoColTable = `FUNCTION   MODEL   
+a           1
+b           2
+c           3
+`
 
 func TestPrintTwoColumnTable(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
@@ -16,5 +22,9 @@ func TestPrintTwoColumnTable(t *testing.T) {
 		{"c", "3"},
 	}
 	tableprinter.PrintTwoColumnTable(buf, headers, rows)
-	fmt.Printf("%s\n", buf.String())
+	assert.Equals(t, buf.String(), basicTwoColTable)
+}
+
+func TestPrintNamespaceResponse(t *testing.T) {
+
 }
