@@ -2,6 +2,9 @@ package tidy
 
 import "sort"
 
+// UnnestLongerSorted turns each element of a list-group
+// into a row. Each key in the map represents a group and
+// each group is associated with a list of values.
 func UnnestLongerSorted(twoColDf map[string][]string) [][]string {
 	df := [][]string{}
 	groupNames := []string{}
@@ -19,6 +22,8 @@ func UnnestLongerSorted(twoColDf map[string][]string) [][]string {
 	return df
 }
 
+// SwapColumns swaps the row values between the first and second column, if
+// the row has a length of two.
 func SwapColumns(df [][]string) [][]string {
 	for k := range df {
 		if len(df[k]) == 2 {
@@ -28,6 +33,8 @@ func SwapColumns(df [][]string) [][]string {
 	return df
 }
 
+// ExtractGroupedLists transforms a map of maps into a map of strings. The keys
+// in the nested map become a list of values.
 func ExtractGroupedLists[T any](data map[string]map[string]T) map[string][]string {
 	groupLists := map[string][]string{}
 	for namespace, objects := range data {
