@@ -26,8 +26,8 @@ func NewTabWriter(output io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(output, tabwriterMinWidth, tabwriterWidth, tabwriterPadding, tabwriterPadChar, tabwriterFlags)
 }
 
-// PrintTwoColumnTable writes a two column table with headers to a given
-// output destination.
+// PrintTwoColumnTable uses a list of two item records (rows) to write a two
+// column table with headers to a given output destination.
 func PrintTwoColumnTable(output io.Writer, headers []string, rows [][]string) {
 	w := NewTabWriter(output)
 
@@ -45,8 +45,8 @@ func PrintTwoColumnTable(output io.Writer, headers []string, rows [][]string) {
 	_ = w.Flush()
 }
 
-// PrintNamespaceResponse constructs and writes a table of workflow Objects and
-// their namespaces to the given output destination.
+// PrintNamespaceResponse constructs and writes a tidy table of workflow
+// Objects and their namespaces to the given output destination.
 func PrintNamespaceResponse(output io.Writer, allNamespaces map[string]map[string]*schema.ObjectSchema, logger log.Logger) {
 	if len(allNamespaces) == 0 {
 		logger.Warningf("No namespaces found in workflow")
