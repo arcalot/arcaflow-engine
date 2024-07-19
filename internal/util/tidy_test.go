@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestUnnestLongerHappy(t *testing.T) {
+func TestUnnestLongerSortedHappy(t *testing.T) {
 	astromech := []string{"q7", "bb", "r2", "r4"}
 	protocol := []string{"c3po", "000", "talky"}
 	battle := []string{"b1", "ig"}
@@ -41,6 +41,22 @@ func TestUnnestLongerHappy(t *testing.T) {
 		astromechGroup: astromech,
 		battleGroup:    battle,
 		probeGroup:     probe,
+	}
+	assert.Equals(t, util.UnnestLongerSorted(input), expOut)
+}
+
+func TestUnnestLongerSortedEmpty(t *testing.T) {
+	input := map[string][]string{}
+	assert.Equals(t, util.UnnestLongerSorted(input), [][]string{})
+}
+
+func TestUnnestLongerSortedEmptyGroup(t *testing.T) {
+	input := map[string][]string{
+		"G": {"g"},
+		"D": {},
+	}
+	expOut := [][]string{
+		{"G", "g"},
 	}
 	assert.Equals(t, util.UnnestLongerSorted(input), expOut)
 }
