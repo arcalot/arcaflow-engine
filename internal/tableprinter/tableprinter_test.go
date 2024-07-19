@@ -24,7 +24,3 @@ func TestPrintTwoColumnTable(t *testing.T) {
 	tableprinter.PrintTwoColumnTable(buf, headers, rows)
 	assert.Equals(t, buf.String(), basicTwoColTable)
 }
-
-func TestPrintNamespaceResponse(t *testing.T) {
-
-}
