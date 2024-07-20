@@ -54,7 +54,7 @@ func TestOutputFailed(t *testing.T) {
 
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 }
 
@@ -756,7 +756,7 @@ func TestMissingInputsFailedDeployment(t *testing.T) {
 	assert.Equals(t, outputID, "")
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 }
 
@@ -1218,7 +1218,7 @@ func TestInputCancelledStepWorkflow(t *testing.T) {
 	assert.Equals(t, outputID, "")
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 }
 
@@ -1269,7 +1269,7 @@ func TestInputDisabledStepWorkflow(t *testing.T) {
 	assert.Error(t, err)
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 }
 
@@ -1426,7 +1426,7 @@ func TestMultiDependencyWorkflowFailureWithDisabling(t *testing.T) {
 	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 	assert.LessThan(t, duration.Seconds(), 4) // It will take 5 seconds if it fails to fail early.
 }
@@ -1481,7 +1481,7 @@ func TestMultiDependencyWorkflowFailureWithCancellation(t *testing.T) {
 	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 	assert.LessThan(t, duration.Seconds(), 4) // It will take 5 seconds if it fails to fail early.
 }
@@ -1533,7 +1533,7 @@ func TestMultiDependencyWorkflowFailureWithErrorOut(t *testing.T) {
 	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 	// If it takes 5 seconds, then there was a deadlock in the client.
 	// If it takes 6 seconds, then it waited for the second step.
@@ -1571,7 +1571,7 @@ steps:
       wait_time_ms: 7000
 outputs:
   workflow-success:
-    simple_wait_output: !expr $.steps.failed_step.outputs
+    failed_step_output: !expr $.steps.failed_step.outputs
     simple_wait_output: !expr $.steps.long_wait.outputs
 `
 
@@ -1593,12 +1593,84 @@ func TestMultiDependencyWorkflowFailureWithDeployFailure(t *testing.T) {
 	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
-		t.Fatalf("incorrect error type returned: %T", err)
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
 	// If it takes 5 seconds, then there was a deadlock in the client.
 	// If it takes 6 seconds, then it waited for the second step.
 	assert.LessThan(t, duration.Milliseconds(), 5500)
 }
+
+var multiDependencyFailureWorkflowWithDoubleFailure = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  failed_step_A:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    deploy: # This fails first.
+      deployer_name: "test-impl"
+      deploy_time: 0
+      deploy_succeed: !expr 'false'
+  quick_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 1 # Second, this succeeds, which cancels the second failing step.
+  failed_step_B:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    wait_for: !expr $.steps.failed_step_A.outputs # Makes it unresolvable
+    stop_if: !expr $.steps.quick_step.outputs # Hopefully triggers the second resolution.
+    input:
+      wait_time_ms: 0
+    deploy:
+      deployer_name: "test-impl"
+      deploy_succeed: !expr 'true'
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 100
+outputs:
+  workflow-success:
+    failed_step_output: !expr $.steps.failed_step_A.outputs
+  wait-only: # For the error to be exposed, we need an alternative output that persists beyond the error.
+    wait_output: !expr $.steps.long_wait.outputs
+`
+
+func TestMultiDependencyWorkflowFailureDoubleFailure(t *testing.T) {
+	// Creates a scenario where step B's starting (due to wait-for) depends on step A's outputs,
+	// making A's outputs become unresolvable, while at the same time the step that needs that info (B) crashes.
+	// Transitioning B to crashed resolves starting, so that is in conflict with the unresolvable
+	// state propagated from step A.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDoubleFailure),
+	)
+
+	startTime := time.Now() // Right before execute to not include pre-processing time.
+	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	duration := time.Since(startTime)
+	assert.NoError(t, err)
+	t.Logf("MultiDependency finished in %d ms", duration.Milliseconds())
+}
+
+// TODO: Create a situation where step A's outputs are resolvable, but the context is cancelled,
+//		resulting in a possible conflict with the cancelled step stage DAG node.
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{

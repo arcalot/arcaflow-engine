@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"go.arcalot.io/dgraph"
 	"go.flow.arcalot.io/pluginsdk/plugin"
 	"reflect"
 	"strings"
@@ -168,8 +169,9 @@ var deployingLifecycleStage = step.LifecycleStage{
 	RunningName:  "deploying",
 	FinishedName: "deployed",
 	InputFields:  map[string]struct{}{string(StageIDDeploy): {}},
-	NextStages: []string{
-		string(StageIDStarting), string(StageIDDeployFailed),
+	NextStages: map[string]dgraph.DependencyType{
+		string(StageIDStarting):     dgraph.AndDependency,
+		string(StageIDDeployFailed): dgraph.CompletionAndDependency,
 	},
 	Fatal: false,
 }
@@ -189,8 +191,10 @@ var enablingLifecycleStage = step.LifecycleStage{
 	InputFields: map[string]struct{}{
 		"enabled": {},
 	},
-	NextStages: []string{
-		string(StageIDStarting), string(StageIDDisabled), string(StageIDCrashed),
+	NextStages: map[string]dgraph.DependencyType{
+		string(StageIDStarting): dgraph.AndDependency,
+		string(StageIDDisabled): dgraph.AndDependency,
+		string(StageIDCrashed):  dgraph.CompletionAndDependency,
 	},
 }
 
@@ -203,8 +207,9 @@ var startingLifecycleStage = step.LifecycleStage{
 		"input":    {},
 		"wait_for": {},
 	},
-	NextStages: []string{
-		string(StageIDRunning), string(StageIDCrashed),
+	NextStages: map[string]dgraph.DependencyType{
+		string(StageIDRunning): dgraph.AndDependency,
+		string(StageIDCrashed): dgraph.CompletionAndDependency,
 	},
 }
 
@@ -214,8 +219,9 @@ var runningLifecycleStage = step.LifecycleStage{
 	RunningName:  "running",
 	FinishedName: "completed",
 	InputFields:  map[string]struct{}{},
-	NextStages: []string{
-		string(StageIDOutput), string(StageIDCrashed),
+	NextStages: map[string]dgraph.DependencyType{
+		string(StageIDOutput):  dgraph.AndDependency,
+		string(StageIDCrashed): dgraph.CompletionAndDependency,
 	},
 }
 
@@ -227,8 +233,10 @@ var cancelledLifecycleStage = step.LifecycleStage{
 	InputFields: map[string]struct{}{
 		"stop_if": {},
 	},
-	NextStages: []string{
-		string(StageIDOutput), string(StageIDCrashed), string(StageIDDeployFailed),
+	NextStages: map[string]dgraph.DependencyType{
+		string(StageIDOutput):       dgraph.AndDependency,
+		string(StageIDCrashed):      dgraph.CompletionAndDependency,
+		string(StageIDDeployFailed): dgraph.CompletionAndDependency,
 	},
 }
 
@@ -902,6 +910,7 @@ func (r *runningStep) closeComponents(closeATP bool) error {
 	r.cancel()
 	r.lock.Lock()
 	if r.closed {
+		r.lock.Unlock()
 		return nil // Already closed
 	}
 	var atpErr error
@@ -941,7 +950,7 @@ func (r *runningStep) run() {
 			r.logger.Warningf("failed to remove deployed container for step %s/%s", r.runID, r.pluginStepID)
 		}
 		r.lock.Unlock()
-		r.transitionToCancelled()
+		r.cancelledEarly()
 		return
 	default:
 		r.container = container
@@ -959,9 +968,6 @@ func (r *runningStep) run() {
 		r.transitionToDisabled()
 		return
 	}
-
-	// It's enabled, so the disabled stage will not occur.
-	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, err)
 
 	if err := r.startStage(container); err != nil {
 		r.startFailed(err)
@@ -1050,12 +1056,20 @@ func (r *runningStep) enableStage() (bool, error) {
 		&r.wg,
 	)
 
+	var enabled bool
 	select {
-	case enabled := <-r.enabledInput:
-		return enabled, nil
+	case enabled = <-r.enabledInput:
 	case <-r.ctx.Done():
 		return false, fmt.Errorf("step closed while determining enablement status")
 	}
+
+	if enabled {
+		r.lock.Lock()
+		// It's enabled, so the disabled stage will not occur.
+		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, fmt.Errorf("step enabled; cannot be disabled anymore"))
+		r.lock.Unlock()
+	}
+	return enabled, nil
 }
 
 func (r *runningStep) startStage(container deployer.Plugin) error {
@@ -1150,9 +1164,6 @@ func (r *runningStep) runStage() error {
 	var result atp.ExecutionResult
 	select {
 	case result = <-r.executionChannel:
-		if result.Error != nil {
-			return result.Error
-		}
 	case <-r.ctx.Done():
 		// In this case, it is being instructed to stop. A signal should have been sent.
 		// Shutdown (with sigterm) the container, then wait for the output (valid or error).
@@ -1170,6 +1181,10 @@ func (r *runningStep) runStage() error {
 
 	}
 
+	if result.Error != nil {
+		return result.Error
+	}
+
 	// Execution complete, move to state running stage outputs, then to state finished stage.
 	r.transitionStage(StageIDOutput, step.RunningStepStateRunning)
 	r.completeStep(r.currentStage, step.RunningStepStateFinished, &result.OutputID, &result.OutputData)
@@ -1178,6 +1193,8 @@ func (r *runningStep) runStage() error {
 }
 
 func (r *runningStep) markStageFailures(firstStage StageID, err error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
 	switch firstStage {
 	case StageIDEnabling:
 		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDEnabling), &r.wg, err)
@@ -1214,15 +1231,16 @@ func (r *runningStep) deployFailed(err error) {
 	r.markStageFailures(StageIDEnabling, err)
 }
 
-func (r *runningStep) transitionToCancelled() {
+func (r *runningStep) cancelledEarly() {
 	r.logger.Infof("Step %s/%s cancelled", r.runID, r.pluginStepID)
 	// Follow the convention of transitioning to running then finished.
 	r.transitionStage(StageIDCancelled, step.RunningStepStateRunning)
-	// Cancelled currently has no output.
-	r.transitionStage(StageIDCancelled, step.RunningStepStateFinished)
-
 	// This is called after deployment. So everything after deployment cannot occur.
 	err := fmt.Errorf("step %s/%s cancelled", r.runID, r.pluginStepID)
+	// Cancelled currently has no output.
+	// Set it as unresolvable since it's cancelled, and to prevent conflicts with its inputs.
+	r.transitionFromFailedStage(StageIDCancelled, step.RunningStepStateFinished, err)
+
 	// Note: This function is only called if it's cancelled during the deployment phase.
 	// If that changes, the stage IDs marked as failed need to be changed.
 	r.markStageFailures(StageIDEnabling, err)
@@ -1248,12 +1266,11 @@ func (r *runningStep) transitionToDisabled() {
 
 	err := fmt.Errorf("step %s/%s disabled", r.runID, r.pluginStepID)
 	r.markStageFailures(StageIDStarting, err)
-
 }
 
 func (r *runningStep) startFailed(err error) {
 	r.logger.Debugf("Start failed stage for step %s/%s", r.runID, r.pluginStepID)
-	r.transitionStage(StageIDCrashed, step.RunningStepStateRunning)
+	r.transitionFromFailedStage(StageIDCrashed, step.RunningStepStateRunning, err)
 	r.logger.Warningf("Plugin step %s/%s start failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
@@ -1288,8 +1305,29 @@ func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepSt
 	r.transitionStageWithOutput(newStage, state, nil, nil)
 }
 
+func (r *runningStep) transitionFromFailedStage(newStage StageID, state step.RunningStepState, err error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	previousStage := string(r.currentStage)
+	r.currentStage = newStage
+	// Don't forget to update this, or else it will behave very oddly.
+	// First running, then finished. You can't skip states.
+	r.state = state
+	r.stageChangeHandler.OnStepStageFailure(
+		r,
+		previousStage,
+		&r.wg,
+		err,
+	)
+}
+
 // TransitionStage transitions the stage to the specified stage, and the state to the specified state.
-func (r *runningStep) transitionStageWithOutput(newStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
+func (r *runningStep) transitionStageWithOutput(
+	newStage StageID,
+	state step.RunningStepState,
+	outputID *string,
+	previousStageOutput *any,
+) {
 	// A current lack of observability into the atp client prevents
 	// non-fragile testing of this function.
 	r.lock.Lock()

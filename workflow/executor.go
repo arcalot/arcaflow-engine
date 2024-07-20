@@ -413,8 +413,12 @@ func (e *executor) connectStepDependencies(
 			if err != nil {
 				return fmt.Errorf("bug: node for current stage not found (%w)", err)
 			}
-			for _, nextStage := range stage.NextStages {
-				if err := currentStageNode.Connect(GetStageNodeID(stepID, nextStage)); err != nil {
+			for nextStage, dependencyType := range stage.NextStages {
+				nextStageNode, err := dag.GetNodeByID(GetStageNodeID(stepID, nextStage))
+				if err != nil {
+					return fmt.Errorf("bug: node for next stage not found (%w)", err)
+				}
+				if err := nextStageNode.ConnectDependency(currentStageNode.ID(), dependencyType); err != nil {
 					return fmt.Errorf("bug: cannot connect nodes (%w)", err)
 				}
 			}

@@ -3,6 +3,7 @@ package foreach
 import (
 	"context"
 	"fmt"
+	"go.arcalot.io/dgraph"
 	"reflect"
 	"sync"
 
@@ -46,9 +47,9 @@ var executeLifecycleStage = step.LifecycleStage{
 		"items":    {},
 		"wait_for": {},
 	},
-	NextStages: []string{
-		string(StageIDOutputs),
-		string(StageIDFailed),
+	NextStages: map[string]dgraph.DependencyType{
+		string(StageIDOutputs): dgraph.AndDependency,
+		string(StageIDFailed):  dgraph.CompletionAndDependency,
 	},
 	Fatal: false,
 }
@@ -58,7 +59,7 @@ var outputLifecycleStage = step.LifecycleStage{
 	RunningName:  "output",
 	FinishedName: "output",
 	InputFields:  map[string]struct{}{},
-	NextStages:   []string{},
+	NextStages:   map[string]dgraph.DependencyType{},
 	Fatal:        false,
 }
 var errorLifecycleStage = step.LifecycleStage{
@@ -67,7 +68,7 @@ var errorLifecycleStage = step.LifecycleStage{
 	RunningName:  "processing error",
 	FinishedName: "error",
 	InputFields:  map[string]struct{}{},
-	NextStages:   []string{},
+	NextStages:   map[string]dgraph.DependencyType{},
 	Fatal:        true,
 }
 
@@ -359,6 +360,7 @@ type runningStep struct {
 	inputAvailable     bool
 	inputData          chan []any
 	ctx                context.Context
+	closed             bool
 	wg                 sync.WaitGroup
 	cancel             context.CancelFunc
 	stageChangeHandler step.StageChangeHandler
@@ -368,6 +370,11 @@ type runningStep struct {
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {
 	r.lock.Lock()
+	if r.closed {
+		r.logger.Debugf("exiting foreach ProvideStageInput due to step being closed")
+		r.lock.Unlock()
+		return nil
+	}
 	switch stage {
 	case string(StageIDExecute):
 		items := input["items"]
@@ -390,8 +397,8 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			r.currentState = step.RunningStepStateRunning
 		}
 		r.inputAvailable = true
+		r.inputData <- input // Send before unlock to ensure that it never gets closed before sending.
 		r.lock.Unlock()
-		r.inputData <- input
 		return nil
 	case string(StageIDOutputs):
 		r.lock.Unlock()
@@ -412,14 +419,19 @@ func (r *runningStep) CurrentStage() string {
 }
 
 func (r *runningStep) State() step.RunningStepState {
-	r.lock.Lock()
+	r.lock.Lock() // TODO: Determine why this gets stuck.
 	defer r.lock.Unlock()
 	return r.currentState
 }
 
 func (r *runningStep) Close() error {
+	r.lock.Lock()
+	r.closed = true
+	r.lock.Unlock()
 	r.cancel()
 	r.wg.Wait()
+	r.logger.Debugf("Closing inputData channel in foreach step provider")
+	close(r.inputData)
 	return nil
 }
 
@@ -431,7 +443,7 @@ func (r *runningStep) ForceClose() error {
 func (r *runningStep) run() {
 	r.wg.Add(1)
 	defer func() {
-		close(r.inputData)
+		r.logger.Debugf("foreach run function done")
 		r.wg.Done()
 	}()
 	waitingForInput := false
@@ -471,7 +483,10 @@ func (r *runningStep) run() {
 			input := input
 			go func() {
 				defer func() {
-					<-sem
+					select {
+					case <-sem:
+					case <-r.ctx.Done(): // Must not deadlock if closed early.
+					}
 					wg.Done()
 				}()
 				r.logger.Debugf("Queuing item %d...", i)
@@ -540,6 +555,7 @@ func (r *runningStep) run() {
 		r.lock.Unlock()
 		r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData, &r.wg)
 	case <-r.ctx.Done():
+		r.logger.Debugf("context done")
 		return
 	}
 

@@ -284,7 +284,13 @@ errGatherLoop:
 	}
 }
 
-func (l *loopState) onStageComplete(stepID string, previousStage *string, previousStageOutputID *string, previousStageOutput *any, wg *sync.WaitGroup) {
+func (l *loopState) onStageComplete(
+	stepID string,
+	previousStage *string,
+	previousStageOutputID *string,
+	previousStageOutput *any,
+	wg *sync.WaitGroup,
+) {
 	l.lock.Lock()
 	defer func() {
 		if previousStage != nil {
@@ -303,10 +309,10 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		l.cancel()
 		return
 	}
-	l.logger.Debugf("Resolving node %q in the DAG", stageNode.ID())
+	l.logger.Debugf("Resolving node %q in the DAG on stage complete", stageNode.ID())
 	if err := stageNode.ResolveNode(dgraph.Resolved); err != nil {
-		l.logger.Errorf("Failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
-		l.recentErrors <- fmt.Errorf("failed to resolve stage node ID %s (%w)", stageNode.ID(), err)
+		errMessage := fmt.Errorf("failed to resolve stage node ID %s (%s)", stageNode.ID(), err.Error())
+		l.recentErrors <- errMessage
 		l.cancel()
 		return
 	}
@@ -320,7 +326,7 @@ func (l *loopState) onStageComplete(stepID string, previousStage *string, previo
 		}
 		// Resolves the node in the DAG. This allows us to know which nodes are
 		// ready for processing due to all dependencies being resolved.
-		l.logger.Debugf("Resolving node %q in the DAG", outputNode.ID())
+		l.logger.Debugf("Resolving output node %q in the DAG", outputNode.ID())
 		if err := outputNode.ResolveNode(dgraph.Resolved); err != nil {
 			l.logger.Errorf("Failed to resolve output node ID %s (%w)", outputNode.ID(), err)
 			l.recentErrors <- fmt.Errorf("failed to resolve output node ID %s (%w)", outputNode.ID(), err)
@@ -371,7 +377,7 @@ func (l *loopState) markOutputsUnresolvable(stepID string, stageID string, skipp
 			l.logger.Debugf("Will mark node %s in the DAG as unresolvable", stepID+"."+stage.ID+"."+stageOutputID)
 			err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
 			if err != nil {
-				l.logger.Errorf("Error while marking node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
+				panic(fmt.Errorf("error while marking node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error()))
 			}
 		}
 	}
@@ -390,7 +396,13 @@ func (l *loopState) markStageNodeUnresolvable(stepID string, stageID string) {
 	l.logger.Debugf("Will mark node %s in the DAG as unresolvable", stepID+"."+stageID)
 	err = unresolvableOutputNode.ResolveNode(dgraph.Unresolvable)
 	if err != nil {
-		l.logger.Errorf("Error while marking node %s in DAG as unresolvable (%s)", unresolvableOutputNode.ID(), err.Error())
+		panic(
+			fmt.Errorf(
+				"error while marking node %s in DAG as unresolvable (%s)",
+				unresolvableOutputNode.ID(),
+				err.Error(),
+			),
+		)
 	}
 }
 
@@ -404,7 +416,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 	// Can include runnable nodes, nodes that cannot be resolved, and nodes that are not for running, like inputs.
 	for nodeID, resolutionStatus := range readyNodes {
 		failed := resolutionStatus == dgraph.Unresolvable
-		l.logger.Debugf("Processing step node %s", nodeID)
+		l.logger.Debugf("Processing step node %s with resolution status %q", nodeID, resolutionStatus)
 		node, err := l.dag.GetNodeByID(nodeID)
 		if err != nil {
 			panic(fmt.Errorf("failed to get node %s (%w)", nodeID, err))
@@ -438,6 +450,8 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		// untypedInputData stores the resolved data
 		untypedInputData, err := l.resolveExpressions(inputData, l.data)
 		if err != nil {
+			// An error here often indicates a locking issue in a step provider. This would be caused
+			// by the lock not being held when the output was marked resolved.
 			panic(fmt.Errorf("cannot resolve expressions for %s (%w)", nodeID, err))
 		}
 
