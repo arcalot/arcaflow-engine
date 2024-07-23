@@ -1395,7 +1395,7 @@ wait-input                $.steps.long_wait.starting.inputs.input
 StartedOutput             $.steps.long_wait.starting.outputs.started
 `
 
-func TestPrintNamespaceResponse(t *testing.T) {
+func TestPrintObjectNamespaceTable(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, fiveSecWaitWorkflowDefinition),
 	)
@@ -1404,7 +1404,7 @@ func TestPrintNamespaceResponse(t *testing.T) {
 	assert.Equals(t, buf.String(), printNamespaceResponseOutput)
 }
 
-func TestPrintNamespaceResponseEmptyNamespace(t *testing.T) {
+func TestPrintObjectNamespaceTable_EmptyNamespace(t *testing.T) {
 	logger := log.NewLogger(log.LevelDebug, log.NewTestWriter(t))
 	buf := bytes.NewBuffer(nil)
 	workflow.PrintObjectNamespaceTable(buf, map[string]map[string]*schema.ObjectSchema{}, logger)
