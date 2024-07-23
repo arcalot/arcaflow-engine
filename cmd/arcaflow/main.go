@@ -230,7 +230,7 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 	if outputError {
 		return ExitCodeWorkflowErrorOutput
 	}
-	
+
 	return ExitCodeOK
 }
 
