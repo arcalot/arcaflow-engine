@@ -4,8 +4,8 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/tablefmt"
 	"go.flow.arcalot.io/engine/internal/tableprinter"
-	"go.flow.arcalot.io/engine/internal/tidy"
 	"io"
 	"reflect"
 	"sync"
@@ -579,8 +579,8 @@ func PrintObjectNamespaceTable(output io.Writer, allNamespaces map[string]map[st
 		logger.Warningf("No namespaces found in workflow")
 		return
 	}
-	groupLists := tidy.ExtractGroupedLists[*schema.ObjectSchema](allNamespaces)
-	df := tidy.UnnestLongerSorted(groupLists)
-	df = tidy.SwapColumns(df)
+	groupLists := tablefmt.ExtractGroupedLists[*schema.ObjectSchema](allNamespaces)
+	df := tablefmt.UnnestLongerSorted(groupLists)
+	df = tablefmt.SwapColumns(df)
 	tableprinter.PrintTwoColumnTable(output, []string{"object", "namespace"}, df)
 }

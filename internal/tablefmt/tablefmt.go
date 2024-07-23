@@ -1,11 +1,11 @@
-// Package tidy provides functions to create tabular data where
+// Package tablefmt provides functions to create tabular data where
 //  1. Each variable is a column; each column is a variable.
 //  2. Each observation is a row; each row is an observation.
 //  3. Each value is a cell; each cell is a single value.
 //
 // Its behavior is inspired by the R package tidyr.
 // https://tidyr.tidyverse.org/index.html
-package tidy
+package tablefmt
 
 import "sort"
 
