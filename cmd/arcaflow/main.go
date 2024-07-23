@@ -208,28 +208,29 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 
 	if getNamespaces {
 		workflow.PrintObjectNamespaceTable(os.Stdout, workFlowObj.Namespaces(), logger)
-	} else {
-		outputID, outputData, outputError, err := workFlowObj.Run(ctx, inputData)
-		if err != nil {
-			logger.Errorf("Workflow execution failed (%v)", err)
-			return ExitCodeWorkflowFailed
-		}
-		data, err := yaml.Marshal(
-			map[string]any{
-				"output_id":   outputID,
-				"output_data": outputData,
-			},
-		)
-		if err != nil {
-			logger.Errorf("Failed to marshal output (%v)", err)
-			return ExitCodeInvalidData
-		}
-		_, _ = os.Stdout.Write(data)
-		if outputError {
-			return ExitCodeWorkflowErrorOutput
-		}
+		return ExitCodeOK
 	}
 
+	outputID, outputData, outputError, err := workFlowObj.Run(ctx, inputData)
+	if err != nil {
+		logger.Errorf("Workflow execution failed (%v)", err)
+		return ExitCodeWorkflowFailed
+	}
+	data, err := yaml.Marshal(
+		map[string]any{
+			"output_id":   outputID,
+			"output_data": outputData,
+		},
+	)
+	if err != nil {
+		logger.Errorf("Failed to marshal output (%v)", err)
+		return ExitCodeInvalidData
+	}
+	_, _ = os.Stdout.Write(data)
+	if outputError {
+		return ExitCodeWorkflowErrorOutput
+	}
+	
 	return ExitCodeOK
 }
 
