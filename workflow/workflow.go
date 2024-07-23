@@ -572,9 +572,9 @@ func (s stageChangeHandler) OnStepComplete(
 	s.onStepComplete(step, previousStage, previousStageOutputID, previousStageOutput, wg)
 }
 
-// PrintNamespaceResponse constructs and writes a tidy table of workflow
+// PrintObjectNamespaceTable constructs and writes a tidy table of workflow
 // Objects and their namespaces to the given output destination.
-func PrintNamespaceResponse(output io.Writer, allNamespaces map[string]map[string]*schema.ObjectSchema, logger log.Logger) {
+func PrintObjectNamespaceTable(output io.Writer, allNamespaces map[string]map[string]*schema.ObjectSchema, logger log.Logger) {
 	if len(allNamespaces) == 0 {
 		logger.Warningf("No namespaces found in workflow")
 		return

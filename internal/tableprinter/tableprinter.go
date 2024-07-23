@@ -17,16 +17,16 @@ const (
 	tabwriterFlags    = tabwriter.FilterHTML
 )
 
-// NewTabWriter returns a tabwriter that transforms tabbed columns into aligned
+// newTabWriter returns a tabwriter that transforms tabbed columns into aligned
 // text.
-func NewTabWriter(output io.Writer) *tabwriter.Writer {
+func newTabWriter(output io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(output, tabwriterMinWidth, tabwriterWidth, tabwriterPadding, tabwriterPadChar, tabwriterFlags)
 }
 
 // PrintTwoColumnTable uses a list of two item records (rows) to write a two
 // column table with headers to a given output destination.
 func PrintTwoColumnTable(output io.Writer, headers []string, rows [][]string) {
-	w := NewTabWriter(output)
+	w := newTabWriter(output)
 
 	// column headers are at the top, so they are written first
 	for _, col := range headers {

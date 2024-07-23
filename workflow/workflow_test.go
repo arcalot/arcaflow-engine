@@ -1400,13 +1400,13 @@ func TestPrintNamespaceResponse(t *testing.T) {
 		getTestImplPreparedWorkflow(t, fiveSecWaitWorkflowDefinition),
 	)
 	buf := bytes.NewBuffer(nil)
-	workflow.PrintNamespaceResponse(buf, preparedWorkflow.Namespaces(), nil)
+	workflow.PrintObjectNamespaceTable(buf, preparedWorkflow.Namespaces(), nil)
 	assert.Equals(t, buf.String(), printNamespaceResponseOutput)
 }
 
 func TestPrintNamespaceResponseEmptyNamespace(t *testing.T) {
 	logger := log.NewLogger(log.LevelDebug, log.NewTestWriter(t))
 	buf := bytes.NewBuffer(nil)
-	workflow.PrintNamespaceResponse(buf, map[string]map[string]*schema.ObjectSchema{}, logger)
+	workflow.PrintObjectNamespaceTable(buf, map[string]map[string]*schema.ObjectSchema{}, logger)
 	assert.Equals(t, buf.String(), ``)
 }

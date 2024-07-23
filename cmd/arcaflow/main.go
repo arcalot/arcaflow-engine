@@ -207,7 +207,7 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 	}
 
 	if getNamespaces {
-		workflow.PrintNamespaceResponse(os.Stdout, workFlowObj.Namespaces(), logger)
+		workflow.PrintObjectNamespaceTable(os.Stdout, workFlowObj.Namespaces(), logger)
 	} else {
 		outputID, outputData, outputError, err := workFlowObj.Run(ctx, inputData)
 		if err != nil {

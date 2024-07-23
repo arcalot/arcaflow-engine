@@ -9,9 +9,9 @@ import (
 
 func TestUnnestLongerSortedHappy(t *testing.T) {
 	astromech := []string{"q7", "bb", "r2", "r4"}
-	protocol := []string{"c3po", "000", "talky"}
+	protocol := []string{"3po", "000", "chatty"}
 	battle := []string{"b1", "ig"}
-	probe := []string{"viper"}
+	probe := []string{"cobra"}
 	astromechGroup := "astromech"
 	protocolGroup := "protocol"
 	battleGroup := "battle"
@@ -31,10 +31,10 @@ func TestUnnestLongerSortedHappy(t *testing.T) {
 		{"astromech", "r4"},
 		{"battle", "b1"},
 		{"battle", "ig"},
-		{"probe", "viper"},
+		{"probe", "cobra"},
 		{"protocol", "000"},
-		{"protocol", "c3po"},
-		{"protocol", "talky"},
+		{"protocol", "3po"},
+		{"protocol", "chatty"},
 	}
 	input := map[string][]string{
 		protocolGroup:  protocol,
