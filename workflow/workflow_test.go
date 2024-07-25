@@ -1496,7 +1496,7 @@ input:
           type:
             type_id: bool
 steps:
-  disabled_step:
+  failed_step:
     plugin:
       src: "n/a"
       deployment_type: "builtin"
@@ -1513,7 +1513,7 @@ steps:
       wait_time_ms: 7000
 outputs:
   workflow-success:
-    disabled_output: !expr $.steps.disabled_step.outputs.success
+    failed_output: !expr $.steps.failed_step.outputs.success
     long_wait_output: !expr $.steps.long_wait.outputs.success
 `
 
@@ -1895,6 +1895,115 @@ func TestMultiDependencyDependOnContextDoneDeployment(t *testing.T) {
 		},
 	})
 	t.Logf("MultiDependency DependOnClosedStep finished in %d ms", duration.Milliseconds())
+}
+
+var multiDependencyForEachParent = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  subworkflow:
+    kind: foreach
+    items:
+    - {}
+    workflow: subworkflow.yaml
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 5000
+outputs:
+  success:
+    long_wait_output: !expr $.steps.long_wait.outputs
+    subworkflow_output: !expr $.steps.subworkflow.outputs.success
+`
+
+var multiDependencyForEachSubwf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  failed_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr true
+outputs:
+  success:
+    b: !expr $.steps.failed_step.outputs.success
+`
+
+func TestMultiDependencyForeach(t *testing.T) {
+	// This test runs a workflow with a wait and a subworkfow.
+	// This tests to ensure that the parent workflow immediately detects
+	// and acts on the missing dependency caused by the error output
+	// coming from the subworkflow.
+
+	logConfig := log.Config{
+		Level:       log.LevelInfo,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(multiDependencyForEachParent)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(multiDependencyForEachSubwf),
+	}))
+	startTime := time.Now() // Right before execute to not include pre-processing time.
+	_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{})
+	duration := time.Since(startTime)
+	assert.Error(t, err)
+
+	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
+	}
+	assert.LessThan(t, duration.Milliseconds(), 400)
 }
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {

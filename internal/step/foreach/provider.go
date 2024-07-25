@@ -157,7 +157,7 @@ func (l *forEachProvider) LoadSchema(inputs map[string]any, workflowContext map[
 		return nil, err
 	}
 
-	executor, err := l.executorFactory(l.logger)
+	executor, err := l.executorFactory(l.logger.WithLabel("subworkflow", workflowFileName.(string)))
 	if err != nil {
 		return nil, err
 	}
@@ -518,8 +518,12 @@ func (r *runningStep) run() {
 		r.currentState = step.RunningStepStateRunning
 		var outputID string
 		var outputData any
+		var unresolvableStage StageID
+		var unresolvableError error
 		if errors {
 			r.currentStage = StageIDFailed
+			unresolvableStage = StageIDOutputs
+			unresolvableError = fmt.Errorf("foreach subworkflow failed with errors (%v)", itemErrors)
 			outputID = "error"
 			dataMap := make(map[int]any, len(loopData))
 			for i, entry := range itemOutputs {
@@ -533,6 +537,8 @@ func (r *runningStep) run() {
 			}
 		} else {
 			r.currentStage = StageIDOutputs
+			unresolvableStage = StageIDFailed
+			unresolvableError = fmt.Errorf("foreach succeeded, so error case is unresolvable")
 			outputID = "success"
 			outputData = map[string]any{
 				"data": itemOutputs,
@@ -548,6 +554,12 @@ func (r *runningStep) run() {
 			string(currentStage),
 			false,
 			&r.wg,
+		)
+		r.stageChangeHandler.OnStepStageFailure(
+			r,
+			string(unresolvableStage),
+			&r.wg,
+			unresolvableError,
 		)
 		r.lock.Lock()
 		r.currentState = step.RunningStepStateFinished
