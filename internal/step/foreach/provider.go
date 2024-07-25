@@ -419,7 +419,7 @@ func (r *runningStep) CurrentStage() string {
 }
 
 func (r *runningStep) State() step.RunningStepState {
-	r.lock.Lock() // TODO: Determine why this gets stuck.
+	r.lock.Lock()
 	defer r.lock.Unlock()
 	return r.currentState
 }

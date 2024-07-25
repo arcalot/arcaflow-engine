@@ -114,7 +114,7 @@ steps:
     input:
       # It needs to be long enough for it to ensure that long_wait is in a running state.
       # The other case will be tested separately.
-      wait_time_ms: 20
+      wait_time_ms: 5
 outputs:
   a:
     cancelled_step_output: !expr $.steps.long_wait.outputs
@@ -154,7 +154,7 @@ steps:
       deployment_type: "builtin"
     step: wait
     input:
-      wait_time_ms: 80
+      wait_time_ms: 10
   # Delay needs to be delayed long enough to ensure that last_step isn't running when it's cancelled by short_wait
   delay:
     plugin:
@@ -162,7 +162,7 @@ steps:
       deployment_type: "builtin"
     step: wait
     input:
-      wait_time_ms: 50
+      wait_time_ms: 5
   last_step:
     plugin:
       src: "n/a"
@@ -228,7 +228,7 @@ steps:
       deployment_type: "builtin"
     step: wait
     input:
-      wait_time_ms: 100
+      wait_time_ms: 20
   step_to_cancel:
     plugin:
       src: "n/a"
@@ -241,7 +241,7 @@ steps:
     # Delay needs to be delayed long enough to ensure that it's in a deploy state when it's cancelled by short_wait
     deploy:
       deployer_name: "test-impl"
-      deploy_time: 50 # 50 ms 
+      deploy_time: 10 # ms 
   short_wait:
     plugin:
       src: "n/a"
@@ -801,7 +801,7 @@ func TestMissingInputsWrongOutput(t *testing.T) {
 	assert.Equals(t, outputID, "")
 }
 
-var fiveSecWaitWorkflowDefinition = `
+var fourSecWaitWorkflowDefinition = `
 version: v0.2.0
 input:
   root: RootObject
@@ -815,23 +815,19 @@ steps:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
+    closure_wait_timeout: 5000
     input:
-      wait_time_ms: 5000
+      wait_time_ms: 4000
 outputs:
   success:
     first_step_output: !expr $.steps.long_wait.outputs
 `
 
 func TestEarlyContextCancellation(t *testing.T) {
-	// For this test, a workflow runs two steps, where each step runs a wait step for 5s
-	// The second wait step waits for the first to succeed after which it runs
-	// Due to the wait for condition, the steps will execute serially
-	// The total execution time for this test function should be greater than 10seconds
-	// as each step runs for 5s and are run serially
-	// The test double deployer will be used for this test, as we
-	// need a deployer to test the plugin step provider.
+	// Test to ensure the workflow aborts when instructed to.
+	// The wait step should exit gracefully when the workflow is cancelled.
 	logConfig := log.Config{
-		Level:       log.LevelInfo,
+		Level:       log.LevelDebug,
 		Destination: log.DestinationStdout,
 	}
 	logger := log.New(
@@ -848,10 +844,10 @@ func TestEarlyContextCancellation(t *testing.T) {
 		stepRegistry,
 		builtinfunctions.GetFunctions(),
 	))
-	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(fiveSecWaitWorkflowDefinition)))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(fourSecWaitWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
-	// Cancel the context after 3 ms to simulate cancellation with ctrl-c.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*3)
+	// Cancel the context after 30 ms to simulate cancellation with ctrl-c.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 	startTime := time.Now() // Right before execute to not include pre-processing time.
 	//nolint:dogsled
 	_, _, _ = preparedWorkflow.Execute(ctx, map[string]any{})
@@ -860,7 +856,7 @@ func TestEarlyContextCancellation(t *testing.T) {
 	duration := time.Since(startTime)
 	t.Logf("Test execution time: %s", duration)
 	if duration >= 1000*time.Millisecond {
-		t.Fatalf("Test execution time is greater than 1000 milliseconds; Is the workflow properly cancelling?")
+		t.Fatalf("Test execution time is greater than 100 milliseconds; Is the workflow properly cancelling?")
 	}
 }
 
@@ -1189,7 +1185,7 @@ steps:
       deployer_name: "test-impl"
       # stop_if doesn't create any dependency, so we must keep the step in the deployment
       # stage long enough for the cancellation to occur at the intended stage.
-      deploy_time: 50 # ms
+      deploy_time: 25 # ms
     input:
       # The actual wait time should not matter for this test because the intention is to
       # to cancel it before it is run.
@@ -1299,7 +1295,7 @@ steps:
     step: wait
     input:
       wait_time_ms: 0
-    enabled: !expr $.steps.initial_wait.outputs.success.message == "Plugin slept for 20 ms."
+    enabled: !expr $.steps.initial_wait.outputs.success.message == "Plugin slept for 5 ms."
 outputs:
   success:
     initial_wait_output: !expr $.steps.initial_wait.outputs.success
@@ -1317,16 +1313,16 @@ func TestDelayedDisabledStepWorkflow(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, dynamicDisabledStepWorkflow),
 	)
-	// The second step expects a 20ms sleep/wait.
-	// Pass with a 20ms input.
+	// The second step expects a 5ms sleep/wait.
+	// Pass with a 5ms input.
 	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
-		"sleep_time": 20,
+		"sleep_time": 5,
 	})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "success")
-	// Fail with a non-20ms input.
+	// Fail with a non-5ms input.
 	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
-		"sleep_time": 19,
+		"sleep_time": 4,
 	})
 	assert.NoError(t, err)
 	assert.Equals(t, outputID, "disabled")
@@ -1404,6 +1400,7 @@ steps:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
+    closure_wait_timeout: 0
     input:
       wait_time_ms: 5000
 outputs:
@@ -1417,18 +1414,18 @@ func TestMultiDependencyWorkflowFailureWithDisabling(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDisabling),
 	)
-	startTime := time.Now() // Right before execute to not include pre-processing time.
+	startTime := time.Now() // Right before execution to not include pre-processing time.
 	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"fail_purposefully": true,
 	})
 	duration := time.Since(startTime)
 	assert.Error(t, err)
-	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	t.Logf("MultiDependencyFailureWithDisabling workflow failed purposefully in %d ms", duration.Milliseconds())
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
 		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
-	assert.LessThan(t, duration.Seconds(), 4) // It will take 5 seconds if it fails to fail early.
+	assert.LessThan(t, duration.Milliseconds(), 500) // It will take 5 seconds if it fails to fail early.
 }
 
 var multiDependencyFailureWorkflowWithCancellation = `
@@ -1453,12 +1450,13 @@ steps:
     stop_if: !expr '$.input.fail_purposefully'
     deploy:
       deployer_name: "test-impl"
-      deploy_time: 50 # 50 ms of delay to make the cancellation more reliable.
+      deploy_time: 10 # 10 ms of delay to make the cancellation more reliable.
   long_wait:
     plugin:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
+    closure_wait_timeout: 0
     input:
       wait_time_ms: 5000
 outputs:
@@ -1472,13 +1470,13 @@ func TestMultiDependencyWorkflowFailureWithCancellation(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithCancellation),
 	)
-	startTime := time.Now() // Right before execute to not include pre-processing time.
+	startTime := time.Now() // Right before execution to not include pre-processing time.
 	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"fail_purposefully": true,
 	})
 	duration := time.Since(startTime)
 	assert.Error(t, err)
-	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	t.Logf("MultiDependencyFailureWithCancellation workflow failed purposefully in %d ms", duration.Milliseconds())
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
 		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
@@ -1510,6 +1508,7 @@ steps:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
+    closure_wait_timeout: 0
     input:
       wait_time_ms: 7000
 outputs:
@@ -1524,13 +1523,13 @@ func TestMultiDependencyWorkflowFailureWithErrorOut(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithErrorOut),
 	)
-	startTime := time.Now() // Right before execute to not include pre-processing time.
+	startTime := time.Now() // Right before execution to not include pre-processing time.
 	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"fail_purposefully": true,
 	})
 	duration := time.Since(startTime)
 	assert.Error(t, err)
-	t.Logf("MultiDependency workflow failed purposefully in %d ms", duration.Milliseconds())
+	t.Logf("MultiDependencyFailureWithErrorOut workflow failed purposefully in %d ms", duration.Milliseconds())
 	var typedError *workflow.ErrNoMorePossibleOutputs
 	if !errors.As(err, &typedError) {
 		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
@@ -1567,6 +1566,7 @@ steps:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
+    closure_wait_timeout: 0
     input:
       wait_time_ms: 7000
 outputs:
@@ -1584,7 +1584,7 @@ func TestMultiDependencyWorkflowFailureWithDeployFailure(t *testing.T) {
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDeployFailure),
 	)
-	startTime := time.Now() // Right before execute to not include pre-processing time.
+	startTime := time.Now() // Right before execution to not include pre-processing time.
 	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
 		"fail_purposefully": true,
 	})
@@ -1644,8 +1644,9 @@ steps:
       src: "n/a"
       deployment_type: "builtin"
     step: wait
+    closure_wait_timeout: 0
     input:
-      wait_time_ms: 100
+      wait_time_ms: 10
 outputs:
   workflow-success:
     failed_step_output: !expr $.steps.failed_step_A.outputs
@@ -1662,15 +1663,239 @@ func TestMultiDependencyWorkflowFailureDoubleFailure(t *testing.T) {
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowWithDoubleFailure),
 	)
 
-	startTime := time.Now() // Right before execute to not include pre-processing time.
-	_, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	startTime := time.Now() // Right before execution to not include pre-processing time.
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
 	duration := time.Since(startTime)
 	assert.NoError(t, err)
-	t.Logf("MultiDependency finished in %d ms", duration.Milliseconds())
+	assert.Equals(t, outputID, "wait-only")
+	t.Logf("MultiDependency DoubleFailure finished in %d ms", duration.Milliseconds())
 }
 
-// TODO: Create a situation where step A's outputs are resolvable, but the context is cancelled,
-//		resulting in a possible conflict with the cancelled step stage DAG node.
+var multiDependencyFailureWorkflowContextCancelled = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  wait_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    closure_wait_timeout: 0
+    input:
+      wait_time_ms: 500
+  cancelled_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    stop_if: !expr $.steps.wait_step.outputs # The context will get cancelled before this triggers.
+    input:
+      wait_time_ms: 0
+    deploy:
+      deployer_name: "test-impl"
+      deploy_succeed: !expr 'true'
+      deploy_time: 5 # ms
+outputs:
+  finished:
+    cancelled_step_output: !expr $.steps.cancelled_step.outputs
+  wait-only: # The workflow needs to keep running after the cancelled step exits.
+    wait_output: !expr $.steps.wait_step.outputs
+`
+
+func TestMultiDependencyWorkflowContextCanceled(t *testing.T) {
+	// A scenario where the step's inputs are resolvable, but the context is cancelled, resulting
+	// in a possible conflict with the cancelled step stage DAG node.
+	// To do this, create a multi-dependency setup, finish the step, then cancel the workflow
+	// before the workflow finishes.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowContextCancelled),
+	)
+
+	ctx, timeout := context.WithTimeout(context.Background(), time.Millisecond*10)
+	startTime := time.Now() // Right before execution to not include pre-processing time.
+	_, _, err := preparedWorkflow.Execute(ctx, map[string]any{})
+	duration := time.Since(startTime)
+	assert.NoError(t, err)
+	timeout()
+	t.Logf("MultiDependency ContextCanceled finished in %d ms", duration.Milliseconds())
+}
+
+var multiDependencyDependOnClosedStepPostDeployment = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  wait_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 1
+  long_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 5000
+  cancelled_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    stop_if: !expr $.steps.wait_step.outputs
+    wait_for: !expr $.steps.long_wait.outputs
+    input:
+      wait_time_ms: 0
+    # The deploy section is blank, so it will target a post-deployment cancellation.
+outputs:
+  finished:
+    cancelled_step_output: !expr $.steps.cancelled_step.outputs
+  closed: # The workflow needs to keep running after the cancelled step exits.
+    closed_output: !expr $.steps.cancelled_step.closed.result
+  wait_finished:
+    wait_output: !expr $.steps.long_wait.outputs
+`
+
+func TestMultiDependencyDependOnClosedStepPostDeployment(t *testing.T) {
+	// This has the output depend on the closed output of a step.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyDependOnClosedStepPostDeployment),
+	)
+
+	startTime := time.Now() // Right before execution to not include pre-processing time.
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	duration := time.Since(startTime)
+	t.Logf("MultiDependency DependOnClosedStepPostDeployment finished in %d ms", duration.Milliseconds())
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "closed")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"closed_output": map[any]any{
+			"cancelled":       true,
+			"close_requested": false,
+		},
+	})
+}
+
+var multiDependencyDependOnClosedDeployment = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  wait_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 1
+  cancelled_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    stop_if: !expr $.steps.wait_step.outputs
+    input:
+      wait_time_ms: 500
+    # The deploy section has a delay black, so it will target a mid-deployment cancellation.
+    closure_wait_timeout: 0
+    deploy:
+      deployer_name: "test-impl"
+      deploy_time: 10 # ms. If this is too low, there will be a race that results in run fail instead of closure.
+outputs:
+  finished:
+    cancelled_step_output: !expr $.steps.cancelled_step.outputs
+  closed: # The workflow needs to keep running after the cancelled step exits.
+    closed_output: !expr $.steps.cancelled_step.closed.result
+`
+
+func TestMultiDependencyDependOnClosedStepDeployment(t *testing.T) {
+	// This has the output depend on the closed output of a step.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyDependOnClosedDeployment),
+	)
+
+	startTime := time.Now() // Right before execution to not include pre-processing time.
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	duration := time.Since(startTime)
+	t.Logf("MultiDependency DependOnClosedStep finished in %d ms", duration.Milliseconds())
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "closed")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"closed_output": map[any]any{
+			"cancelled":       true,
+			"close_requested": false,
+		},
+	})
+}
+
+var multiDependencyDependOnContextDoneDeployment = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  wait_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    closure_wait_timeout: 0
+    input:
+      wait_time_ms: 1000
+  not_enabled_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    enabled: !expr $.steps.wait_step.outputs.success.message == "Plugin slept for 100 ms."
+    input:
+      wait_time_ms: 0
+outputs:
+  finished:
+    cancelled_step_output: !expr $.steps.not_enabled_step.outputs
+  closed: # The workflow needs to keep running after the cancelled step exits.
+    closed_output: !expr $.steps.not_enabled_step.closed.result
+`
+
+func TestMultiDependencyDependOnContextDoneDeployment(t *testing.T) {
+	// A scenario where you close the context but still expect an output by depending on the closed output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiDependencyDependOnContextDoneDeployment),
+	)
+
+	ctx, timeout := context.WithTimeout(context.Background(), time.Millisecond*10)
+	startTime := time.Now() // Right before execution to not include pre-processing time.
+	outputID, outputData, err := preparedWorkflow.Execute(ctx, map[string]any{})
+	duration := time.Since(startTime)
+	assert.NoError(t, err)
+	timeout()
+	assert.Equals(t, outputID, "closed")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"closed_output": map[any]any{
+			"cancelled":       false,
+			"close_requested": true,
+		},
+	})
+	t.Logf("MultiDependency DependOnClosedStep finished in %d ms", duration.Milliseconds())
+}
 
 func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx map[string][]byte) (workflow.ExecutableWorkflow, error) {
 	logConfig := log.Config{

@@ -93,6 +93,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		outputDataChannel: make(chan outputDataType, 1),
 		outputDone:        false,
 		waitingOutputs:    outputNodes,
+		context:           ctx,
 		cancel:            cancel,
 		workflowContext:   e.workflowContext,
 		recentErrors:      make(chan error, 20), // Big buffer in case there are lots of subsequent errors.
@@ -131,9 +132,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				if !inputAvailable {
 					waitingForInputText = " and is waiting for input"
 				}
-				e.logger.Debugf("START Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
+				e.logger.Debugf("Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
 				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput, wg)
-				e.logger.Debugf("DONE Stage change for step %s to %s%s...", stepID, stage, waitingForInputText)
 			},
 			onStepComplete: func(
 				step step.RunningStep,
@@ -169,15 +169,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 	}
 	l.lock.Unlock()
 	// Let's make sure we are closing all steps once this function terminates so we don't leave stuff running.
-	defer func() {
-		e.logger.Debugf("Terminating all steps...")
-		for stepID, runningStep := range l.runningSteps {
-			e.logger.Debugf("Terminating step %s...", stepID)
-			if err := runningStep.ForceClose(); err != nil {
-				panic(fmt.Errorf("failed to close step %s (%w)", stepID, err))
-			}
-		}
-	}()
+	defer l.terminateAllSteps()
 
 	// We remove the input node from the DAG and call the notifySteps function once to trigger the workflow
 	// start.
@@ -205,34 +197,70 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 	select {
 	case outputDataEntry, ok := <-l.outputDataChannel:
 		if !ok {
-			return "", nil, fmt.Errorf("output data channel unexpectedly closed")
+			lastErrors := l.handleErrors()
+			return "", nil, fmt.Errorf("output data channel unexpectedly closed. %s", lastErrors)
 		}
-		e.logger.Debugf("Output complete.")
-		outputID = outputDataEntry.outputID
-		outputData = outputDataEntry.outputData
-		outputSchema, ok := e.outputSchema[outputID]
-		if !ok {
-			return "", nil, fmt.Errorf(
-				"bug: no output named '%s' found in output schema",
-				outputID,
-			)
-		}
-		_, err := outputSchema.Unserialize(outputDataEntry.outputData)
-		if err != nil {
-			return "", nil, fmt.Errorf(
-				"bug: output schema cannot unserialize output data (%w)",
-				err,
-			)
-		}
-		return outputDataEntry.outputID, outputData, nil
+		return e.handleOutput(l, outputDataEntry)
 	case <-ctx.Done():
-		lastErr := l.getLastError()
-		e.logger.Debugf("Workflow execution aborted. %s", lastErr)
-		if lastErr != nil {
-			return "", nil, lastErr
+		lastErrors := l.handleErrors()
+		if lastErrors == nil {
+			e.logger.Warningf("Workflow execution aborted. Waiting 6 more seconds for output. %s", lastErrors)
+		} else {
+			return "", nil, lastErrors
 		}
-		return "", nil, fmt.Errorf("workflow execution aborted (%w)", ctx.Err())
+		timedContext, cancelFunction := context.WithTimeout(context.Background(), 5*time.Second)
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			l.terminateAllSteps()
+		}()
+		defer wg.Wait()
+		defer cancelFunction()
+		select {
+		case outputDataEntry, ok := <-l.outputDataChannel:
+			if !ok {
+				lastErrors := l.handleErrors()
+				return "", nil, fmt.Errorf("output data channel unexpectedly closed while waiting after execution aborted. %s", lastErrors)
+			}
+			return e.handleOutput(l, outputDataEntry)
+		case err := <-l.recentErrors: // The context is done, so instead just check for errors.
+			// Put it back in the channel
+			l.recentErrors <- err
+			lastErrors := l.handleErrors()
+			l.logger.Errorf("workflow failed with error %s", err.Error())
+			return "", nil, lastErrors
+		case <-timedContext.Done():
+			lastErrors := l.handleErrors()
+			return "", nil, fmt.Errorf("workflow execution aborted (%w) (%s)", ctx.Err(), lastErrors)
+		}
+
 	}
+}
+
+func (e *executableWorkflow) handleOutput(l *loopState, outputDataEntry outputDataType) (outputID string, outputData any, err error) {
+	lastErrors := l.handleErrors()
+	if lastErrors != nil {
+		e.logger.Warningf("errors occurred alongside completed output (%s)", lastErrors.Error())
+	}
+	e.logger.Debugf("Output complete.")
+	outputID = outputDataEntry.outputID
+	outputData = outputDataEntry.outputData
+	outputSchema, ok := e.outputSchema[outputID]
+	if !ok {
+		return "", nil, fmt.Errorf(
+			"bug: no output named '%s' found in output schema (%s)",
+			outputID, lastErrors,
+		)
+	}
+	_, err = outputSchema.Unserialize(outputDataEntry.outputData)
+	if err != nil {
+		return "", nil, fmt.Errorf(
+			"bug: output schema cannot unserialize output data (%w) (%s)",
+			err, lastErrors,
+		)
+	}
+	return outputDataEntry.outputID, outputData, nil
 }
 
 type outputDataType struct {
@@ -255,33 +283,61 @@ type loopState struct {
 	outputDone        bool
 	// waitingOutputs keeps track of all workflow output nodes to know when the workflow fails.
 	waitingOutputs  map[string]dgraph.Node[*DAGItem]
+	context         context.Context
 	recentErrors    chan error
 	cancel          context.CancelFunc
 	workflowContext map[string][]byte
 	lifecycles      map[string]step.Lifecycle[step.LifecycleStageWithSchema]
 }
 
-// getLastError gathers the last errors. If there are several, it creates a new one that consolidates them.
+func (l *loopState) terminateAllSteps() {
+	l.logger.Debugf("Terminating all steps...")
+	for stepID, runningStep := range l.runningSteps {
+		l.logger.Debugf("Terminating step %s...", stepID)
+		if err := runningStep.ForceClose(); err != nil {
+			panic(fmt.Errorf("failed to close step %s (%w)", stepID, err))
+		}
+	}
+}
+
+// getLastError gathers the last errors. If there are several, it creates a new one that consolidates
+// all non-duplicate ones.
 // This will read from the channel. Calling again will only gather new errors since the last call.
 func (l *loopState) getLastError() error {
-	var errors []error
+	errors := map[string]error{}
 errGatherLoop:
 	for {
 		select {
 		case err := <-l.recentErrors:
-			errors = append(errors, err)
+			errors[err.Error()] = err
 		default:
 			break errGatherLoop // No more errors
 		}
 	}
 	switch len(errors) {
 	case 0:
-		return nil
+		fallthrough
 	case 1:
-		return errors[0]
+		for _, err := range errors {
+			return err
+		}
+		return nil
 	default:
-		return fmt.Errorf("multiple errors: %v", errors)
+		errorsAsString := ""
+		for errStr := range errors {
+			errorsAsString += " " + errStr
+		}
+		return fmt.Errorf("multiple errors:%s", errorsAsString)
 	}
+}
+
+func (l *loopState) handleErrors() error {
+	lastErr := l.getLastError()
+	if lastErr != nil {
+		l.logger.Warningf("Workflow execution aborted with error: %s", lastErr.Error())
+		return lastErr
+	}
+	return nil
 }
 
 func (l *loopState) onStageComplete(
@@ -574,11 +630,16 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 			l.logger.Warningf("No running steps. Rechecking...")
 			wg.Add(1)
 			go func() {
-				time.Sleep(5 * time.Millisecond)
-				l.lock.Lock()
-				l.checkForDeadlocks(retries-1, wg)
-				l.lock.Unlock()
-				wg.Done()
+				defer wg.Done()
+				select {
+				case <-time.After(time.Duration(5) * time.Millisecond):
+					time.Sleep(5 * time.Millisecond)
+					l.lock.Lock()
+					l.checkForDeadlocks(retries-1, wg)
+					l.lock.Unlock()
+				case <-l.context.Done():
+					return
+				}
 			}()
 		}
 	}
