@@ -4,6 +4,9 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/tablefmt"
+	"go.flow.arcalot.io/engine/internal/tableprinter"
+	"io"
 	"reflect"
 	"sync"
 	"time"
@@ -53,6 +56,13 @@ func (e *executableWorkflow) Input() schema.Scope {
 // DAG returns the constructed DAG for the workflow. You can use this to print pretty execution graphs.
 func (e *executableWorkflow) DAG() dgraph.DirectedGraph[*DAGItem] {
 	return e.dag
+}
+
+// Namespaces returns a namespaced collection of objects for the inputs
+// and outputs of each stage in the step's lifecycles.
+// It maps namespace id (path) to object id to object schema.
+func (e *executableWorkflow) Namespaces() map[string]map[string]*schema.ObjectSchema {
+	return BuildNamespaces(e.lifecycles)
 }
 
 // Execute runs the workflow with the specified input. You can use the context variable to abort the workflow execution
@@ -739,4 +749,17 @@ func (s stageChangeHandler) OnStepStageFailure(
 	err error,
 ) {
 	s.onStepStageFailure(step, stage, wg, err)
+}
+
+// PrintObjectNamespaceTable constructs and writes a tidy table of workflow
+// Objects and their namespaces to the given output destination.
+func PrintObjectNamespaceTable(output io.Writer, allNamespaces map[string]map[string]*schema.ObjectSchema, logger log.Logger) {
+	if len(allNamespaces) == 0 {
+		logger.Warningf("No namespaces found in workflow")
+		return
+	}
+	groupLists := tablefmt.ExtractGroupedLists[*schema.ObjectSchema](allNamespaces)
+	df := tablefmt.UnnestLongerSorted(groupLists)
+	df = tablefmt.SwapColumns(df)
+	tableprinter.PrintTwoColumnTable(output, []string{"object", "namespace"}, df)
 }

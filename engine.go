@@ -56,6 +56,7 @@ type Workflow interface {
 	InputSchema() schema.Scope
 	// Outputs returns the list of possible outputs and their schema for the workflow.
 	Outputs() map[string]schema.StepOutput
+	Namespaces() map[string]map[string]*schema.ObjectSchema
 }
 
 type workflowEngine struct {
@@ -233,4 +234,8 @@ func (e engineWorkflow) Outputs() map[string]schema.StepOutput {
 		outputs[outputID] = output
 	}
 	return outputs
+}
+
+func (e engineWorkflow) Namespaces() map[string]map[string]*schema.ObjectSchema {
+	return e.workflow.Namespaces()
 }

@@ -61,7 +61,7 @@ var testLifecycleStage = step.LifecycleStageWithSchema{
 func TestAddOutputNamespacedScopes(t *testing.T) {
 	allNamespaces := make(map[string]map[string]*schema.ObjectSchema)
 	namespacePrefix := "TEST_PREFIX_"
-	addOutputNamespacedScopes(allNamespaces, testLifecycleStage, namespacePrefix)
+	addOutputNamespaces(allNamespaces, testLifecycleStage, namespacePrefix)
 	expectedNamespace := namespacePrefix + "outputC"
 	assert.Equals(t, len(allNamespaces), 1)
 	assert.MapContainsKey(t, expectedNamespace, allNamespaces)
@@ -76,7 +76,7 @@ func TestAddInputNamespacedScopes(t *testing.T) {
 		"listA":  "testObjectB",
 	}
 
-	addInputNamespacedScopes(allNamespaces, testLifecycleStage, namespacePrefix)
+	addInputNamespaces(allNamespaces, testLifecycleStage, namespacePrefix)
 	assert.Equals(t, len(allNamespaces), 2)
 	for expectedInput, expectedObject := range expectedInputs {
 		expectedNamespace := namespacePrefix + expectedInput
@@ -459,7 +459,7 @@ func TestApplyLifecycleScopes_Basic(t *testing.T) {
 			},
 		),
 	)
-	assert.NoError(t, applyLifecycleScopes(stepLifecycles, testScope))
+	assert.NoError(t, applyLifecycleNamespaces(stepLifecycles, testScope))
 	assert.NoError(t, testScope.ValidateReferences())
 	assert.NotNil(t, ref1Schema.GetObject())
 	assert.NotNil(t, ref2Schema.GetObject())

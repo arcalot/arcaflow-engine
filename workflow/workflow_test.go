@@ -1,6 +1,7 @@
 package workflow_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -2019,4 +2020,33 @@ func createTestExecutableWorkflow(t *testing.T, workflowStr string, workflowCtx 
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(workflowStr)))
 	return executor.Prepare(wf, workflowCtx)
+}
+
+const printNamespaceResponseOutput = `OBJECT                   NAMESPACE   
+ClosedInfo                $.steps.long_wait.closed.outputs.result
+Crashed                   $.steps.long_wait.crashed.outputs.error
+DeployError               $.steps.long_wait.deploy_failed.outputs.error
+DisabledMessageOutput     $.steps.long_wait.disabled.outputs.output
+EnabledOutput             $.steps.long_wait.enabling.outputs.resolved
+output                    $.steps.long_wait.outputs.outputs.cancelled_early
+output                    $.steps.long_wait.outputs.outputs.success
+output                    $.steps.long_wait.outputs.outputs.terminated_early
+wait-input                $.steps.long_wait.starting.inputs.input
+StartedOutput             $.steps.long_wait.starting.outputs.started
+`
+
+func TestPrintObjectNamespaceTable(t *testing.T) {
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, fourSecWaitWorkflowDefinition),
+	)
+	buf := bytes.NewBuffer(nil)
+	workflow.PrintObjectNamespaceTable(buf, preparedWorkflow.Namespaces(), nil)
+	assert.Equals(t, buf.String(), printNamespaceResponseOutput)
+}
+
+func TestPrintObjectNamespaceTable_EmptyNamespace(t *testing.T) {
+	logger := log.NewLogger(log.LevelDebug, log.NewTestWriter(t))
+	buf := bytes.NewBuffer(nil)
+	workflow.PrintObjectNamespaceTable(buf, map[string]map[string]*schema.ObjectSchema{}, logger)
+	assert.Equals(t, buf.String(), ``)
 }
