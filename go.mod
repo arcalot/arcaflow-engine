@@ -6,12 +6,12 @@ require (
 	go.arcalot.io/assert v1.8.0
 	go.arcalot.io/dgraph v1.5.0
 	go.arcalot.io/lang v1.1.0
-	go.arcalot.io/log/v2 v2.1.0
+	go.arcalot.io/log/v2 v2.2.0
 	go.flow.arcalot.io/deployer v0.6.1
 	go.flow.arcalot.io/dockerdeployer v0.7.2
 	go.flow.arcalot.io/expressions v0.4.3
 	go.flow.arcalot.io/kubernetesdeployer v0.9.3
-	go.flow.arcalot.io/pluginsdk v0.12.2
+	go.flow.arcalot.io/pluginsdk v0.12.3
 	go.flow.arcalot.io/podmandeployer v0.11.2
 	go.flow.arcalot.io/pythondeployer v0.6.1
 	go.flow.arcalot.io/testdeployer v0.6.1
@@ -66,8 +66,8 @@ require (
 	go.opentelemetry.io/proto/otlp v1.2.0 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/term v0.21.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
