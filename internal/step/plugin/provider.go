@@ -1350,7 +1350,7 @@ func (r *runningStep) runStage(forCloseWaitMS int64) error {
 	select {
 	case result = <-r.executionChannel:
 	case <-r.ctx.Done():
-		// In this case, it is being instructed to stop. A signal should have been sent.
+		// In this case, it is being instructed to stop. A cancellation signal should be sent if supported.
 		if r.hasCancellationHandler() {
 			r.logger.Debugf("Got step context done before step run complete. Sending cancellation signal. Waiting up to %d milliseconds for result.", forCloseWaitMS)
 			r.lock.Lock()
