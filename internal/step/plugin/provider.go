@@ -1237,10 +1237,8 @@ func (r *runningStep) enableStage() (bool, bool) {
 	}
 
 	if enabled {
-		r.lock.Lock()
 		// It's enabled, so the disabled stage will not occur.
 		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDDisabled), &r.wg, fmt.Errorf("step enabled; cannot be disabled anymore"))
-		r.lock.Unlock()
 	}
 	return enabled, false
 }
@@ -1388,8 +1386,6 @@ func (r *runningStep) runStage(forCloseWaitMS int64) error {
 }
 
 func (r *runningStep) markStageFailures(firstStage StageID, err error) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
 	switch firstStage {
 	case StageIDEnabling:
 		r.stageChangeHandler.OnStepStageFailure(r, string(StageIDEnabling), &r.wg, err)
@@ -1412,8 +1408,6 @@ func (r *runningStep) markStageFailures(firstStage StageID, err error) {
 
 // Closable is the graceful case, so this is necessary if it crashes.
 func (r *runningStep) markNotClosable(err error) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
 	r.stageChangeHandler.OnStepStageFailure(r, string(StageIDClosed), &r.wg, err)
 }
 
@@ -1514,12 +1508,12 @@ func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepSt
 
 func (r *runningStep) transitionFromFailedStage(newStage StageID, state step.RunningStepState, err error) {
 	r.lock.Lock()
-	defer r.lock.Unlock()
 	previousStage := string(r.currentStage)
 	r.currentStage = newStage
 	// Don't forget to update this, or else it will behave very oddly.
 	// First running, then finished. You can't skip states.
 	r.state = state
+	r.lock.Unlock()
 	r.stageChangeHandler.OnStepStageFailure(
 		r,
 		previousStage,

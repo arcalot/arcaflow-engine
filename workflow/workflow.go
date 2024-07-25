@@ -155,6 +155,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				} else {
 					e.logger.Debugf("Step %q stage %q declared that it will not produce an output (%s)", stepID, stage, err.Error())
 				}
+				l.lock.Lock()
+				defer l.lock.Unlock()
 				l.markOutputsUnresolvable(stepID, stage, nil)
 				l.markStageNodeUnresolvable(stepID, stage)
 				l.notifySteps()

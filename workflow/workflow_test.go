@@ -1716,7 +1716,7 @@ func TestMultiDependencyWorkflowContextCanceled(t *testing.T) {
 		getTestImplPreparedWorkflow(t, multiDependencyFailureWorkflowContextCancelled),
 	)
 
-	ctx, timeout := context.WithTimeout(context.Background(), time.Millisecond*10)
+	ctx, timeout := context.WithTimeout(context.Background(), time.Millisecond*30)
 	startTime := time.Now() // Right before execution to not include pre-processing time.
 	_, _, err := preparedWorkflow.Execute(ctx, map[string]any{})
 	duration := time.Since(startTime)
