@@ -1515,7 +1515,7 @@ func (r *runningStep) runFailed(err error) {
 }
 
 // TransitionStage transitions the running step to the specified stage, and the state running.
-// For other situations, use transitionFromFailedStage, completeStep, or transitionStageWithOutput
+// For other situations, use transitionFromFailedStage, completeStep, or transitionStageWithOutput.
 func (r *runningStep) transitionRunningStage(newStage StageID) {
 	r.transitionStageWithOutput(newStage, step.RunningStepStateRunning, nil, nil)
 }

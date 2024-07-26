@@ -210,7 +210,8 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 	case outputDataEntry, ok := <-l.outputDataChannel:
 		if !ok {
 			lastErrors := l.handleErrors()
-			return "", nil, fmt.Errorf("output data channel unexpectedly closed. %s", lastErrors)
+			return "", nil,
+				fmt.Errorf("output data channel unexpectedly closed. %w", lastErrors)
 		}
 		return e.handleOutput(l, outputDataEntry)
 	case <-ctx.Done():
@@ -249,7 +250,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 			return "", nil, lastErrors
 		case <-timedContext.Done():
 			lastErrors := l.handleErrors()
-			return "", nil, fmt.Errorf("workflow execution aborted (%w) (%s)", ctx.Err(), lastErrors)
+			return "", nil, fmt.Errorf("workflow execution aborted (%w) (%s)", ctx.Err(), lastErrors.Error())
 		}
 
 	}
@@ -266,15 +267,15 @@ func (e *executableWorkflow) handleOutput(l *loopState, outputDataEntry outputDa
 	outputSchema, ok := e.outputSchema[outputID]
 	if !ok {
 		return "", nil, fmt.Errorf(
-			"bug: no output named '%s' found in output schema (%s)",
+			"bug: no output named '%s' found in output schema (%w)",
 			outputID, lastErrors,
 		)
 	}
 	_, err = outputSchema.Unserialize(outputDataEntry.outputData)
 	if err != nil {
 		return "", nil, fmt.Errorf(
-			"bug: output schema cannot unserialize output data (%w) (%s)",
-			err, lastErrors,
+			"bug: output schema cannot unserialize output data (%s) (%w)",
+			err.Error(), lastErrors,
 		)
 	}
 	return outputDataEntry.outputID, outputData, nil

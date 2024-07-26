@@ -403,6 +403,8 @@ func addScopesWithReferences(allNamespaces map[string]map[string]*schema.ObjectS
 }
 
 // connectStepDependencies connects the steps based on their expressions.
+//
+//nolint:gocognit
 func (e *executor) connectStepDependencies(
 	workflow *Workflow,
 	workflowContext map[string][]byte,

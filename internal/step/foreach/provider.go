@@ -541,7 +541,7 @@ func (r *runningStep) processInput(inputData []any) {
 	r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData, &r.wg)
 }
 
-// returns true if there is an error
+// returns true if there is an error.
 func (r *runningStep) executeSubWorkflows(inputData []any) ([]any, map[int]string) {
 	itemOutputs := make([]any, len(inputData))
 	itemErrors := make(map[int]string, len(inputData))
