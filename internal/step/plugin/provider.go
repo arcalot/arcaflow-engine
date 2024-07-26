@@ -445,7 +445,7 @@ func (r *runnableStep) DisabledOutputSchema() *schema.StepOutputSchema {
 	)
 }
 
-func ClosureTimeoutSchema() *schema.PropertySchema {
+func closureTimeoutSchema() *schema.PropertySchema {
 	return schema.NewPropertySchema(
 		schema.NewIntSchema(schema.PointerTo(int64(0)), nil, nil),
 		schema.NewDisplayValue(
@@ -610,7 +610,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 						nil,
 						nil,
 					),
-					"closure_wait_timeout": ClosureTimeoutSchema(),
+					"closure_wait_timeout": closureTimeoutSchema(),
 				},
 				Outputs: map[string]*schema.StepOutputSchema{
 					"started": r.StartedSchema(),
@@ -930,7 +930,7 @@ func (r *runningStep) provideStartingInput(input map[string]any) error {
 	// Now get the other necessary data for running the step
 	var timeout int64
 	if input["closure_wait_timeout"] != nil {
-		unserializedTimeout, err := ClosureTimeoutSchema().Unserialize(input["closure_wait_timeout"])
+		unserializedTimeout, err := closureTimeoutSchema().Unserialize(input["closure_wait_timeout"])
 		if err != nil {
 			return err
 		}
@@ -1086,38 +1086,50 @@ func (r *runningStep) run() {
 		r.cancel()  // Close before WaitGroup done
 		r.wg.Done() // Done. Close may now exit.
 	}()
-	container, contextDoneEarly, err := r.deployStage()
+	pluginConnection := r.startPlugin()
+	if pluginConnection == nil {
+		return
+	}
+	defer func() {
+		err := pluginConnection.Close()
+		if err != nil {
+			r.logger.Errorf("failed to close deployed container for step %s/%s", r.runID, r.pluginStepID)
+		}
+	}()
+	r.postDeployment(pluginConnection)
+}
+
+// Deploys the plugin, and handles failure cases.
+func (r *runningStep) startPlugin() deployer.Plugin {
+	pluginConnection, contextDoneEarly, err := r.deployStage()
 	if contextDoneEarly {
 		if err != nil {
 			r.logger.Debugf("error due to step early closure: %s", err.Error())
 		}
 		r.closedEarly(StageIDEnabling, true)
-		return
+		return nil
 	} else if err != nil {
 		r.deployFailed(err)
-		return
+		return nil
 	}
 	r.lock.Lock()
 	select {
 	case <-r.ctx.Done():
-		if err := container.Close(); err != nil {
+		if err := pluginConnection.Close(); err != nil {
 			r.logger.Warningf("failed to close deployed container for step %s/%s", r.runID, r.pluginStepID)
 		}
 		r.lock.Unlock()
 		r.closedEarly(StageIDEnabling, false)
-		return
+		return nil
 	default:
-		r.container = container
+		r.container = pluginConnection
 	}
-	defer func() {
-		err := container.Close()
-		if err != nil {
-			r.logger.Errorf("failed to close deployed container for step %s/%s", r.runID, r.pluginStepID)
-		}
-	}()
 	r.lock.Unlock()
-	r.logger.Debugf("Successfully deployed container with ID '%s' for step %s/%s", container.ID(), r.runID, r.pluginStepID)
+	r.logger.Debugf("Successfully deployed container with ID '%s' for step %s/%s", pluginConnection.ID(), r.runID, r.pluginStepID)
+	return pluginConnection
+}
 
+func (r *runningStep) postDeployment(pluginConnection deployer.Plugin) {
 	r.logger.Debugf("Checking to see if step %s/%s is enabled", r.runID, r.pluginStepID)
 	enabled, contextDoneEarly := r.enableStage()
 	if contextDoneEarly {
@@ -1131,7 +1143,8 @@ func (r *runningStep) run() {
 	}
 
 	var forceCloseTimeoutMS int64
-	if contextDoneEarly, forceCloseTimeoutMS, err = r.startStage(container); contextDoneEarly {
+	var err error
+	if contextDoneEarly, forceCloseTimeoutMS, err = r.startStage(pluginConnection); contextDoneEarly {
 		r.closedEarly(StageIDRunning, true)
 		return
 	} else if err != nil {
@@ -1357,7 +1370,7 @@ func (r *runningStep) runStage(forCloseWaitMS int64) error {
 		} else {
 			r.logger.Warningf("Got step context done before step run complete. Force closing step %s/%s.", r.runID, r.pluginStepID)
 			err := r.forceCloseInternal()
-			return fmt.Errorf("step forced closed after timeout without result (%s)", err)
+			return fmt.Errorf("step forced closed after timeout without result (%w)", err)
 		}
 		// Wait for cancellation to occur.
 		select {
@@ -1379,7 +1392,7 @@ func (r *runningStep) runStage(forCloseWaitMS int64) error {
 	}
 
 	// Execution complete, move to state running stage outputs, then to state finished stage.
-	r.transitionStage(StageIDOutput, step.RunningStepStateRunning)
+	r.transitionRunningStage(StageIDOutput)
 	r.completeStep(r.currentStage, step.RunningStepStateFinished, &result.OutputID, &result.OutputData)
 
 	return nil
@@ -1413,7 +1426,7 @@ func (r *runningStep) markNotClosable(err error) {
 
 func (r *runningStep) deployFailed(err error) {
 	r.logger.Debugf("Deploy failed stage for step %s/%s", r.runID, r.pluginStepID)
-	r.transitionStage(StageIDDeployFailed, step.RunningStepStateRunning)
+	r.transitionRunningStage(StageIDDeployFailed)
 	r.logger.Warningf("Plugin step %s/%s deploy failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
@@ -1457,7 +1470,7 @@ func (r *runningStep) closedEarly(stageToMarkUnresolvable StageID, priorStageFai
 	if priorStageFailed {
 		r.transitionFromFailedStage(StageIDClosed, step.RunningStepStateRunning, fmt.Errorf("step closed early"))
 	} else {
-		r.transitionStage(StageIDClosed, step.RunningStepStateRunning)
+		r.transitionRunningStage(StageIDClosed)
 	}
 	closedOutput := any(map[any]any{"cancelled": r.cancelled, "close_requested": r.closed.Load()})
 
@@ -1488,7 +1501,7 @@ func (r *runningStep) startFailed(err error) {
 }
 
 func (r *runningStep) runFailed(err error) {
-	r.transitionStage(StageIDCrashed, step.RunningStepStateRunning)
+	r.transitionRunningStage(StageIDCrashed)
 	r.logger.Warningf("Plugin step %s/%s run failed. %v", r.runID, r.pluginStepID, err)
 
 	// Now it's done.
@@ -1501,9 +1514,10 @@ func (r *runningStep) runFailed(err error) {
 	r.markNotClosable(err)
 }
 
-// TransitionStage transitions the stage to the specified stage, and the state to the specified state.
-func (r *runningStep) transitionStage(newStage StageID, state step.RunningStepState) {
-	r.transitionStageWithOutput(newStage, state, nil, nil)
+// TransitionStage transitions the running step to the specified stage, and the state running.
+// For other situations, use transitionFromFailedStage, completeStep, or transitionStageWithOutput
+func (r *runningStep) transitionRunningStage(newStage StageID) {
+	r.transitionStageWithOutput(newStage, step.RunningStepStateRunning, nil, nil)
 }
 
 func (r *runningStep) transitionFromFailedStage(newStage StageID, state step.RunningStepState, err error) {

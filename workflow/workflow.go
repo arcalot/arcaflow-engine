@@ -216,7 +216,9 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 	case <-ctx.Done():
 		lastErrors := l.handleErrors()
 		if lastErrors == nil {
-			e.logger.Warningf("Workflow execution aborted. Waiting 6 more seconds for output. %s", lastErrors)
+			e.logger.Warningf(
+				"Workflow execution aborted. Waiting 6 more seconds for output (%w)",
+				lastErrors)
 		} else {
 			return "", nil, lastErrors
 		}
@@ -233,7 +235,10 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		case outputDataEntry, ok := <-l.outputDataChannel:
 			if !ok {
 				lastErrors := l.handleErrors()
-				return "", nil, fmt.Errorf("output data channel unexpectedly closed while waiting after execution aborted. %s", lastErrors)
+				return "", nil,
+					fmt.Errorf(
+						"output data channel unexpectedly closed while waiting after execution aborted (%w)",
+						lastErrors)
 			}
 			return e.handleOutput(l, outputDataEntry)
 		case err := <-l.recentErrors: // The context is done, so instead just check for errors.

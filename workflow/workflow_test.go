@@ -236,7 +236,7 @@ steps:
       deployment_type: "builtin"
     step: wait
     input:
-      wait_time_ms: 0
+      wait_time_ms: 1000
     # You can verify that this test works by commenting out this line. It should fail.
     stop_if: !expr $.steps.short_wait.outputs
     # Delay needs to be delayed long enough to ensure that it's in a deploy state when it's cancelled by short_wait
