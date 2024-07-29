@@ -3,6 +3,7 @@ package foreach
 import (
 	"context"
 	"fmt"
+	"go.arcalot.io/dgraph"
 	"reflect"
 	"sync"
 
@@ -46,9 +47,9 @@ var executeLifecycleStage = step.LifecycleStage{
 		"items":    {},
 		"wait_for": {},
 	},
-	NextStages: []string{
-		string(StageIDOutputs),
-		string(StageIDFailed),
+	NextStages: map[string]dgraph.DependencyType{
+		string(StageIDOutputs): dgraph.AndDependency,
+		string(StageIDFailed):  dgraph.CompletionAndDependency,
 	},
 	Fatal: false,
 }
@@ -58,7 +59,7 @@ var outputLifecycleStage = step.LifecycleStage{
 	RunningName:  "output",
 	FinishedName: "output",
 	InputFields:  map[string]struct{}{},
-	NextStages:   []string{},
+	NextStages:   map[string]dgraph.DependencyType{},
 	Fatal:        false,
 }
 var errorLifecycleStage = step.LifecycleStage{
@@ -67,7 +68,7 @@ var errorLifecycleStage = step.LifecycleStage{
 	RunningName:  "processing error",
 	FinishedName: "error",
 	InputFields:  map[string]struct{}{},
-	NextStages:   []string{},
+	NextStages:   map[string]dgraph.DependencyType{},
 	Fatal:        true,
 }
 
@@ -156,7 +157,7 @@ func (l *forEachProvider) LoadSchema(inputs map[string]any, workflowContext map[
 		return nil, err
 	}
 
-	executor, err := l.executorFactory(l.logger)
+	executor, err := l.executorFactory(l.logger.WithLabel("subworkflow", workflowFileName.(string)))
 	if err != nil {
 		return nil, err
 	}
@@ -359,6 +360,7 @@ type runningStep struct {
 	inputAvailable     bool
 	inputData          chan []any
 	ctx                context.Context
+	closed             bool
 	wg                 sync.WaitGroup
 	cancel             context.CancelFunc
 	stageChangeHandler step.StageChangeHandler
@@ -368,6 +370,11 @@ type runningStep struct {
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {
 	r.lock.Lock()
+	defer r.lock.Unlock()
+	if r.closed {
+		r.logger.Debugf("exiting foreach ProvideStageInput due to step being closed")
+		return nil
+	}
 	switch stage {
 	case string(StageIDExecute):
 		items := input["items"]
@@ -377,30 +384,24 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			item := v.Index(i).Interface()
 			_, err := r.workflow.Input().Unserialize(item)
 			if err != nil {
-				r.lock.Unlock()
 				return fmt.Errorf("invalid input item %d for subworkflow (%w) for run/step %s", i, err, r.runID)
 			}
 			input[i] = item
 		}
 		if r.inputAvailable {
-			r.lock.Unlock()
 			return fmt.Errorf("input for execute workflow provided twice for run/step %s", r.runID)
 		}
 		if r.currentState == step.RunningStepStateWaitingForInput && r.currentStage == StageIDExecute {
 			r.currentState = step.RunningStepStateRunning
 		}
 		r.inputAvailable = true
-		r.lock.Unlock()
-		r.inputData <- input
+		r.inputData <- input // Send before unlock to ensure that it never gets closed before sending.
 		return nil
 	case string(StageIDOutputs):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDFailed):
-		r.lock.Unlock()
 		return nil
 	default:
-		r.lock.Unlock()
 		return fmt.Errorf("invalid stage: %s", stage)
 	}
 }
@@ -418,8 +419,13 @@ func (r *runningStep) State() step.RunningStepState {
 }
 
 func (r *runningStep) Close() error {
+	r.lock.Lock()
+	r.closed = true
+	r.lock.Unlock()
 	r.cancel()
 	r.wg.Wait()
+	r.logger.Debugf("Closing inputData channel in foreach step provider")
+	close(r.inputData)
 	return nil
 }
 
@@ -431,7 +437,7 @@ func (r *runningStep) ForceClose() error {
 func (r *runningStep) run() {
 	r.wg.Add(1)
 	defer func() {
-		close(r.inputData)
+		r.logger.Debugf("foreach run function done")
 		r.wg.Done()
 	}()
 	waitingForInput := false
@@ -452,95 +458,122 @@ func (r *runningStep) run() {
 		waitingForInput,
 		&r.wg,
 	)
+	r.runOnInput()
+}
+
+func (r *runningStep) runOnInput() {
 	select {
 	case loopData, ok := <-r.inputData:
 		if !ok {
+			r.logger.Debugf("aborted waiting for result in foreach")
 			return
 		}
-
-		itemOutputs := make([]any, len(loopData))
-		itemErrors := make(map[int]string, len(loopData))
-
-		r.logger.Debugf("Executing subworkflow for step %s...", r.runID)
-		wg := &sync.WaitGroup{}
-		wg.Add(len(loopData))
-		errors := false
-		sem := make(chan struct{}, r.parallelism)
-		for i, input := range loopData {
-			i := i
-			input := input
-			go func() {
-				defer func() {
-					<-sem
-					wg.Done()
-				}()
-				r.logger.Debugf("Queuing item %d...", i)
-				select {
-				case sem <- struct{}{}:
-				case <-r.ctx.Done():
-					r.logger.Debugf("Aborting item %d execution.", i)
-					return
-				}
-
-				r.logger.Debugf("Executing item %d...", i)
-				// Ignore the output ID here because it can only be "success"
-				_, outputData, err := r.workflow.Execute(r.ctx, input)
-				r.lock.Lock()
-				if err != nil {
-					errors = true
-					itemErrors[i] = err.Error()
-				} else {
-					itemOutputs[i] = outputData
-				}
-				r.lock.Unlock()
-				r.logger.Debugf("Item %d complete.", i)
-			}()
-		}
-		wg.Wait()
-		r.logger.Debugf("Subworkflow %s complete.", r.runID)
-		r.lock.Lock()
-		previousStage := string(r.currentStage)
-		r.currentState = step.RunningStepStateRunning
-		var outputID string
-		var outputData any
-		if errors {
-			r.currentStage = StageIDFailed
-			outputID = "error"
-			dataMap := make(map[int]any, len(loopData))
-			for i, entry := range itemOutputs {
-				if entry != nil {
-					dataMap[i] = entry
-				}
-			}
-			outputData = map[string]any{
-				"data":     dataMap,
-				"messages": itemErrors,
-			}
-		} else {
-			r.currentStage = StageIDOutputs
-			outputID = "success"
-			outputData = map[string]any{
-				"data": itemOutputs,
-			}
-		}
-		currentStage := r.currentStage
-		r.lock.Unlock()
-		r.stageChangeHandler.OnStageChange(
-			r,
-			&previousStage,
-			nil,
-			nil,
-			string(currentStage),
-			false,
-			&r.wg,
-		)
-		r.lock.Lock()
-		r.currentState = step.RunningStepStateFinished
-		previousStage = string(r.currentStage)
-		r.lock.Unlock()
-		r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData, &r.wg)
+		r.processInput(loopData)
 	case <-r.ctx.Done():
+		r.logger.Debugf("context done")
 		return
 	}
+}
 
+func (r *runningStep) processInput(inputData []any) {
+	r.logger.Debugf("Executing subworkflow for step %s...", r.runID)
+	outputs, errors := r.executeSubWorkflows(inputData)
+
+	r.logger.Debugf("Subworkflow %s complete.", r.runID)
+	r.lock.Lock()
+	previousStage := string(r.currentStage)
+	r.currentState = step.RunningStepStateRunning
+	var outputID string
+	var outputData any
+	var unresolvableStage StageID
+	var unresolvableError error
+	if len(errors) > 0 {
+		r.currentStage = StageIDFailed
+		unresolvableStage = StageIDOutputs
+		unresolvableError = fmt.Errorf("foreach subworkflow failed with errors (%v)", errors)
+		outputID = "error"
+		dataMap := make(map[int]any, len(inputData))
+		for i, entry := range outputs {
+			if entry != nil {
+				dataMap[i] = entry
+			}
+		}
+		outputData = map[string]any{
+			"data":     dataMap,
+			"messages": errors,
+		}
+	} else {
+		r.currentStage = StageIDOutputs
+		unresolvableStage = StageIDFailed
+		unresolvableError = fmt.Errorf("foreach succeeded, so error case is unresolvable")
+		outputID = "success"
+		outputData = map[string]any{
+			"data": outputs,
+		}
+	}
+	currentStage := r.currentStage
+	r.lock.Unlock()
+	r.stageChangeHandler.OnStageChange(
+		r,
+		&previousStage,
+		nil,
+		nil,
+		string(currentStage),
+		false,
+		&r.wg,
+	)
+	r.stageChangeHandler.OnStepStageFailure(
+		r,
+		string(unresolvableStage),
+		&r.wg,
+		unresolvableError,
+	)
+	r.lock.Lock()
+	r.currentState = step.RunningStepStateFinished
+	previousStage = string(r.currentStage)
+	r.lock.Unlock()
+	r.stageChangeHandler.OnStepComplete(r, previousStage, &outputID, &outputData, &r.wg)
+}
+
+// returns true if there is an error.
+func (r *runningStep) executeSubWorkflows(inputData []any) ([]any, map[int]string) {
+	itemOutputs := make([]any, len(inputData))
+	itemErrors := make(map[int]string, len(inputData))
+	wg := &sync.WaitGroup{}
+	wg.Add(len(inputData))
+	sem := make(chan struct{}, r.parallelism)
+	for i, input := range inputData {
+		i := i
+		input := input
+		go func() {
+			defer func() {
+				select {
+				case <-sem:
+				case <-r.ctx.Done(): // Must not deadlock if closed early.
+				}
+				wg.Done()
+			}()
+			r.logger.Debugf("Queuing item %d...", i)
+			select {
+			case sem <- struct{}{}:
+			case <-r.ctx.Done():
+				r.logger.Debugf("Aborting item %d execution.", i)
+				return
+			}
+
+			r.logger.Debugf("Executing item %d...", i)
+			// Ignore the output ID here because it can only be "success"
+			_, outputData, err := r.workflow.Execute(r.ctx, input)
+			r.lock.Lock()
+			if err != nil {
+				itemErrors[i] = err.Error()
+			} else {
+				itemOutputs[i] = outputData
+			}
+			r.lock.Unlock()
+			r.logger.Debugf("Item %d complete.", i)
+		}()
+	}
+	wg.Wait()
+	return itemOutputs, itemErrors
 }

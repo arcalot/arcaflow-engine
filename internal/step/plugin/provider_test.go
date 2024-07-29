@@ -46,6 +46,10 @@ func (s *deployFailStageChangeHandler) OnStepComplete(
 	s.message <- message
 }
 
+func (s *deployFailStageChangeHandler) OnStepStageFailure(_ step.RunningStep, _ string, _ *sync.WaitGroup, _ error) {
+
+}
+
 type startFailStageChangeHandler struct {
 	message chan string
 }
@@ -79,6 +83,10 @@ func (s *startFailStageChangeHandler) OnStepComplete(
 	s.message <- message
 }
 
+func (s *startFailStageChangeHandler) OnStepStageFailure(_ step.RunningStep, _ string, _ *sync.WaitGroup, _ error) {
+
+}
+
 type stageChangeHandler struct {
 	message chan string
 }
@@ -109,6 +117,10 @@ func (s *stageChangeHandler) OnStepComplete(
 	message := (*previousStageOutput).(map[any]any)["message"].(string)
 
 	s.message <- message
+}
+
+func (s *stageChangeHandler) OnStepStageFailure(_ step.RunningStep, _ string, _ *sync.WaitGroup, _ error) {
+
 }
 
 func TestProvider_MissingDeployer(t *testing.T) {

@@ -30,10 +30,10 @@ func (l Lifecycle[StageType]) DAG() (dgraph.DirectedGraph[StageType], error) {
 		}
 	}
 	for _, stage := range l.Stages {
-		node := lang.Must2(dag.GetNodeByID(stage.Identifier()))
-		for _, nextStage := range stage.NextStageIDs() {
-			if err := node.Connect(nextStage); err != nil {
-				return nil, fmt.Errorf("failed to connect lifecycle stage %s to %s (%w)", node.ID(), nextStage, err)
+		for nextStage, dependencyType := range stage.NextStageIDs() {
+			nextStageNode := lang.Must2(dag.GetNodeByID(nextStage))
+			if err := nextStageNode.ConnectDependency(stage.Identifier(), dependencyType); err != nil {
+				return nil, fmt.Errorf("failed to connect lifecycle stage %s to %s (%w)", stage.Identifier(), nextStage, err)
 			}
 		}
 	}
@@ -52,7 +52,7 @@ type lifecycleStage interface {
 	// Identifier returns the ID of the stage.
 	Identifier() string
 	// NextStageIDs returns the next stage identifiers.
-	NextStageIDs() []string
+	NextStageIDs() map[string]dgraph.DependencyType
 }
 
 // LifecycleStage is the description of a single stage within a step lifecycle.
@@ -72,7 +72,7 @@ type LifecycleStage struct {
 	// will pause if there is no input available.
 	// It will automatically create a DAG node between the current and the described next stages to ensure
 	// that it is running in order.
-	NextStages []string
+	NextStages map[string]dgraph.DependencyType
 	// Fatal indicates that this stage should be treated as fatal unless handled by the workflow.
 	Fatal bool
 }
@@ -83,7 +83,7 @@ func (l LifecycleStage) Identifier() string {
 }
 
 // NextStageIDs is a helper function that returns the next possible stages.
-func (l LifecycleStage) NextStageIDs() []string {
+func (l LifecycleStage) NextStageIDs() map[string]dgraph.DependencyType {
 	return l.NextStages
 }
 

@@ -56,6 +56,15 @@ type StageChangeHandler interface {
 		previousStageOutput *any,
 		wg *sync.WaitGroup,
 	)
+
+	// OnStepStageFailure is called when it becomes known that the step's stage will not produce an output.
+	// The error is optional.
+	OnStepStageFailure(
+		step RunningStep,
+		stage string,
+		wg *sync.WaitGroup,
+		err error,
+	)
 }
 
 // RunnableStep is a step that already has a schema and can be run.
