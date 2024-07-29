@@ -6,6 +6,7 @@ import (
 	"go.arcalot.io/dgraph"
 	"go.flow.arcalot.io/pluginsdk/plugin"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -160,7 +161,8 @@ const (
 	StageIDOutput StageID = "outputs"
 	// StageIDCrashed is a stage that indicates that the plugin has quit unexpectedly.
 	StageIDCrashed StageID = "crashed"
-	// StageIDClosed is a stage that indicates that the plugin has exited due to workflow termination.
+	// StageIDClosed is a stage that indicates that the plugin has exited due to workflow
+	// termination or step cancellation.
 	StageIDClosed StageID = "closed"
 	// StageIDStarting is a stage that indicates that the plugin execution has begun.
 	StageIDStarting StageID = "starting"
@@ -445,6 +447,8 @@ func (r *runnableStep) DisabledOutputSchema() *schema.StepOutputSchema {
 	)
 }
 
+const DEFAULT_CLOSURE_TIMEOUT = 5000
+
 func closureTimeoutSchema() *schema.PropertySchema {
 	return schema.NewPropertySchema(
 		schema.NewIntSchema(schema.PointerTo(int64(0)), nil, nil),
@@ -458,7 +462,7 @@ func closureTimeoutSchema() *schema.PropertySchema {
 		nil,
 		nil,
 		nil,
-		schema.PointerTo("5000"), // Default 5 seconds.
+		schema.PointerTo(strconv.FormatInt(DEFAULT_CLOSURE_TIMEOUT, 10)),
 		nil,
 	)
 }
@@ -936,7 +940,7 @@ func (r *runningStep) provideStartingInput(input map[string]any) error {
 		}
 		timeout = unserializedTimeout.(int64)
 	} else {
-		timeout = 5000
+		timeout = DEFAULT_CLOSURE_TIMEOUT
 	}
 
 	// Make sure we transition the state before unlocking so there are no race conditions.
@@ -1034,7 +1038,6 @@ func (r *runningStep) forceCloseInternal() error {
 }
 
 func (r *runningStep) forceClose() error {
-	r.closed.Store(true)
 	r.cancel()
 	err := r.closeComponents(false)
 	return err
@@ -1352,7 +1355,7 @@ func (r *runningStep) startStage(container deployer.Plugin) (bool, int64, error)
 	return false, runInput.forceCloseTimeoutMS, nil
 }
 
-func (r *runningStep) runStage(forCloseWaitMS int64) error {
+func (r *runningStep) runStage(forceCloseTimeoutMS int64) error {
 	r.logger.Debugf("Running stage for step %s/%s", r.runID, r.pluginStepID)
 	startedOutput := any(map[any]any{})
 	r.transitionStageWithOutput(StageIDRunning, step.RunningStepStateRunning, schema.PointerTo("started"), &startedOutput)
@@ -1363,7 +1366,7 @@ func (r *runningStep) runStage(forCloseWaitMS int64) error {
 	case <-r.ctx.Done():
 		// In this case, it is being instructed to stop. A cancellation signal should be sent if supported.
 		if r.hasCancellationHandler() {
-			r.logger.Debugf("Got step context done before step run complete. Sending cancellation signal. Waiting up to %d milliseconds for result.", forCloseWaitMS)
+			r.logger.Debugf("Got step context done before step run complete. Sending cancellation signal. Waiting up to %d milliseconds for result.", forceCloseTimeoutMS)
 			r.lock.Lock()
 			r.cancelStep()
 			r.lock.Unlock()
@@ -1376,9 +1379,9 @@ func (r *runningStep) runStage(forCloseWaitMS int64) error {
 		select {
 		case result = <-r.executionChannel:
 			// Successfully stopped before end of timeout.
-		case <-time.After(time.Duration(forCloseWaitMS) * time.Millisecond):
+		case <-time.After(time.Duration(forceCloseTimeoutMS) * time.Millisecond):
 			r.logger.Warningf("Cancelled step %s/%s did not complete within the %d millisecond time limit. Force closing container.",
-				r.runID, r.pluginStepID, forCloseWaitMS)
+				r.runID, r.pluginStepID, forceCloseTimeoutMS)
 			if err := r.forceCloseInternal(); err != nil {
 				r.logger.Warningf("Error in step %s/%s while closing plugin container (%s)", r.runID, r.pluginStepID, err.Error())
 				return fmt.Errorf("step closed after timeout without result with error (%s)", err.Error())

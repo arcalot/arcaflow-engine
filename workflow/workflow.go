@@ -218,7 +218,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 		lastErrors := l.handleErrors()
 		if lastErrors == nil {
 			e.logger.Warningf(
-				"Workflow execution aborted. Waiting 6 more seconds for output (%w)",
+				"Workflow execution aborted. Waiting for output before terminating (%w)",
 				lastErrors)
 		} else {
 			return "", nil, lastErrors
@@ -259,9 +259,10 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 func (e *executableWorkflow) handleOutput(l *loopState, outputDataEntry outputDataType) (outputID string, outputData any, err error) {
 	lastErrors := l.handleErrors()
 	if lastErrors != nil {
-		e.logger.Warningf("errors occurred alongside completed output (%s)", lastErrors.Error())
+		e.logger.Warningf("output completed with errors (%s)", lastErrors.Error())
+	} else {
+		e.logger.Debugf("output complete.")
 	}
-	e.logger.Debugf("Output complete.")
 	outputID = outputDataEntry.outputID
 	outputData = outputDataEntry.outputData
 	outputSchema, ok := e.outputSchema[outputID]
@@ -524,7 +525,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		// untypedInputData stores the resolved data
 		untypedInputData, err := l.resolveExpressions(inputData, l.data)
 		if err != nil {
-			// An error here often indicates a locking issue in a step provider. This would be caused
+			// An error here often indicates a locking issue in a step provider. This could be caused
 			// by the lock not being held when the output was marked resolved.
 			panic(fmt.Errorf("cannot resolve expressions for %s (%w)", nodeID, err))
 		}

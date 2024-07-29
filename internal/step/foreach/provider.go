@@ -370,9 +370,9 @@ type runningStep struct {
 
 func (r *runningStep) ProvideStageInput(stage string, input map[string]any) error {
 	r.lock.Lock()
+	defer r.lock.Unlock()
 	if r.closed {
 		r.logger.Debugf("exiting foreach ProvideStageInput due to step being closed")
-		r.lock.Unlock()
 		return nil
 	}
 	switch stage {
@@ -384,13 +384,11 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 			item := v.Index(i).Interface()
 			_, err := r.workflow.Input().Unserialize(item)
 			if err != nil {
-				r.lock.Unlock()
 				return fmt.Errorf("invalid input item %d for subworkflow (%w) for run/step %s", i, err, r.runID)
 			}
 			input[i] = item
 		}
 		if r.inputAvailable {
-			r.lock.Unlock()
 			return fmt.Errorf("input for execute workflow provided twice for run/step %s", r.runID)
 		}
 		if r.currentState == step.RunningStepStateWaitingForInput && r.currentStage == StageIDExecute {
@@ -398,16 +396,12 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		}
 		r.inputAvailable = true
 		r.inputData <- input // Send before unlock to ensure that it never gets closed before sending.
-		r.lock.Unlock()
 		return nil
 	case string(StageIDOutputs):
-		r.lock.Unlock()
 		return nil
 	case string(StageIDFailed):
-		r.lock.Unlock()
 		return nil
 	default:
-		r.lock.Unlock()
 		return fmt.Errorf("invalid stage: %s", stage)
 	}
 }

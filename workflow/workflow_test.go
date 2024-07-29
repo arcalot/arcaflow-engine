@@ -242,7 +242,7 @@ steps:
     # Delay needs to be delayed long enough to ensure that it's in a deploy state when it's cancelled by short_wait
     deploy:
       deployer_name: "test-impl"
-      deploy_time: 10 # ms 
+      deploy_time: 20 # ms
   short_wait:
     plugin:
       src: "n/a"
@@ -847,7 +847,7 @@ func TestEarlyContextCancellation(t *testing.T) {
 	))
 	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(fourSecWaitWorkflowDefinition)))
 	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{}))
-	// Cancel the context after 30 ms to simulate cancellation with ctrl-c.
+	// Cancel the context after a timeout to simulate cancellation with ctrl-c.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 	startTime := time.Now() // Right before execute to not include pre-processing time.
 	//nolint:dogsled
@@ -1451,7 +1451,7 @@ steps:
     stop_if: !expr '$.input.fail_purposefully'
     deploy:
       deployer_name: "test-impl"
-      deploy_time: 10 # 10 ms of delay to make the cancellation more reliable.
+      deploy_time: 10 # (ms) delay to make the cancellation more reliable.
   long_wait:
     plugin:
       src: "n/a"
