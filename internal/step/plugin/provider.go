@@ -447,7 +447,7 @@ func (r *runnableStep) DisabledOutputSchema() *schema.StepOutputSchema {
 	)
 }
 
-const DEFAULT_CLOSURE_TIMEOUT = 5000
+const defaultClosureTimeout = 5000
 
 func closureTimeoutSchema() *schema.PropertySchema {
 	return schema.NewPropertySchema(
@@ -462,7 +462,7 @@ func closureTimeoutSchema() *schema.PropertySchema {
 		nil,
 		nil,
 		nil,
-		schema.PointerTo(strconv.FormatInt(DEFAULT_CLOSURE_TIMEOUT, 10)),
+		schema.PointerTo(strconv.FormatInt(defaultClosureTimeout, 10)),
 		nil,
 	)
 }
@@ -940,7 +940,7 @@ func (r *runningStep) provideStartingInput(input map[string]any) error {
 		}
 		timeout = unserializedTimeout.(int64)
 	} else {
-		timeout = DEFAULT_CLOSURE_TIMEOUT
+		timeout = defaultClosureTimeout
 	}
 
 	// Make sure we transition the state before unlocking so there are no race conditions.
