@@ -6,7 +6,7 @@ require (
 	go.arcalot.io/assert v1.8.0
 	go.arcalot.io/dgraph v1.4.1
 	go.arcalot.io/lang v1.1.0
-	go.arcalot.io/log/v2 v2.1.0
+	go.arcalot.io/log/v2 v2.2.0
 	go.flow.arcalot.io/deployer v0.6.1
 	go.flow.arcalot.io/dockerdeployer v0.7.2
 	go.flow.arcalot.io/expressions v0.4.3
