@@ -221,6 +221,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				"Workflow execution aborted. Waiting for output before terminating (%w)",
 				lastErrors)
 		} else {
+			e.logger.Debugf("Workflow execution exited with error after context done")
 			return "", nil, lastErrors
 		}
 		timedContext, cancelFunction := context.WithTimeout(context.Background(), 5*time.Second)
@@ -261,7 +262,7 @@ func (e *executableWorkflow) handleOutput(l *loopState, outputDataEntry outputDa
 	if lastErrors != nil {
 		e.logger.Warningf("output completed with errors (%s)", lastErrors.Error())
 	} else {
-		e.logger.Debugf("output complete.")
+		e.logger.Debugf("output complete with output ID %s", outputDataEntry.outputID)
 	}
 	outputID = outputDataEntry.outputID
 	outputData = outputDataEntry.outputData
@@ -503,7 +504,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 				// Check to see if there are any remaining output nodes, and if there aren't,
 				// cancel the context.
 				delete(l.waitingOutputs, nodeID)
-				if len(l.waitingOutputs) == 0 {
+				if len(l.waitingOutputs) == 0 && !l.outputDone {
 					l.recentErrors <- &ErrNoMorePossibleOutputs{
 						l.dag,
 					}

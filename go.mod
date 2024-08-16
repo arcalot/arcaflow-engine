@@ -11,10 +11,10 @@ require (
 	go.flow.arcalot.io/dockerdeployer v0.7.2
 	go.flow.arcalot.io/expressions v0.4.3
 	go.flow.arcalot.io/kubernetesdeployer v0.9.3
-	go.flow.arcalot.io/pluginsdk v0.12.3
+	go.flow.arcalot.io/pluginsdk v0.12.5
 	go.flow.arcalot.io/podmandeployer v0.11.2
 	go.flow.arcalot.io/pythondeployer v0.6.1
-	go.flow.arcalot.io/testdeployer v0.6.1
+	go.flow.arcalot.io/testdeployer v0.6.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -57,7 +57,7 @@ require (
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.arcalot.io/exex v0.2.0 // indirect
-	go.flow.arcalot.io/testplugin v0.4.1 // indirect
+	go.flow.arcalot.io/testplugin v0.4.2 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.52.0 // indirect
 	go.opentelemetry.io/otel v1.27.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.27.0 // indirect
@@ -66,8 +66,8 @@ require (
 	go.opentelemetry.io/proto/otlp v1.2.0 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
-	golang.org/x/term v0.22.0 // indirect
+	golang.org/x/sys v0.24.0 // indirect
+	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/grpc v1.64.0 // indirect

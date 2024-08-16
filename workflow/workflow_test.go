@@ -362,7 +362,7 @@ outputs:
 `
 
 func TestWaitForSerial(t *testing.T) {
-	// For this test, a workflow runs two steps, where each step runs a wait step for 5s
+	// For this test, a workflow runs two steps, where each step runs a wait step for 10ms
 	// The second wait step waits for the first to succeed after which it runs
 	// Due to the wait for condition, the steps will execute serially
 	// The total execution time for this test function should be greater than 10seconds
@@ -525,7 +525,7 @@ steps:
       wait_time_ms: !expr $.input.wait_time_ms
 outputs:
   success:
-    b: !expr $.steps.wait_1.outputs   
+    b: !expr $.steps.wait_1.outputs
 `
 
 func TestWaitForSerial_Foreach(t *testing.T) {
@@ -539,7 +539,7 @@ func TestWaitForSerial_Foreach(t *testing.T) {
 	// run serially.
 
 	logConfig := log.Config{
-		Level:       log.LevelInfo,
+		Level:       log.LevelDebug,
 		Destination: log.DestinationStdout,
 	}
 	logger := log.New(
