@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-var versionExp = "v0.2.0"
+var testVersionExp = "v0.2.0"
 var inputExp = map[string]any{
 	"root": "RootObject",
 	"objects": map[string]any{
@@ -24,9 +24,9 @@ var stepsExp = map[string]any{
 		"input": map[string]any{
 			"wait_time_ms": 1}},
 }
-var outputID = "success"
+var testExpectedOutputID = "success"
 var outputsExp = map[string]any{
-	outputID: "!expr $.steps.long_wait.outputs",
+	testExpectedOutputID: "!expr $.steps.long_wait.outputs",
 }
 var outputSchemaRootID = "RootObjectOut"
 var stepOutputSchemaInput = map[string]any{
@@ -42,10 +42,10 @@ var stepOutputSchemaInput = map[string]any{
 						}}}}}},
 }
 var outputSchemaInput = map[string]any{
-	outputID: stepOutputSchemaInput,
+	testExpectedOutputID: stepOutputSchemaInput,
 }
 var workflowSchemaInput = map[string]any{
-	"version":      versionExp,
+	"version":      testVersionExp,
 	"input":        inputExp,
 	"steps":        stepsExp,
 	"outputs":      outputsExp,
