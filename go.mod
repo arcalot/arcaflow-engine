@@ -8,11 +8,11 @@ require (
 	go.arcalot.io/lang v1.1.0
 	go.arcalot.io/log/v2 v2.2.0
 	go.flow.arcalot.io/deployer v0.6.1
-	go.flow.arcalot.io/dockerdeployer v0.7.2
+	go.flow.arcalot.io/dockerdeployer v0.7.3
 	go.flow.arcalot.io/expressions v0.4.3
 	go.flow.arcalot.io/kubernetesdeployer v0.9.3
 	go.flow.arcalot.io/pluginsdk v0.12.5
-	go.flow.arcalot.io/podmandeployer v0.11.2
+	go.flow.arcalot.io/podmandeployer v0.11.3
 	go.flow.arcalot.io/pythondeployer v0.6.1
 	go.flow.arcalot.io/testdeployer v0.6.2
 	gopkg.in/yaml.v3 v3.0.1
@@ -24,7 +24,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v26.1.4+incompatible // indirect
+	github.com/docker/docker v27.1.2+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
@@ -58,18 +58,18 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.arcalot.io/exex v0.2.0 // indirect
 	go.flow.arcalot.io/testplugin v0.4.2 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.52.0 // indirect
-	go.opentelemetry.io/otel v1.27.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0 // indirect
+	go.opentelemetry.io/otel v1.28.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.27.0 // indirect
-	go.opentelemetry.io/otel/metric v1.27.0 // indirect
-	go.opentelemetry.io/otel/trace v1.27.0 // indirect
+	go.opentelemetry.io/otel/metric v1.28.0 // indirect
+	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.2.0 // indirect
-	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
+	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/time v0.6.0 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
