@@ -23,6 +23,7 @@ func Test_LoadContext(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
 
 	// Randomize the number to prevent collisions when running the test many times with -count
+	//nolint:gosec  // This is not related to security.
 	randSeed := strconv.Itoa(rand.Int())
 
 	// create a directory
