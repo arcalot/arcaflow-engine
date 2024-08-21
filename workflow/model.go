@@ -2,12 +2,10 @@ package workflow
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
-
 	"go.arcalot.io/dgraph"
 	"go.flow.arcalot.io/engine/internal/step"
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"regexp"
 )
 
 // Workflow is the primary data structure describing workflows.
@@ -229,28 +227,21 @@ type ErrNoMorePossibleSteps struct {
 
 // Error returns an explanation on why the error happened.
 func (e ErrNoMorePossibleSteps) Error() string {
-	var outputsUnmetDependencies []string //nolint:prealloc
-	for _, node := range e.dag.ListNodes() {
-		if node.Item().Kind != DAGItemKindOutput {
-			continue
-		}
-		var unmetDependencies []string
-		inbound, err := node.ListInboundConnections()
-		if err != nil {
-			panic(fmt.Errorf("failed to fetch output node inbound dependencies (%w)", err))
-		}
-		for i := range inbound {
-			unmetDependencies = append(unmetDependencies, i)
-		}
-		outputsUnmetDependencies = append(
-			outputsUnmetDependencies,
-			fmt.Sprintf("%s: %s", node.Item().OutputID, strings.Join(unmetDependencies, ", ")),
-		)
-	}
 	return fmt.Sprintf(
-		"no steps running, no more executable steps, cannot construct any output (outputs have the following dependencies: %s)",
-		strings.Join(outputsUnmetDependencies, "; "),
+		"no steps running, no more executable steps; cannot construct any output." +
+			" this is the fallback system, indicating a failure of the output resolution system",
 	)
+}
+
+// ErrNoMorePossibleOutputs indicates that the workflow has terminated due to it being impossible to resolve an output.
+// This means that steps that the output(s) depended on did not have the required results.
+type ErrNoMorePossibleOutputs struct {
+	dag dgraph.DirectedGraph[*DAGItem]
+}
+
+// Error returns an explanation on why the error happened.
+func (e ErrNoMorePossibleOutputs) Error() string {
+	return "all outputs marked as unresolvable"
 }
 
 // ErrInvalidState indicates that the workflow failed due to an invalid state.

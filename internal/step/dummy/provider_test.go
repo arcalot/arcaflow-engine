@@ -14,6 +14,9 @@ type stageChangeHandler struct {
 	message chan string
 }
 
+func (s *stageChangeHandler) OnStepStageFailure(_ step.RunningStep, _ string, _ *sync.WaitGroup, _ error) {
+}
+
 func (s *stageChangeHandler) OnStageChange(_ step.RunningStep, _ *string, _ *string, _ *any, _ string, _ bool, _ *sync.WaitGroup) {
 
 }
