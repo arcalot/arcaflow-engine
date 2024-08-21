@@ -4,8 +4,10 @@ import (
 	"go.arcalot.io/assert"
 	"go.flow.arcalot.io/engine/loadfile"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -20,13 +22,16 @@ func Test_LoadContext(t *testing.T) {
 	testdir := filepath.Join(TestDir, "load-ctx")
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
 
+	// Randomize the number to prevent collisions when running the test many times with -count
+	randSeed := strconv.Itoa(rand.Int())
+
 	// create a directory
-	dirname := "mydir"
+	dirname := "mydir" + randSeed
 	dirpath := filepath.Join(testdir, dirname)
 	assert.NoError(t, os.MkdirAll(dirpath, os.ModePerm))
 
 	// create a file
-	filename := "myfile"
+	filename := "myfile" + randSeed
 	filePath := filepath.Join(testdir, filename)
 	f, err := os.Create(filepath.Clean(filePath))
 	assert.NoError(t, err)
