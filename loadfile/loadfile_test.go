@@ -23,6 +23,7 @@ func Test_LoadContext(t *testing.T) {
 	// create a directory
 	dirPrefix := "mydir"
 	dirPath, err := os.MkdirTemp(testdir, dirPrefix+"*")
+	assert.NoError(t, err)
 
 	// create a file
 	filenamePrefix := "myfile"
