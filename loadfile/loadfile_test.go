@@ -25,8 +25,7 @@ func Test_LoadContext(t *testing.T) {
 	assert.NoError(t, err)
 
 	// create a file
-	filenamePrefix := "myfile"
-	f, err := os.CreateTemp(dirPath, filenamePrefix)
+	f, err := os.CreateTemp(dirPath, "myfile")
 	assert.NoError(t, err)
 	filePath := f.Name()
 	assert.NoError(t, f.Close())
