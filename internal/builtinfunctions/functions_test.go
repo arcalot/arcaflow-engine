@@ -949,6 +949,7 @@ func TestHandleTypeSchemaCombine(t *testing.T) {
 			listItemObj, isObj := schema.ConvertToObjectSchema(outputType.(*schema.ListSchema).ItemsValue)
 			assert.Equals(t, isObj, true)
 			assert.Equals(t, listItemObj.ID(), lclInput.expectedResult)
+			assert.Equals(t, listItemObj.IDUnenforced(), true)
 		})
 	}
 }
