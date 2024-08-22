@@ -21,8 +21,7 @@ func Test_LoadContext(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
 
 	// create a directory
-	dirPrefix := "mydir"
-	dirPath, err := os.MkdirTemp(testdir, dirPrefix)
+	dirPath, err := os.MkdirTemp(testdir, "mydir")
 	assert.NoError(t, err)
 
 	// create a file
