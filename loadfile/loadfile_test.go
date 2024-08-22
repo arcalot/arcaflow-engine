@@ -21,21 +21,18 @@ func Test_LoadContext(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
 
 	// create a directory
-	dirname := "mydir"
-	dirpath := filepath.Join(testdir, dirname)
-	assert.NoError(t, os.MkdirAll(dirpath, os.ModePerm))
+	dirPath, err := os.MkdirTemp(testdir, "mydir")
+	assert.NoError(t, err)
 
 	// create a file
-	filename := "myfile"
-	filePath := filepath.Join(testdir, filename)
-	f, err := os.Create(filepath.Clean(filePath))
+	f, err := os.CreateTemp(dirPath, "myfile")
 	assert.NoError(t, err)
+	filePath := f.Name()
 	assert.NoError(t, f.Close())
 
 	// create symlink to the directory
-	symlinkDirname := dirname + "_sym"
-	symlinkDirpath := filepath.Join(testdir, symlinkDirname)
-	assert.NoError(t, os.Symlink(dirpath, symlinkDirpath))
+	symlinkDirname := dirPath + "_sym"
+	assert.NoError(t, os.Symlink(dirPath, symlinkDirname))
 
 	// create symlink to the file
 	symlinkFilepath := filePath + "_sym"
@@ -62,7 +59,7 @@ func Test_LoadContext(t *testing.T) {
 	errFileRead := "reading file"
 	// error on loading a directory
 	neededFiles = map[string]string{
-		dirpath: dirpath,
+		dirPath: dirPath,
 	}
 	fc, err = loadfile.NewFileCacheUsingContext(testdir, neededFiles)
 	assert.NoError(t, err)
@@ -72,7 +69,7 @@ func Test_LoadContext(t *testing.T) {
 
 	// error on loading a symlink directory
 	neededFiles = map[string]string{
-		symlinkDirpath: symlinkDirpath,
+		symlinkDirname: symlinkDirname,
 	}
 	fc, err = loadfile.NewFileCacheUsingContext(testdir, neededFiles)
 	assert.NoError(t, err)
