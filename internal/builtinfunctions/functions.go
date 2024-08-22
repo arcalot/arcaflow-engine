@@ -623,7 +623,7 @@ func HandleTypeSchemaCombine(inputType []schema.Type) (schema.Type, error) {
 	constantsTypeArg := inputType[1]
 	combinedObjectName := schemaName(itemType) + CombinedObjIDDelimiter + schemaName(constantsTypeArg)
 	return schema.NewListSchema(
-		schema.NewObjectSchema(
+		schema.NewUnenforcedIDObjectSchema(
 			combinedObjectName,
 			map[string]*schema.PropertySchema{
 				CombinedObjPropertyItemName:     schema.NewPropertySchema(itemType, nil, false, nil, nil, nil, nil, nil),
