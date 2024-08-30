@@ -1270,6 +1270,55 @@ func TestInputDisabledStepWorkflow(t *testing.T) {
 	}
 }
 
+var gracefullyDisabledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_enabled
+outputs:
+  both:
+    simple_wait_output: !oneof
+      discriminator: "result"
+      one_of:
+        success_wait_output: !expr $.steps.simple_wait.outputs.success
+        disabled_wait_output: !expr $.steps.simple_wait.disabled.output
+`
+
+func TestGracefullyDisabledStepWorkflow(t *testing.T) {
+	// Run a workflow where both the disabled output and the success output
+	// result in a single valid workflow output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, gracefullyDisabledStepWorkflow),
+	)
+	// TODO: Switch to a single output
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "both")
+	// Test step disabled case
+	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "both")
+}
+
 var dynamicDisabledStepWorkflow = `
 version: v0.2.0
 input:

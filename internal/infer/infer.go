@@ -76,6 +76,13 @@ func Type(
 		}
 		return expressionType, nil
 	}
+	if oneOfExpression, ok := data.(OneOfExpression); ok {
+		oneOfType, err := oneOfExpression.Type(internalDataModel, functions, workflowContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", oneOfExpression.String(), err)
+		}
+		return oneOfType, nil
+	}
 	v := reflect.ValueOf(data)
 	switch v.Kind() {
 	case reflect.Map:

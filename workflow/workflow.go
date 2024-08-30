@@ -518,8 +518,17 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
 		inputData := nodeItem.Data
 		if inputData == nil {
-			// No input data is needed. This is often the case for input nodes.
-			continue
+			switch nodeItem.Kind {
+			case DagItemKindOrGroup:
+				if err := node.ResolveNode(dgraph.Resolved); err != nil {
+					l.logger.Errorf("BUG: Error occurred while resolving workflow OR group node (%s)", err.Error())
+				}
+				l.notifySteps() // Needs to be called after resolving a node.
+				return
+			default:
+				// No input data is needed. This is often the case for input nodes.
+				continue
+			}
 		}
 
 		// Resolve any expressions in the input data.
@@ -591,8 +600,11 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			}
 
 			if err := node.ResolveNode(dgraph.Resolved); err != nil {
-				l.logger.Errorf("BUG: Error occurred while removing workflow output node (%w)", err)
+				l.logger.Errorf("BUG: Error occurred while resolving workflow output node (%s)", err.Error())
 			}
+		default:
+			panic(fmt.Errorf("unhandled case for type %s", nodeItem.Kind))
+
 		}
 	}
 }
@@ -672,6 +684,13 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 		l.logger.Debugf("Evaluating expression %s...", expr.String())
 		return expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
 	}
+	// TODO: Currently, the output type is a OneOfExpression. The problem is that the code
+	//      cannot handle that case at the moment. The situation is that there are group nodes
+	//      that trigger the output node to resolve. Either, we need to have the output node
+	//      itself know which output node triggered it (maybe by checking the DAG nodes?),
+	//      or each OR node would need to be wired to create a valid oneof type, and somehow
+	//      all of them would need to become valid inputs fed into the output.
+	//      And, ideally this would also work with step inputs, and not just workflow outputs.
 	v := reflect.ValueOf(inputData)
 	switch v.Kind() {
 	case reflect.Slice:

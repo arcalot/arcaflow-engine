@@ -170,6 +170,9 @@ const (
 	DAGItemKindStepStageOutput DAGItemKind = "stepStageOutput"
 	// DAGItemKindOutput indicates a DAG node for the workflow output.
 	DAGItemKindOutput DAGItemKind = "output"
+	// DagItemKindOrGroup indicates a DAG node used to complete a part of
+	// an input or output that needs dependencies grouped, typically for OR dependencies.
+	DagItemKindOrGroup DAGItemKind = "orGroup"
 )
 
 // DAGItem is the internal structure of the DAG.

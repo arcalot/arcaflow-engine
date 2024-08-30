@@ -953,7 +953,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 					if err != nil {
 						return fmt.Errorf("failed to find depending node %s (%w)", prevNodeID, err)
 					}
-					if err := prevNode.Connect(currentNode.ID()); err != nil {
+					if err := currentNode.ConnectDependency(prevNode.ID(), dgraph.AndDependency); err != nil {
 						decodedErr := &dgraph.ErrConnectionAlreadyExists{}
 						if !errors.As(err, &decodedErr) {
 							return fmt.Errorf("failed to connect DAG node (%w)", err)
@@ -961,6 +961,31 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 					}
 				default:
 					return fmt.Errorf("bug: invalid dependency kind: %s", dependencyKind)
+				}
+			}
+			return nil
+		case infer.OneOfExpression:
+			// Evaluate dependencies of all options for the oneof, then
+			// create OR dependencies for all of them.
+			// DAG nodes will need to be created for each option.
+			if len(s.Options) == 0 {
+				return fmt.Errorf("oneof %s has no options", s.String())
+			}
+			for optionID, optionData := range s.Options {
+				orNodeType := &DAGItem{
+					Kind: DagItemKindOrGroup,
+				}
+				optionDagNode, err := dag.AddNode(currentNode.ID()+"."+optionID, orNodeType)
+				if err != nil {
+					return err
+				}
+				err = currentNode.ConnectDependency(optionDagNode.ID(), dgraph.OrDependency)
+				if err != nil {
+					return err
+				}
+				err = e.prepareDependencies(workflowContext, optionData, optionDagNode, outputSchema, dag)
+				if err != nil {
+					return err
 				}
 			}
 			return nil

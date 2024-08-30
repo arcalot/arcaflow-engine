@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/infer"
 	"strings"
 
 	"go.flow.arcalot.io/engine/internal/step"
@@ -49,16 +50,59 @@ func (y yamlConverter) FromYAML(data []byte) (*Workflow, error) {
 	return workflow, nil
 }
 
+const YamlOneOfKey = "one_of"
+const YamlDiscriminatorKey = "discriminator"
+const YamlOneOfTag = "!oneof"
+
+func buildOneOfExpressions(data yaml.Node, path []string) (any, error) {
+	if data.Type() != yaml.TypeIDMap {
+		return nil, fmt.Errorf("!oneof found on non-map node at %s; expected a map with a list of options and the discriminator ", strings.Join(path, " -> "))
+	}
+	discriminatorNode, found := data.MapKey(YamlDiscriminatorKey)
+	if !found {
+		return nil, fmt.Errorf("key %q not present within !oneof at %q", YamlDiscriminatorKey, strings.Join(path, " -> "))
+	}
+	if discriminatorNode.Type() != yaml.TypeIDString {
+		return nil, fmt.Errorf("%q within !oneof should be a string; got %s", discriminatorNode.Type(), YamlDiscriminatorKey)
+	}
+	oneOfOptionsNode, found := data.MapKey(YamlOneOfKey)
+	if !found {
+		return nil, fmt.Errorf("key %q not present within !oneof at %q", YamlOneOfKey, strings.Join(path, " -> "))
+	}
+	if oneOfOptionsNode.Type() != yaml.TypeIDMap {
+		return nil, fmt.Errorf("%q within !oneof should be a map; got %s", YamlOneOfKey, discriminatorNode.Type())
+	}
+	options := map[string]any{}
+	for _, optionNodeKey := range oneOfOptionsNode.MapKeys() {
+		optionNode, _ := oneOfOptionsNode.MapKey(optionNodeKey)
+		var err error
+		options[optionNodeKey], err = yamlBuildExpressions(optionNode, append(path))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Try just returning
+	discriminator := discriminatorNode.Value()
+	return infer.OneOfExpression{
+		Discriminator: discriminator,
+		Options:       options,
+	}, nil
+}
+
 func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
-	if data.Tag() == "!expr" {
+	switch data.Tag() {
+	case "!expr":
 		if data.Type() != yaml.TypeIDString {
-			return nil, fmt.Errorf("!!expr found on non-string node at %s", strings.Join(path, " -> "))
+			return nil, fmt.Errorf("!expr found on non-string node at %s", strings.Join(path, " -> "))
 		}
 		expr, err := expressions.New(data.Value())
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile expression at %s (%w)", strings.Join(path, " -> "), err)
 		}
 		return expr, nil
+	case YamlOneOfTag:
+		return buildOneOfExpressions(data, path)
 	}
 	switch data.Type() {
 	case yaml.TypeIDString:
