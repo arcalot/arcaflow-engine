@@ -65,7 +65,7 @@ func Scope(
 // Type attempts to infer the data model from the data, possibly evaluating expressions.
 func Type(
 	data any,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
@@ -76,7 +76,7 @@ func Type(
 		}
 		return expressionType, nil
 	}
-	if oneOfExpression, ok := data.(OneOfExpression); ok {
+	if oneOfExpression, ok := data.(*OneOfExpression); ok {
 		oneOfType, err := oneOfExpression.Type(internalDataModel, functions, workflowContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", oneOfExpression.String(), err)
@@ -139,7 +139,7 @@ func Type(
 // mapType infers the type of a map value.
 func mapType(
 	v reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
@@ -193,7 +193,7 @@ func mapType(
 
 func objectType(
 	value reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
@@ -223,7 +223,7 @@ func objectType(
 // sliceType tries to infer the type of a slice.
 func sliceType(
 	v reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
@@ -244,7 +244,7 @@ func sliceType(
 
 func sliceItemType(
 	values []reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {

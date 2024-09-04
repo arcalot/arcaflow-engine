@@ -4,10 +4,12 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/infer"
 	"go.flow.arcalot.io/engine/internal/tablefmt"
 	"go.flow.arcalot.io/engine/internal/tableprinter"
 	"io"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -533,7 +535,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 
 		// Resolve any expressions in the input data.
 		// untypedInputData stores the resolved data
-		untypedInputData, err := l.resolveExpressions(inputData, l.data)
+		untypedInputData, err := l.resolveExpressions(inputData, l.data, node)
 		if err != nil {
 			// An error here often indicates a locking issue in a step provider. This could be caused
 			// by the lock not being held when the output was marked resolved.
@@ -679,25 +681,66 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 
 // resolveExpressions takes an inputData value potentially containing expressions and a dataModel containing data
 // for expressions and resolves the expressions contained in inputData using reflection.
-func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error) {
-	if expr, ok := inputData.(expressions.Expression); ok {
+func (l *loopState) resolveExpressions(inputData any, dataModel any, currentNode dgraph.Node[*DAGItem]) (any, error) {
+	switch expr := inputData.(type) {
+	case expressions.Expression:
 		l.logger.Debugf("Evaluating expression %s...", expr.String())
 		return expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
+	case *infer.OneOfExpression:
+		l.logger.Debugf("Evaluating oneof expression %s...", expr.String())
+		// Ensure that the node isn't prematurely resolving, and that this is the correct node
+		_, nodeHasResolvedOneof := currentNode.ResolvedDependencies()[expr.Node]
+		if !nodeHasResolvedOneof {
+			return nil,
+				fmt.Errorf("node did not have the expected oneof node %q in its resolved dependencies map", expr.Node)
+		}
+		// Get the node the OneOf uses to check which Or dependency resolved first (the others will either not be
+		// in the resolved list, or they will be obviated)
+		oneOfNode, err := l.dag.GetNodeByID(expr.Node)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get node to resolve oneof expression (%w)", err)
+		}
+		dependencies := oneOfNode.ResolvedDependencies()
+		firstResolvedDependency := ""
+		for dependency, dependencyType := range dependencies {
+			switch dependencyType {
+			case dgraph.OrDependency:
+				firstResolvedDependency = dependency
+				break
+			case dgraph.ObviatedDependency:
+				l.logger.Infof("Multiple OR cases triggered; skipping %q", dependency)
+			}
+		}
+		if firstResolvedDependency == "" {
+			return nil, fmt.Errorf("could not find resolved dependency for oneof expression %q", expr.String())
+		}
+		optionID := strings.Replace(firstResolvedDependency, expr.Node+".", "", 1)
+		optionExpr, found := expr.Options[optionID]
+		if !found {
+			return nil, fmt.Errorf("could not find oneof option %q for oneof %q", optionID, expr)
+		}
+		// Still pass the current node in due to the possibility of a foreach within a foreach.
+		subTypeResolution, err := l.resolveExpressions(optionExpr, dataModel, currentNode)
+		if err != nil {
+			return nil, err
+		}
+		// Validate that it returned a map type (this is required because oneof sub-types need to be objects)
+		subTypeObjectMap, ok := subTypeResolution.(map[any]any)
+		if !ok {
+			return nil, fmt.Errorf("sub-type for oneof is not an object; got %T", subTypeResolution)
+		}
+		// Now add the discriminator
+		subTypeObjectMap[expr.Discriminator] = optionID
+		return subTypeObjectMap, nil
 	}
-	// TODO: Currently, the output type is a OneOfExpression. The problem is that the code
-	//      cannot handle that case at the moment. The situation is that there are group nodes
-	//      that trigger the output node to resolve. Either, we need to have the output node
-	//      itself know which output node triggered it (maybe by checking the DAG nodes?),
-	//      or each OR node would need to be wired to create a valid oneof type, and somehow
-	//      all of them would need to become valid inputs fed into the output.
-	//      And, ideally this would also work with step inputs, and not just workflow outputs.
+
 	v := reflect.ValueOf(inputData)
 	switch v.Kind() {
 	case reflect.Slice:
 		result := make([]any, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			value := v.Index(i).Interface()
-			newValue, err := l.resolveExpressions(value, dataModel)
+			newValue, err := l.resolveExpressions(value, dataModel, currentNode)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve workflow slice expressions (%w)", err)
 			}
@@ -709,7 +752,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 		for _, reflectedKey := range v.MapKeys() {
 			key := reflectedKey.Interface()
 			value := v.MapIndex(reflectedKey).Interface()
-			newValue, err := l.resolveExpressions(value, dataModel)
+			newValue, err := l.resolveExpressions(value, dataModel, currentNode)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve workflow map expressions (%w)", err)
 			}

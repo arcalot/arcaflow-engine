@@ -11,6 +11,7 @@ import (
 type OneOfExpression struct {
 	Discriminator string
 	Options       map[string]any
+	Node          string
 }
 
 func (o *OneOfExpression) String() string {
@@ -19,7 +20,7 @@ func (o *OneOfExpression) String() string {
 
 // Type returns the OneOf type. Calculates the types of all possible oneof options for this.
 func (o *OneOfExpression) Type(
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {

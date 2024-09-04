@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go.flow.arcalot.io/engine/internal/util"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"go.arcalot.io/dgraph"
@@ -196,7 +197,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 		if err != nil {
 			return nil, fmt.Errorf("failed to add workflow output node %s to DAG (%w)", outputID, err)
 		}
-		if err := e.prepareDependencies(workflowContext, outputData, outputNode, internalDataModel, dag); err != nil {
+		if err := e.prepareDependencies(workflowContext, outputData, outputNode, "", internalDataModel, dag); err != nil {
 			return nil, fmt.Errorf("failed to build dependency tree for output (%w)", err)
 		}
 	}
@@ -435,7 +436,7 @@ func (e *executor) connectStepDependencies(
 				if data != nil {
 					stageData[inputField] = data
 				}
-				if err := e.prepareDependencies(workflowContext, data, currentStageNode, internalDataModel, dag); err != nil {
+				if err := e.prepareDependencies(workflowContext, data, currentStageNode, "", internalDataModel, dag); err != nil {
 					return fmt.Errorf("failed to build dependency tree for '%s' (%w)", currentStageNode.ID(), err)
 				}
 			}
@@ -570,10 +571,12 @@ func (e *executor) preValidateCompatibility(rootSchema schema.Scope, inputField 
 func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, workflowContext map[string][]byte) (any, error) {
 
 	// Expression, so the exact value may not be known yet. So just get the type from it.
-	if expr, ok := inputField.(expressions.Expression); ok {
-		// Is expression, so evaluate it.
-		e.logger.Debugf("Evaluating expression %s...", expr.String())
-		return expr.Type(rootSchema, e.callableFunctionSchemas, workflowContext)
+	switch inputField := inputField.(type) {
+	case expressions.Expression:
+		e.logger.Debugf("Evaluating expression %s...", inputField.String())
+		return inputField.Type(rootSchema, e.callableFunctionSchemas, workflowContext)
+	case *infer.OneOfExpression:
+		return inputField.Type(rootSchema, e.callableFunctionSchemas, workflowContext)
 	}
 
 	v := reflect.ValueOf(inputField)
@@ -871,6 +874,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 	workflowContext map[string][]byte,
 	stepData any,
 	currentNode dgraph.Node[*DAGItem],
+	pathInCurrentNode string,
 	outputSchema *schema.ScopeSchema,
 	dag dgraph.DirectedGraph[*DAGItem],
 ) error {
@@ -964,26 +968,37 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 				}
 			}
 			return nil
-		case infer.OneOfExpression:
+		case *infer.OneOfExpression:
 			// Evaluate dependencies of all options for the oneof, then
 			// create OR dependencies for all of them.
 			// DAG nodes will need to be created for each option.
 			if len(s.Options) == 0 {
 				return fmt.Errorf("oneof %s has no options", s.String())
 			}
+			// In case there are multiple OneOfs, each oneof needs its own node.
+			orNodeType := &DAGItem{
+				Kind: DagItemKindOrGroup,
+			}
+			oneofDagNode, err := dag.AddNode(
+				currentNode.ID()+"."+pathInCurrentNode, orNodeType)
+			if err != nil {
+				return err
+			}
+			err = currentNode.ConnectDependency(oneofDagNode.ID(), dgraph.AndDependency)
+			// Mark the node ID on the OneOfExpression
+			s.Node = oneofDagNode.ID()
 			for optionID, optionData := range s.Options {
-				orNodeType := &DAGItem{
-					Kind: DagItemKindOrGroup,
-				}
-				optionDagNode, err := dag.AddNode(currentNode.ID()+"."+optionID, orNodeType)
+				optionDagNode, err := dag.AddNode(
+					oneofDagNode.ID()+"."+optionID, orNodeType)
 				if err != nil {
 					return err
 				}
-				err = currentNode.ConnectDependency(optionDagNode.ID(), dgraph.OrDependency)
+				err = oneofDagNode.ConnectDependency(optionDagNode.ID(), dgraph.OrDependency)
 				if err != nil {
 					return err
 				}
-				err = e.prepareDependencies(workflowContext, optionData, optionDagNode, outputSchema, dag)
+				err = e.prepareDependencies(
+					workflowContext, optionData, optionDagNode, "", outputSchema, dag)
 				if err != nil {
 					return err
 				}
@@ -996,7 +1011,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 		v := reflect.ValueOf(stepData)
 		for i := 0; i < v.Len(); i++ {
 			value := v.Index(i).Interface()
-			if err := e.prepareDependencies(workflowContext, value, currentNode, outputSchema, dag); err != nil {
+			if err := e.prepareDependencies(workflowContext, value, currentNode, strconv.Itoa(i), outputSchema, dag); err != nil {
 				return wrapDependencyError(currentNode.ID(), fmt.Sprintf("%d", i), err)
 			}
 		}
@@ -1006,7 +1021,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 		for _, reflectedKey := range v.MapKeys() {
 			key := reflectedKey.Interface()
 			value := v.MapIndex(reflectedKey).Interface()
-			if err := e.prepareDependencies(workflowContext, value, currentNode, outputSchema, dag); err != nil {
+			if err := e.prepareDependencies(workflowContext, value, currentNode, key.(string), outputSchema, dag); err != nil {
 				return wrapDependencyError(currentNode.ID(), fmt.Sprintf("%v", key), err)
 			}
 		}
