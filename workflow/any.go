@@ -44,10 +44,8 @@ func (a *anySchemaWithExpressions) Serialize(data any) (any, error) {
 }
 
 func (a *anySchemaWithExpressions) checkAndConvert(data any) (any, error) {
-	if _, ok := data.(expressions.Expression); ok {
-		return data, nil
-	}
-	if _, ok := data.(infer.OneOfExpression); ok {
+	switch data.(type) {
+	case expressions.Expression, infer.OneOfExpression, *infer.OneOfExpression:
 		return data, nil
 	}
 	t := reflect.ValueOf(data)

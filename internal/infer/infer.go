@@ -148,9 +148,7 @@ func mapType(
 		return nil, fmt.Errorf("failed to infer map key type (%w)", err)
 	}
 	switch keyType.TypeID() {
-	case schema.TypeIDString:
-		fallthrough
-	case schema.TypeIDStringEnum:
+	case schema.TypeIDString, schema.TypeIDStringEnum:
 		return objectType(v, internalDataModel, functions, workflowContext)
 	case schema.TypeIDInt:
 	case schema.TypeIDIntEnum:
@@ -214,7 +212,7 @@ func objectType(
 			nil,
 		)
 	}
-	return schema.NewObjectSchema(
+	return schema.NewUnenforcedIDObjectSchema(
 		generateRandomObjectID("inferred_schema"),
 		properties,
 	), nil

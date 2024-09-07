@@ -197,7 +197,7 @@ func (e *executor) Prepare(workflow *Workflow, workflowContext map[string][]byte
 		if err != nil {
 			return nil, fmt.Errorf("failed to add workflow output node %s to DAG (%w)", outputID, err)
 		}
-		if err := e.prepareDependencies(workflowContext, outputData, outputNode, "", internalDataModel, dag); err != nil {
+		if err := e.prepareDependencies(workflowContext, outputData, outputNode, []string{}, internalDataModel, dag); err != nil {
 			return nil, fmt.Errorf("failed to build dependency tree for output (%w)", err)
 		}
 	}
@@ -436,7 +436,7 @@ func (e *executor) connectStepDependencies(
 				if data != nil {
 					stageData[inputField] = data
 				}
-				if err := e.prepareDependencies(workflowContext, data, currentStageNode, "", internalDataModel, dag); err != nil {
+				if err := e.prepareDependencies(workflowContext, data, currentStageNode, []string{}, internalDataModel, dag); err != nil {
 					return fmt.Errorf("failed to build dependency tree for '%s' (%w)", currentStageNode.ID(), err)
 				}
 			}
@@ -874,7 +874,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 	workflowContext map[string][]byte,
 	stepData any,
 	currentNode dgraph.Node[*DAGItem],
-	pathInCurrentNode string,
+	pathInCurrentNode []string,
 	outputSchema *schema.ScopeSchema,
 	dag dgraph.DirectedGraph[*DAGItem],
 ) error {
@@ -980,7 +980,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 				Kind: DagItemKindOrGroup,
 			}
 			oneofDagNode, err := dag.AddNode(
-				currentNode.ID()+"."+pathInCurrentNode, orNodeType)
+				currentNode.ID()+"."+strings.Join(pathInCurrentNode, "."), orNodeType)
 			if err != nil {
 				return err
 			}
@@ -998,7 +998,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 					return err
 				}
 				err = e.prepareDependencies(
-					workflowContext, optionData, optionDagNode, "", outputSchema, dag)
+					workflowContext, optionData, optionDagNode, []string{}, outputSchema, dag)
 				if err != nil {
 					return err
 				}
@@ -1011,7 +1011,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 		v := reflect.ValueOf(stepData)
 		for i := 0; i < v.Len(); i++ {
 			value := v.Index(i).Interface()
-			if err := e.prepareDependencies(workflowContext, value, currentNode, strconv.Itoa(i), outputSchema, dag); err != nil {
+			if err := e.prepareDependencies(workflowContext, value, currentNode, append(pathInCurrentNode, strconv.Itoa(i)), outputSchema, dag); err != nil {
 				return wrapDependencyError(currentNode.ID(), fmt.Sprintf("%d", i), err)
 			}
 		}
@@ -1021,7 +1021,7 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 		for _, reflectedKey := range v.MapKeys() {
 			key := reflectedKey.Interface()
 			value := v.MapIndex(reflectedKey).Interface()
-			if err := e.prepareDependencies(workflowContext, value, currentNode, key.(string), outputSchema, dag); err != nil {
+			if err := e.prepareDependencies(workflowContext, value, currentNode, append(pathInCurrentNode, key.(string)), outputSchema, dag); err != nil {
 				return wrapDependencyError(currentNode.ID(), fmt.Sprintf("%v", key), err)
 			}
 		}

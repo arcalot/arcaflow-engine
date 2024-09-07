@@ -526,7 +526,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 					l.logger.Errorf("BUG: Error occurred while resolving workflow OR group node (%s)", err.Error())
 				}
 				l.notifySteps() // Needs to be called after resolving a node.
-				return
+				continue
 			default:
 				// No input data is needed. This is often the case for input nodes.
 				continue
@@ -535,7 +535,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 
 		// Resolve any expressions in the input data.
 		// untypedInputData stores the resolved data
-		untypedInputData, err := l.resolveExpressions(inputData, l.data, node)
+		untypedInputData, err := l.resolveExpressions(inputData, l.data)
 		if err != nil {
 			// An error here often indicates a locking issue in a step provider. This could be caused
 			// by the lock not being held when the output was marked resolved.
@@ -681,19 +681,14 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 
 // resolveExpressions takes an inputData value potentially containing expressions and a dataModel containing data
 // for expressions and resolves the expressions contained in inputData using reflection.
-func (l *loopState) resolveExpressions(inputData any, dataModel any, currentNode dgraph.Node[*DAGItem]) (any, error) {
+func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error) {
 	switch expr := inputData.(type) {
 	case expressions.Expression:
 		l.logger.Debugf("Evaluating expression %s...", expr.String())
 		return expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
 	case *infer.OneOfExpression:
 		l.logger.Debugf("Evaluating oneof expression %s...", expr.String())
-		// Ensure that the node isn't prematurely resolving, and that this is the correct node
-		_, nodeHasResolvedOneof := currentNode.ResolvedDependencies()[expr.Node]
-		if !nodeHasResolvedOneof {
-			return nil,
-				fmt.Errorf("node did not have the expected oneof node %q in its resolved dependencies map", expr.Node)
-		}
+
 		// Get the node the OneOf uses to check which Or dependency resolved first (the others will either not be
 		// in the resolved list, or they will be obviated)
 		oneOfNode, err := l.dag.GetNodeByID(expr.Node)
@@ -720,11 +715,11 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any, currentNode
 			return nil, fmt.Errorf("could not find oneof option %q for oneof %q", optionID, expr)
 		}
 		// Still pass the current node in due to the possibility of a foreach within a foreach.
-		subTypeResolution, err := l.resolveExpressions(optionExpr, dataModel, currentNode)
+		subTypeResolution, err := l.resolveExpressions(optionExpr, dataModel)
 		if err != nil {
 			return nil, err
 		}
-		// Validate that it returned a map type (this is required because oneof sub-types need to be objects)
+		// Validate that it returned a map type (this is required because oneof subtypes need to be objects)
 		subTypeObjectMap, ok := subTypeResolution.(map[any]any)
 		if !ok {
 			return nil, fmt.Errorf("sub-type for oneof is not an object; got %T", subTypeResolution)
@@ -740,7 +735,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any, currentNode
 		result := make([]any, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			value := v.Index(i).Interface()
-			newValue, err := l.resolveExpressions(value, dataModel, currentNode)
+			newValue, err := l.resolveExpressions(value, dataModel)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve workflow slice expressions (%w)", err)
 			}
@@ -752,7 +747,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any, currentNode
 		for _, reflectedKey := range v.MapKeys() {
 			key := reflectedKey.Interface()
 			value := v.MapIndex(reflectedKey).Interface()
-			newValue, err := l.resolveExpressions(value, dataModel, currentNode)
+			newValue, err := l.resolveExpressions(value, dataModel)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve workflow map expressions (%w)", err)
 			}
