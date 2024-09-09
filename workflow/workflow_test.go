@@ -482,13 +482,13 @@ input:
   root: RootObject
   objects:
     RootObject:
-      id: RootObject 
+      id: RootObject
       properties: {}
 steps:
   second_wait:
     wait_for: !expr $.steps.first_wait.outputs.success
     kind: foreach
-    items: 
+    items:
     - wait_time_ms: 10
     workflow: subworkflow.yaml
   first_wait:
@@ -608,7 +608,7 @@ input:
   root: RootObject
   objects:
     RootObject:
-      id: RootObject 
+      id: RootObject
       properties: {}
 steps:
   pre_wait:
@@ -621,7 +621,7 @@ steps:
   second_wait:
     wait_for: !expr $.steps.first_wait.starting.started
     kind: foreach
-    items: 
+    items:
     - wait_time_ms: 2
     workflow: subworkflow.yaml
   first_wait:
@@ -778,7 +778,6 @@ steps:
     input:
       wait_time_ms: 0
   wait_2:
-    
     plugin:
       src: "n/a"
       deployment_type: "builtin"
@@ -995,8 +994,8 @@ outputSchema:
   success:
     schema:
       root: RootObjectOut
-      objects: 
-        RootObjectOut: 
+      objects:
+        RootObjectOut:
           id: RootObjectOut
           properties: {}`
 
@@ -1386,7 +1385,7 @@ input:
   root: RootObject
   objects:
     RootObject:
-      id: RootObject 
+      id: RootObject
       properties:
         step_to_run:
           type:
@@ -1814,7 +1813,7 @@ input:
   root: RootObject
   objects:
     RootObject:
-      id: RootObject 
+      id: RootObject
       properties:
         step_to_run:
           type:
@@ -1838,7 +1837,7 @@ steps:
     enabled: !expr $.input.step_to_run == "b"
   subwf_step:
     kind: foreach
-    items: 
+    items:
     - input_1: !oneof
         discriminator: "result"
         one_of:
