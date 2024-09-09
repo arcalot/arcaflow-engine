@@ -87,7 +87,6 @@ func buildOneOfExpressions(data yaml.Node, path []string) (any, error) {
 		}
 	}
 
-	// Try just returning
 	discriminator := discriminatorNode.Value()
 	return &infer.OneOfExpression{
 		Discriminator: discriminator,
