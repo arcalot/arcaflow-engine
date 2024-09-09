@@ -985,6 +985,9 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 				return err
 			}
 			err = currentNode.ConnectDependency(oneofDagNode.ID(), dgraph.AndDependency)
+			if err != nil {
+				return err
+			}
 			// Mark the node ID on the OneOfExpression
 			s.Node = oneofDagNode.ID()
 			for optionID, optionData := range s.Options {

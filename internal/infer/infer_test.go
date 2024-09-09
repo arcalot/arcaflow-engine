@@ -38,7 +38,7 @@ var testData = []testEntry{
 		"foo",
 		nil,
 		schema.TypeIDString,
-		func(t schema.Type) error {
+		func(_ schema.Type) error {
 			return nil
 		},
 	},
@@ -93,7 +93,7 @@ var testData = []testEntry{
 			}),
 		),
 		schema.TypeIDString,
-		func(t schema.Type) error {
+		func(_ schema.Type) error {
 			return nil
 		},
 	},

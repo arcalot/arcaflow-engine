@@ -132,7 +132,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 
 		var stageHandler step.StageChangeHandler = &stageChangeHandler{
 			onStageChange: func(
-				step step.RunningStep,
+				_ step.RunningStep,
 				previousStage *string,
 				previousStageOutputID *string,
 				previousStageOutput *any,
@@ -148,7 +148,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput, wg)
 			},
 			onStepComplete: func(
-				step step.RunningStep,
+				_ step.RunningStep,
 				previousStage string,
 				previousStageOutputID *string,
 				previousStageOutput *any,
@@ -161,7 +161,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				}
 				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput, wg)
 			},
-			onStepStageFailure: func(step step.RunningStep, stage string, wg *sync.WaitGroup, err error) {
+			onStepStageFailure: func(_ step.RunningStep, stage string, _ *sync.WaitGroup, err error) {
 				if err == nil {
 					e.logger.Debugf("Step %q stage %q declared that it will not produce an output", stepID, stage)
 				} else {
@@ -698,11 +698,10 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 		dependencies := oneOfNode.ResolvedDependencies()
 		firstResolvedDependency := ""
 		for dependency, dependencyType := range dependencies {
-			switch dependencyType {
-			case dgraph.OrDependency:
+			if dependencyType == dgraph.OrDependency {
 				firstResolvedDependency = dependency
 				break
-			case dgraph.ObviatedDependency:
+			} else if dependencyType == dgraph.ObviatedDependency {
 				l.logger.Infof("Multiple OR cases triggered; skipping %q", dependency)
 			}
 		}

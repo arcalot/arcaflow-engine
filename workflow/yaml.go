@@ -50,8 +50,13 @@ func (y yamlConverter) FromYAML(data []byte) (*Workflow, error) {
 	return workflow, nil
 }
 
+// YamlOneOfKey is the key to specify the oneof options within a !oneof section.
 const YamlOneOfKey = "one_of"
+
+// YamlDiscriminatorKey is the key to specify the discriminator inside a !oneof section.
 const YamlDiscriminatorKey = "discriminator"
+
+// YamlOneOfTag is the yaml tag that allows the section to be interpreted as a OneOf.
 const YamlOneOfTag = "!oneof"
 
 func buildOneOfExpressions(data yaml.Node, path []string) (any, error) {
@@ -76,7 +81,7 @@ func buildOneOfExpressions(data yaml.Node, path []string) (any, error) {
 	for _, optionNodeKey := range oneOfOptionsNode.MapKeys() {
 		optionNode, _ := oneOfOptionsNode.MapKey(optionNodeKey)
 		var err error
-		options[optionNodeKey], err = yamlBuildExpressions(optionNode, append(path))
+		options[optionNodeKey], err = yamlBuildExpressions(optionNode, append(path, optionNodeKey))
 		if err != nil {
 			return nil, err
 		}
