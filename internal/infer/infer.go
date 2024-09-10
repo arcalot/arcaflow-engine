@@ -69,20 +69,21 @@ func Type(
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
-	if expression, ok := data.(expressions.Expression); ok {
-		expressionType, err := expression.Type(internalDataModel, functions, workflowContext)
+	switch expr := data.(type) {
+	case expressions.Expression:
+		expressionType, err := expr.Type(internalDataModel, functions, workflowContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expression.String(), err)
+			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expr.String(), err)
 		}
 		return expressionType, nil
-	}
-	if oneOfExpression, ok := data.(*OneOfExpression); ok {
-		oneOfType, err := oneOfExpression.Type(internalDataModel, functions, workflowContext)
+	case *OneOfExpression:
+		oneOfType, err := expr.Type(internalDataModel, functions, workflowContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", oneOfExpression.String(), err)
+			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expr.String(), err)
 		}
 		return oneOfType, nil
 	}
+
 	v := reflect.ValueOf(data)
 	switch v.Kind() {
 	case reflect.Map:
