@@ -870,7 +870,7 @@ func (e *executor) loadSchema(stepKind step.Provider, stepID string, stepDataMap
 	return runnableStep, nil
 }
 
-func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
+func (e *executor) prepareDependencies(
 	workflowContext map[string][]byte,
 	stepData any,
 	currentNode dgraph.Node[*DAGItem],
