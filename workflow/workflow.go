@@ -523,7 +523,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			switch nodeItem.Kind {
 			case DagItemKindOrGroup:
 				if err := node.ResolveNode(dgraph.Resolved); err != nil {
-					l.logger.Errorf("BUG: Error occurred while resolving workflow OR group node (%s)", err.Error())
+					panic(fmt.Errorf("error occurred while resolving workflow OR group node (%s)", err.Error()))
 				}
 				l.notifySteps() // Needs to be called after resolving a node.
 				continue
