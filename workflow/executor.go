@@ -914,99 +914,9 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 	case reflect.Struct:
 		switch s := stepData.(type) {
 		case expressions.Expression:
-			// Evaluate the dependencies of the expression on the main data structure.
-			pathUnpackRequirements := expressions.UnpackRequirements{
-				ExcludeDataRootPaths:     false,
-				ExcludeFunctionRootPaths: true, // We don't need to setup DAG connections for them.
-				StopAtTerminals:          true, // We do not need the extra info. We just need the connection.
-				IncludeKeys:              false,
-			}
-			dependencies, err := s.Dependencies(outputSchema, e.callableFunctionSchemas, workflowContext, pathUnpackRequirements)
-			if err != nil {
-				return fmt.Errorf(
-					"failed to evaluate dependencies of the expression %s (%w)",
-					s.String(),
-					err,
-				)
-			}
-			for _, dependency := range dependencies {
-				dependencyKind := dependency[1]
-				switch dependencyKind {
-				case WorkflowInputKey:
-					inputNode, err := dag.GetNodeByID(WorkflowInputKey)
-					if err != nil {
-						return fmt.Errorf("failed to find input node (%w)", err)
-					}
-					if err := inputNode.Connect(currentNode.ID()); err != nil {
-						decodedErr := &dgraph.ErrConnectionAlreadyExists{}
-						if !errors.As(err, &decodedErr) {
-							return fmt.Errorf("failed to connect input to %s (%w)", currentNode.ID(), err)
-						}
-					}
-				case WorkflowStepsKey:
-					var prevNodeID string
-					switch dependencyNodes := len(dependency); {
-					case dependencyNodes == 4: // Example: $.steps.example.outputs
-						prevNodeID = dependency[1:4].String()
-					case dependencyNodes >= 5: // Example: $.steps.example.outputs.success (or longer)
-						prevNodeID = dependency[1:5].String()
-					default:
-						return fmt.Errorf("invalid dependency %s", dependency.String())
-					}
-					prevNode, err := dag.GetNodeByID(prevNodeID)
-					if err != nil {
-						return fmt.Errorf("failed to find depending node %s (%w)", prevNodeID, err)
-					}
-					if err := currentNode.ConnectDependency(prevNode.ID(), dgraph.AndDependency); err != nil {
-						decodedErr := &dgraph.ErrConnectionAlreadyExists{}
-						if !errors.As(err, &decodedErr) {
-							return fmt.Errorf("failed to connect DAG node (%w)", err)
-						}
-					}
-				default:
-					return fmt.Errorf("bug: invalid dependency kind: %s", dependencyKind)
-				}
-			}
-			return nil
+			return e.prepareExprDependencies(s, workflowContext, currentNode, outputSchema, dag)
 		case *infer.OneOfExpression:
-			// Evaluate dependencies of all options for the oneof, then
-			// create OR dependencies for all of them.
-			// DAG nodes will need to be created for each option.
-			if len(s.Options) == 0 {
-				return fmt.Errorf("oneof %s has no options", s.String())
-			}
-			// In case there are multiple OneOfs, each oneof needs its own node.
-			orNodeType := &DAGItem{
-				Kind: DagItemKindOrGroup,
-			}
-			oneofDagNode, err := dag.AddNode(
-				currentNode.ID()+"."+strings.Join(pathInCurrentNode, "."), orNodeType)
-			if err != nil {
-				return err
-			}
-			err = currentNode.ConnectDependency(oneofDagNode.ID(), dgraph.AndDependency)
-			if err != nil {
-				return err
-			}
-			// Mark the node ID on the OneOfExpression
-			s.Node = oneofDagNode.ID()
-			for optionID, optionData := range s.Options {
-				optionDagNode, err := dag.AddNode(
-					oneofDagNode.ID()+"."+optionID, orNodeType)
-				if err != nil {
-					return err
-				}
-				err = oneofDagNode.ConnectDependency(optionDagNode.ID(), dgraph.OrDependency)
-				if err != nil {
-					return err
-				}
-				err = e.prepareDependencies(
-					workflowContext, optionData, optionDagNode, []string{}, outputSchema, dag)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
+			return e.prepareOneOfExprDependencies(s, workflowContext, currentNode, pathInCurrentNode, outputSchema, dag)
 		default:
 			return &ErrInvalidWorkflow{fmt.Errorf("unsupported struct/pointer type in workflow input: %T", stepData)}
 		}
@@ -1032,6 +942,117 @@ func (e *executor) prepareDependencies( //nolint:gocognit,gocyclo
 	default:
 		return &ErrInvalidWorkflow{fmt.Errorf("unsupported primitive type: %T", stepData)}
 	}
+}
+
+func (e *executor) prepareExprDependencies(
+	expr expressions.Expression, workflowContext map[string][]byte,
+	currentNode dgraph.Node[*DAGItem],
+	outputSchema *schema.ScopeSchema,
+	dag dgraph.DirectedGraph[*DAGItem],
+) error {
+	// Evaluate the dependencies of the expression on the main data structure.
+	pathUnpackRequirements := expressions.UnpackRequirements{
+		ExcludeDataRootPaths:     false,
+		ExcludeFunctionRootPaths: true, // We don't need to setup DAG connections for them.
+		StopAtTerminals:          true, // We do not need the extra info. We just need the connection.
+		IncludeKeys:              false,
+	}
+	dependencies, err := expr.Dependencies(outputSchema, e.callableFunctionSchemas, workflowContext, pathUnpackRequirements)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to evaluate dependencies of the expression %s (%w)",
+			expr.String(),
+			err,
+		)
+	}
+	for _, dependency := range dependencies {
+		dependencyKind := dependency[1]
+		switch dependencyKind {
+		case WorkflowInputKey:
+			inputNode, err := dag.GetNodeByID(WorkflowInputKey)
+			if err != nil {
+				return fmt.Errorf("failed to find input node (%w)", err)
+			}
+			if err := inputNode.Connect(currentNode.ID()); err != nil {
+				decodedErr := &dgraph.ErrConnectionAlreadyExists{}
+				if !errors.As(err, &decodedErr) {
+					return fmt.Errorf("failed to connect input to %s (%w)", currentNode.ID(), err)
+				}
+			}
+		case WorkflowStepsKey:
+			var prevNodeID string
+			switch dependencyNodes := len(dependency); {
+			case dependencyNodes == 4: // Example: $.steps.example.outputs
+				prevNodeID = dependency[1:4].String()
+			case dependencyNodes >= 5: // Example: $.steps.example.outputs.success (or longer)
+				prevNodeID = dependency[1:5].String()
+			default:
+				return fmt.Errorf("invalid dependency %s", dependency.String())
+			}
+			prevNode, err := dag.GetNodeByID(prevNodeID)
+			if err != nil {
+				return fmt.Errorf("failed to find depending node %s (%w)", prevNodeID, err)
+			}
+			if err := currentNode.ConnectDependency(prevNode.ID(), dgraph.AndDependency); err != nil {
+				decodedErr := &dgraph.ErrConnectionAlreadyExists{}
+				if !errors.As(err, &decodedErr) {
+					return fmt.Errorf("failed to connect DAG node (%w)", err)
+				}
+			}
+		default:
+			return fmt.Errorf("bug: invalid dependency kind: %s", dependencyKind)
+		}
+	}
+	return nil
+}
+
+func (e *executor) prepareOneOfExprDependencies(
+	expr *infer.OneOfExpression,
+	workflowContext map[string][]byte,
+	currentNode dgraph.Node[*DAGItem],
+	pathInCurrentNode []string,
+	outputSchema *schema.ScopeSchema,
+	dag dgraph.DirectedGraph[*DAGItem],
+) error {
+	// Evaluate dependencies of all options for the oneof, then
+	// create OR dependencies for all of them.
+	// DAG nodes will need to be created for each option.
+	if len(expr.Options) == 0 {
+		return fmt.Errorf("oneof %s has no options", expr.String())
+	}
+	// In case there are multiple OneOfs, each oneof needs its own node.
+	orNodeType := &DAGItem{
+		Kind: DagItemKindOrGroup,
+	}
+	oneofDagNode, err := dag.AddNode(
+		currentNode.ID()+"."+strings.Join(pathInCurrentNode, "."), orNodeType)
+	if err != nil {
+		return err
+	}
+	err = currentNode.ConnectDependency(oneofDagNode.ID(), dgraph.AndDependency)
+	if err != nil {
+		return err
+	}
+	// Mark the node ID on the OneOfExpression. This mutates the expression, so make sure
+	// this is not operating on a copy of the schema for the data to be retained.
+	expr.Node = oneofDagNode.ID()
+	for optionID, optionData := range expr.Options {
+		optionDagNode, err := dag.AddNode(
+			oneofDagNode.ID()+"."+optionID, orNodeType)
+		if err != nil {
+			return err
+		}
+		err = oneofDagNode.ConnectDependency(optionDagNode.ID(), dgraph.OrDependency)
+		if err != nil {
+			return err
+		}
+		err = e.prepareDependencies(
+			workflowContext, optionData, optionDagNode, []string{}, outputSchema, dag)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DependencyError describes an error while preparing dependencies.
