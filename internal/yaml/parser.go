@@ -48,7 +48,8 @@ type Node interface {
 	// Contents returns the contents as further Node items. For maps, this will contain exactly two nodes, while
 	// for sequences this will contain as many nodes as there are items. For strings, this will contain no items.
 	Contents() []Node
-	// MapKey selects a specific map key. If the node is not a map, this function panics.
+	// MapKey selects a specific map key. Returns the node and a bool that represents whether the key was present.
+	// If the node is not a map, this function panics.
 	MapKey(key string) (Node, bool)
 	// MapKeys lists all keys of a map. If the node is not a map, this function panics.
 	MapKeys() []string

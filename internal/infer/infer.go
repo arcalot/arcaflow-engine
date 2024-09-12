@@ -65,17 +65,25 @@ func Scope(
 // Type attempts to infer the data model from the data, possibly evaluating expressions.
 func Type(
 	data any,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
-	if expression, ok := data.(expressions.Expression); ok {
-		expressionType, err := expression.Type(internalDataModel, functions, workflowContext)
+	switch expr := data.(type) {
+	case expressions.Expression:
+		expressionType, err := expr.Type(internalDataModel, functions, workflowContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expression.String(), err)
+			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expr.String(), err)
 		}
 		return expressionType, nil
+	case *OneOfExpression:
+		oneOfType, err := expr.Type(internalDataModel, functions, workflowContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expr.String(), err)
+		}
+		return oneOfType, nil
 	}
+
 	v := reflect.ValueOf(data)
 	switch v.Kind() {
 	case reflect.Map:
@@ -132,7 +140,7 @@ func Type(
 // mapType infers the type of a map value.
 func mapType(
 	v reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
@@ -141,9 +149,7 @@ func mapType(
 		return nil, fmt.Errorf("failed to infer map key type (%w)", err)
 	}
 	switch keyType.TypeID() {
-	case schema.TypeIDString:
-		fallthrough
-	case schema.TypeIDStringEnum:
+	case schema.TypeIDString, schema.TypeIDStringEnum:
 		return objectType(v, internalDataModel, functions, workflowContext)
 	case schema.TypeIDInt:
 	case schema.TypeIDIntEnum:
@@ -186,7 +192,7 @@ func mapType(
 
 func objectType(
 	value reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
@@ -207,7 +213,7 @@ func objectType(
 			nil,
 		)
 	}
-	return schema.NewObjectSchema(
+	return schema.NewUnenforcedIDObjectSchema(
 		generateRandomObjectID("inferred_schema"),
 		properties,
 	), nil
@@ -216,7 +222,7 @@ func objectType(
 // sliceType tries to infer the type of a slice.
 func sliceType(
 	v reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {
@@ -237,7 +243,7 @@ func sliceType(
 
 func sliceItemType(
 	values []reflect.Value,
-	internalDataModel *schema.ScopeSchema,
+	internalDataModel schema.Scope,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
 ) (schema.Type, error) {

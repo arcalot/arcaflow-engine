@@ -4,10 +4,12 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"go.flow.arcalot.io/engine/internal/infer"
 	"go.flow.arcalot.io/engine/internal/tablefmt"
 	"go.flow.arcalot.io/engine/internal/tableprinter"
 	"io"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -130,7 +132,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 
 		var stageHandler step.StageChangeHandler = &stageChangeHandler{
 			onStageChange: func(
-				step step.RunningStep,
+				_ step.RunningStep,
 				previousStage *string,
 				previousStageOutputID *string,
 				previousStageOutput *any,
@@ -146,7 +148,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				l.onStageComplete(stepID, previousStage, previousStageOutputID, previousStageOutput, wg)
 			},
 			onStepComplete: func(
-				step step.RunningStep,
+				_ step.RunningStep,
 				previousStage string,
 				previousStageOutputID *string,
 				previousStageOutput *any,
@@ -159,7 +161,7 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 				}
 				l.onStageComplete(stepID, &previousStage, previousStageOutputID, previousStageOutput, wg)
 			},
-			onStepStageFailure: func(step step.RunningStep, stage string, wg *sync.WaitGroup, err error) {
+			onStepStageFailure: func(_ step.RunningStep, stage string, _ *sync.WaitGroup, err error) {
 				if err == nil {
 					e.logger.Debugf("Step %q stage %q declared that it will not produce an output", stepID, stage)
 				} else {
@@ -518,8 +520,17 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		// The data structure that the particular node requires. One or more fields. May or may not contain expressions.
 		inputData := nodeItem.Data
 		if inputData == nil {
-			// No input data is needed. This is often the case for input nodes.
-			continue
+			switch nodeItem.Kind {
+			case DagItemKindOrGroup:
+				if err := node.ResolveNode(dgraph.Resolved); err != nil {
+					panic(fmt.Errorf("error occurred while resolving workflow OR group node (%s)", err.Error()))
+				}
+				l.notifySteps() // Needs to be called after resolving a node.
+				continue
+			default:
+				// No input data is needed. This is often the case for input nodes.
+				continue
+			}
 		}
 
 		// Resolve any expressions in the input data.
@@ -591,8 +602,11 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 			}
 
 			if err := node.ResolveNode(dgraph.Resolved); err != nil {
-				l.logger.Errorf("BUG: Error occurred while removing workflow output node (%w)", err)
+				l.logger.Errorf("BUG: Error occurred while resolving workflow output node (%s)", err.Error())
 			}
+		default:
+			panic(fmt.Errorf("unhandled case for type %s", nodeItem.Kind))
+
 		}
 	}
 }
@@ -668,10 +682,52 @@ func (l *loopState) checkForDeadlocks(retries int, wg *sync.WaitGroup) {
 // resolveExpressions takes an inputData value potentially containing expressions and a dataModel containing data
 // for expressions and resolves the expressions contained in inputData using reflection.
 func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error) {
-	if expr, ok := inputData.(expressions.Expression); ok {
+	switch expr := inputData.(type) {
+	case expressions.Expression:
 		l.logger.Debugf("Evaluating expression %s...", expr.String())
 		return expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
+	case *infer.OneOfExpression:
+		l.logger.Debugf("Evaluating oneof expression %s...", expr.String())
+
+		// Get the node the OneOf uses to check which Or dependency resolved first (the others will either not be
+		// in the resolved list, or they will be obviated)
+		oneOfNode, err := l.dag.GetNodeByID(expr.NodePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get node to resolve oneof expression (%w)", err)
+		}
+		dependencies := oneOfNode.ResolvedDependencies()
+		firstResolvedDependency := ""
+		for dependency, dependencyType := range dependencies {
+			if dependencyType == dgraph.OrDependency {
+				firstResolvedDependency = dependency
+				break
+			} else if dependencyType == dgraph.ObviatedDependency {
+				l.logger.Infof("Multiple OR cases triggered; skipping %q", dependency)
+			}
+		}
+		if firstResolvedDependency == "" {
+			return nil, fmt.Errorf("could not find resolved dependency for oneof expression %q", expr.String())
+		}
+		optionID := strings.Replace(firstResolvedDependency, expr.NodePath+".", "", 1)
+		optionExpr, found := expr.Options[optionID]
+		if !found {
+			return nil, fmt.Errorf("could not find oneof option %q for oneof %q", optionID, expr)
+		}
+		// Still pass the current node in due to the possibility of a foreach within a foreach.
+		subTypeResolution, err := l.resolveExpressions(optionExpr, dataModel)
+		if err != nil {
+			return nil, err
+		}
+		// Validate that it returned a map type (this is required because oneof subtypes need to be objects)
+		subTypeObjectMap, ok := subTypeResolution.(map[any]any)
+		if !ok {
+			return nil, fmt.Errorf("sub-type for oneof is not an object; got %T", subTypeResolution)
+		}
+		// Now add the discriminator
+		subTypeObjectMap[expr.Discriminator] = optionID
+		return subTypeObjectMap, nil
 	}
+
 	v := reflect.ValueOf(inputData)
 	switch v.Kind() {
 	case reflect.Slice:

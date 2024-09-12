@@ -482,13 +482,13 @@ input:
   root: RootObject
   objects:
     RootObject:
-      id: RootObject 
+      id: RootObject
       properties: {}
 steps:
   second_wait:
     wait_for: !expr $.steps.first_wait.outputs.success
     kind: foreach
-    items: 
+    items:
     - wait_time_ms: 10
     workflow: subworkflow.yaml
   first_wait:
@@ -608,7 +608,7 @@ input:
   root: RootObject
   objects:
     RootObject:
-      id: RootObject 
+      id: RootObject
       properties: {}
 steps:
   pre_wait:
@@ -621,7 +621,7 @@ steps:
   second_wait:
     wait_for: !expr $.steps.first_wait.starting.started
     kind: foreach
-    items: 
+    items:
     - wait_time_ms: 2
     workflow: subworkflow.yaml
   first_wait:
@@ -778,7 +778,6 @@ steps:
     input:
       wait_time_ms: 0
   wait_2:
-    
     plugin:
       src: "n/a"
       deployment_type: "builtin"
@@ -995,8 +994,8 @@ outputSchema:
   success:
     schema:
       root: RootObjectOut
-      objects: 
-        RootObjectOut: 
+      objects:
+        RootObjectOut:
           id: RootObjectOut
           properties: {}`
 
@@ -1268,6 +1267,743 @@ func TestInputDisabledStepWorkflow(t *testing.T) {
 	if !errors.As(err, &typedError) {
 		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
 	}
+}
+
+var gracefullyDisabledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_enabled
+outputs:
+  both:
+    simple_wait_output: !oneof
+      discriminator: "result"
+      one_of:
+        success_wait_output: !expr $.steps.simple_wait.outputs.success
+        disabled_wait_output: !expr $.steps.simple_wait.disabled.output
+`
+
+func TestGracefullyDisabledStepWorkflow(t *testing.T) {
+	// Run a workflow where both the disabled output and the success output
+	// result in a single valid workflow output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, gracefullyDisabledStepWorkflow),
+	)
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "both")
+	outputDataMap := outputData.(map[any]any)
+	assert.MapContainsKeyAny[any](t, "simple_wait_output", outputDataMap)
+	outputDataMap = outputDataMap["simple_wait_output"].(map[any]any)
+	assert.MapContainsKeyAny[any](t, "result", outputDataMap)
+	assert.Equals(t, outputDataMap["result"], "success_wait_output")
+	// Test step disabled case
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "both")
+	outputDataMap = outputData.(map[any]any)
+	assert.MapContainsKeyAny[any](t, "simple_wait_output", outputDataMap)
+	outputDataMap = outputDataMap["simple_wait_output"].(map[any]any)
+	assert.MapContainsKeyAny[any](t, "result", outputDataMap)
+	assert.Equals(t, outputDataMap["result"], "disabled_wait_output")
+}
+
+var oneofWithOneOptionWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_enabled
+outputs:
+  workflow-success:
+    test_object: !oneof
+      discriminator: "option"
+      one_of:
+        test: !expr $.steps.simple_wait.outputs.success
+`
+
+func TestSingleOneofOptionWorkflow(t *testing.T) {
+	// Runs a workflow where the output has a oneof that has one option that
+	// depends on a step that can be disabled. This ensures that oneof works
+	// properly with the unresolvable detection.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, oneofWithOneOptionWorkflow),
+	)
+	// The workflow should pass with it enabled
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	// The workflow should fail with it disabled because the output cannot be resolved.
+	_, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.Error(t, err)
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
+	}
+}
+
+var manyOneOfOptionsWf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        step_to_run:
+          type:
+            type_id: string
+steps:
+  step_a:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+    enabled: !expr $.input.step_to_run == "a"
+  step_b:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_to_run == "b"
+  step_c:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+    enabled: !expr $.input.step_to_run == "c"
+  step_d:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+    enabled: !expr $.input.step_to_run == "d"
+  step_e:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+    enabled: !expr $.input.step_to_run == "e"
+  step_f:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+    enabled: !expr $.input.step_to_run == "f"
+outputs:
+  success:
+    ran_step: !oneof
+      discriminator: "result"
+      one_of:
+        a: !expr $.steps.step_a.outputs.success
+        b: !expr $.steps.step_b.outputs.success
+        c: !expr $.steps.step_c.outputs.success
+        d: !expr $.steps.step_d.outputs.success
+        e: !expr $.steps.step_e.outputs.success
+        f: !expr $.steps.step_f.outputs.success
+`
+
+func TestManyOneofOptionsWorkflow(t *testing.T) {
+	type TestCase struct {
+		input          map[string]any
+		expectedOutput map[any]any
+	}
+
+	cases := []TestCase{
+		{
+			input: map[string]any{
+				"step_to_run": "a",
+			},
+			expectedOutput: map[any]any{
+				"result": "a",
+			},
+		},
+		{
+			input: map[string]any{
+				"step_to_run": "b",
+			},
+			expectedOutput: map[any]any{
+				"result":  "b",
+				"message": "Plugin slept for 0 ms.",
+			},
+		},
+		{
+			input: map[string]any{
+				"step_to_run": "c",
+			},
+			expectedOutput: map[any]any{
+				"result": "c",
+			},
+		},
+		{
+			input: map[string]any{
+				"step_to_run": "d",
+			},
+			expectedOutput: map[any]any{
+				"result": "d",
+			},
+		},
+		{
+			input: map[string]any{
+				"step_to_run": "e",
+			},
+			expectedOutput: map[any]any{
+				"result": "e",
+			},
+		},
+		{
+			input: map[string]any{
+				"step_to_run": "f",
+			},
+			expectedOutput: map[any]any{
+				"result": "f",
+			},
+		},
+	}
+
+	// Run a workflow where both the disabled output and the success output
+	// result in a single valid workflow output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, manyOneOfOptionsWf),
+	)
+
+	for _, testCase := range cases {
+		t.Logf("Testing with input %v", testCase.input)
+		outputID, outputData, err := preparedWorkflow.Execute(context.Background(), testCase.input)
+		assert.NoError(t, err)
+		assert.Equals(t, outputID, "success")
+		outputDataMap := outputData.(map[any]any)
+		assert.MapContainsKeyAny[any](t, "ran_step", outputDataMap)
+		outputDataMap = outputDataMap["ran_step"].(map[any]any)
+		assert.Equals(t, outputDataMap, testCase.expectedOutput)
+	}
+}
+
+var nestedOneOfWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_1_enabled:
+          type:
+            type_id: bool
+        step_2_enabled:
+          type:
+            type_id: bool
+steps:
+  wait_1:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_1_enabled
+  wait_2:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_2_enabled
+outputs:
+  all:
+    simple_wait_output: !oneof
+      discriminator: "result"
+      one_of:
+        a:
+          simple: !expr $.steps.wait_2.outputs.success
+          sub_oneof: !oneof
+            discriminator: "sub-result"
+            one_of:
+              # Use the same IDs to test for conflicts.
+              a: !expr $.steps.wait_1.outputs.success
+              b: !expr $.steps.wait_1.disabled.output
+        b: !expr $.steps.wait_2.disabled.output
+`
+
+func TestNestedOneOfWorkflow(t *testing.T) {
+	type TestCase struct {
+		input          map[string]any
+		expectedOutput map[any]any
+	}
+
+	cases := []TestCase{
+		{
+			input: map[string]any{
+				"step_1_enabled": true,
+				"step_2_enabled": true,
+			},
+			expectedOutput: map[any]any{
+				"result": "a",
+				"simple": map[any]any{
+					"message": "Plugin slept for 0 ms.",
+				},
+				"sub_oneof": map[any]any{
+					"sub-result": "a",
+					"message":    "Plugin slept for 0 ms.",
+				},
+			},
+		},
+		{
+			input: map[string]any{
+				"step_1_enabled": false,
+				"step_2_enabled": true,
+			},
+			expectedOutput: map[any]any{
+				"result": "a",
+				"simple": map[any]any{
+					"message": "Plugin slept for 0 ms.",
+				},
+				"sub_oneof": map[any]any{
+					"sub-result": "b",
+					"message":    "Step wait_1/wait disabled",
+				},
+			},
+		},
+		{
+			input: map[string]any{
+				"step_1_enabled": true,
+				"step_2_enabled": false,
+			},
+			expectedOutput: map[any]any{
+				"result":  "b",
+				"message": "Step wait_2/wait disabled",
+			},
+		},
+		{
+			input: map[string]any{
+				"step_1_enabled": false,
+				"step_2_enabled": false,
+			},
+			expectedOutput: map[any]any{
+				"result":  "b",
+				"message": "Step wait_2/wait disabled",
+			},
+		},
+	}
+
+	// Run a workflow where both the disabled output and the success output
+	// result in a single valid workflow output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, nestedOneOfWorkflow),
+	)
+
+	for _, testCase := range cases {
+		t.Logf("Testing with input %v", testCase.input)
+		outputID, outputData, err := preparedWorkflow.Execute(context.Background(), testCase.input)
+		assert.NoError(t, err)
+		assert.Equals(t, outputID, "all")
+		outputDataMap := outputData.(map[any]any)
+		assert.MapContainsKeyAny[any](t, "simple_wait_output", outputDataMap)
+		outputDataMap = outputDataMap["simple_wait_output"].(map[any]any)
+		assert.Equals(t, outputDataMap, testCase.expectedOutput)
+	}
+}
+
+var oneofInListWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_1_enabled:
+          type:
+            type_id: bool
+        step_2_enabled:
+          type:
+            type_id: bool
+steps:
+  wait_1:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_1_enabled
+  wait_2:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 1
+    enabled: !expr $.input.step_2_enabled
+outputs:
+  all:
+    simple_wait_output:
+      - list_item: !oneof
+          discriminator: "result"
+          one_of:
+            a: !expr $.steps.wait_1.outputs.success
+            b: !expr $.steps.wait_1.disabled.output
+      - list_item: !oneof
+          discriminator: "result"
+          one_of:
+            a: !expr $.steps.wait_2.outputs.success
+            b: !expr $.steps.wait_2.disabled.output
+`
+
+func TestOneOfInListWorkflow(t *testing.T) {
+	type TestCase struct {
+		input          map[string]any
+		expectedOutput []any
+	}
+
+	cases := []TestCase{
+		{
+			input: map[string]any{
+				"step_1_enabled": true,
+				"step_2_enabled": true,
+			},
+			expectedOutput: []any{
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "a",
+						"message": "Plugin slept for 0 ms.",
+					},
+				},
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "a",
+						"message": "Plugin slept for 1 ms.",
+					},
+				},
+			},
+		},
+		{
+			input: map[string]any{
+				"step_1_enabled": true,
+				"step_2_enabled": false,
+			},
+			expectedOutput: []any{
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "a",
+						"message": "Plugin slept for 0 ms.",
+					},
+				},
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "b",
+						"message": "Step wait_2/wait disabled",
+					},
+				},
+			},
+		},
+		{
+			input: map[string]any{
+				"step_1_enabled": false,
+				"step_2_enabled": true,
+			},
+			expectedOutput: []any{
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "b",
+						"message": "Step wait_1/wait disabled",
+					},
+				},
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "a",
+						"message": "Plugin slept for 1 ms.",
+					},
+				},
+			},
+		},
+		{
+			input: map[string]any{
+				"step_1_enabled": false,
+				"step_2_enabled": false,
+			},
+			expectedOutput: []any{
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "b",
+						"message": "Step wait_1/wait disabled",
+					},
+				},
+				map[any]any{
+					"list_item": map[any]any{
+						"result":  "b",
+						"message": "Step wait_2/wait disabled",
+					},
+				},
+			},
+		},
+	}
+
+	// Run a workflow where both the disabled output and the success output
+	// result in a single valid workflow output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, oneofInListWorkflow),
+	)
+
+	for _, testCase := range cases {
+		t.Logf("Testing with input %v", testCase.input)
+		outputID, outputData, err := preparedWorkflow.Execute(context.Background(), testCase.input)
+		assert.NoError(t, err)
+		assert.Equals(t, outputID, "all")
+		outputDataMap := outputData.(map[any]any)
+		assert.MapContainsKeyAny[any](t, "simple_wait_output", outputDataMap)
+		outputDataList := outputDataMap["simple_wait_output"].([]any)
+		assert.Equals(t, outputDataList, testCase.expectedOutput)
+	}
+}
+
+var forEachWithOneOfWf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        step_to_run:
+          type:
+            type_id: string
+steps:
+  step_a:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+    enabled: !expr $.input.step_to_run == "a"
+  step_b:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_to_run == "b"
+  subwf_step:
+    kind: foreach
+    items:
+    - input_1: !oneof
+        discriminator: "result"
+        one_of:
+          a: !expr $.steps.step_a.outputs.success
+          b: !expr $.steps.step_b.outputs.success
+      input_2: !oneof
+        discriminator: "result"
+        one_of:
+          a: !expr $.steps.step_a.disabled.output
+          b: !expr $.steps.step_b.disabled.output
+    workflow: subworkflow.yaml
+outputs:
+  success:
+    subwf_result: !expr $.steps.subwf_step.outputs
+`
+
+var forEachWithOneOfSubWf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        input_1:
+          type:
+            type_id: one_of_string
+            discriminator_field_name: result
+            types:
+              a:
+                type_id: object
+                id: hello-output
+                properties: {}
+              b:
+                type_id: object
+                id: output
+                properties:
+                  message:
+                    type:
+                      type_id: string
+        input_2:
+          type:
+            type_id: one_of_string
+            discriminator_field_name: result
+            types:
+              a:
+                type_id: object
+                id: DisabledMessageOutput
+                properties:
+                  message:
+                    type:
+                      type_id: string
+              b:
+                type_id: object
+                id: DisabledMessageOutput
+                properties:
+                  message:
+                    type:
+                      type_id: string
+steps:
+  placeholder_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+outputs:
+  success: !expr $.input
+`
+
+func TestForeachWithOneOf(t *testing.T) {
+	// This test tests the oneof tag `!oneof` being used to create an input to
+	// a subworkflow.
+	// It would be redundant to use oneof with a single output, so we run two steps, and only one
+	// succeeds at a time.
+	// Since the subworkflow schema must match the input, this also validates that
+	// the inferred schema is correct.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(forEachWithOneOfWf)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(forEachWithOneOfSubWf),
+	}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_to_run": "a",
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_result": map[string]any{
+			"success": map[string]any{
+				"data": []any{
+					map[string]any{
+						"input_1": map[string]any{
+							"result": "a",
+						},
+						"input_2": map[string]any{
+							"result":  "b",
+							"message": "Step step_b/wait disabled",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_to_run": "b",
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_result": map[string]any{
+			"success": map[string]any{
+				"data": []any{
+					map[string]any{
+						"input_1": map[string]any{
+							"result":  "b",
+							"message": "Plugin slept for 0 ms.",
+						},
+						"input_2": map[string]any{
+							"result":  "a",
+							"message": "Step step_a/hello disabled",
+						},
+					},
+				},
+			},
+		},
+	})
 }
 
 var dynamicDisabledStepWorkflow = `
