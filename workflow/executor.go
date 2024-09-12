@@ -1035,7 +1035,7 @@ func (e *executor) prepareOneOfExprDependencies(
 	}
 	// Mark the node ID on the OneOfExpression. This mutates the expression, so make sure
 	// this is not operating on a copy of the schema for the data to be retained.
-	expr.Node = oneofDagNode.ID()
+	expr.NodePath = oneofDagNode.ID()
 	for optionID, optionData := range expr.Options {
 		optionDagNode, err := dag.AddNode(
 			oneofDagNode.ID()+"."+optionID, orNodeType)

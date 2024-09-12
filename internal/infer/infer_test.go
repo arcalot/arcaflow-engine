@@ -29,7 +29,7 @@ var testOneOf = infer.OneOfExpression{
 			"value-2": lang.Must2(expressions.New("$.a")),
 		},
 	},
-	Node: "n/a",
+	NodePath: "n/a",
 }
 
 var testData = []testEntry{

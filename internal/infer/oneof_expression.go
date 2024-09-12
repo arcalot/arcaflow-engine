@@ -11,7 +11,7 @@ import (
 type OneOfExpression struct {
 	Discriminator string
 	Options       map[string]any
-	Node          string
+	NodePath      string
 }
 
 func (o *OneOfExpression) String() string {

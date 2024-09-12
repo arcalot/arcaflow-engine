@@ -691,7 +691,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 
 		// Get the node the OneOf uses to check which Or dependency resolved first (the others will either not be
 		// in the resolved list, or they will be obviated)
-		oneOfNode, err := l.dag.GetNodeByID(expr.Node)
+		oneOfNode, err := l.dag.GetNodeByID(expr.NodePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node to resolve oneof expression (%w)", err)
 		}
@@ -708,7 +708,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 		if firstResolvedDependency == "" {
 			return nil, fmt.Errorf("could not find resolved dependency for oneof expression %q", expr.String())
 		}
-		optionID := strings.Replace(firstResolvedDependency, expr.Node+".", "", 1)
+		optionID := strings.Replace(firstResolvedDependency, expr.NodePath+".", "", 1)
 		optionExpr, found := expr.Options[optionID]
 		if !found {
 			return nil, fmt.Errorf("could not find oneof option %q for oneof %q", optionID, expr)
