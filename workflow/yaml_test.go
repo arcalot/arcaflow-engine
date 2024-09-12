@@ -1,4 +1,4 @@
-package workflow
+package workflow //nolint:testpackage // Tests internal functions for unit testing.
 
 import (
 	"go.arcalot.io/assert"
