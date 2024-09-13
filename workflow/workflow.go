@@ -687,60 +687,7 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 		l.logger.Debugf("Evaluating expression %s...", expr.String())
 		return expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
 	case *infer.OneOfExpression:
-		l.logger.Debugf("Evaluating oneof expression %s...", expr.String())
-
-		// Get the node the OneOf uses to check which Or dependency resolved first (the others will either not be
-		// in the resolved list, or they will be obviated)
-		oneOfNode, err := l.dag.GetNodeByID(expr.NodePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get node to resolve oneof expression (%w)", err)
-		}
-		dependencies := oneOfNode.ResolvedDependencies()
-		firstResolvedDependency := ""
-		for dependency, dependencyType := range dependencies {
-			if dependencyType == dgraph.OrDependency {
-				firstResolvedDependency = dependency
-				break
-			} else if dependencyType == dgraph.ObviatedDependency {
-				l.logger.Infof("Multiple OR cases triggered; skipping %q", dependency)
-			}
-		}
-		if firstResolvedDependency == "" {
-			return nil, fmt.Errorf("could not find resolved dependency for oneof expression %q", expr.String())
-		}
-		optionID := strings.Replace(firstResolvedDependency, expr.NodePath+".", "", 1)
-		optionExpr, found := expr.Options[optionID]
-		if !found {
-			return nil, fmt.Errorf("could not find oneof option %q for oneof %q", optionID, expr)
-		}
-		// Still pass the current node in due to the possibility of a foreach within a foreach.
-		subTypeResolution, err := l.resolveExpressions(optionExpr, dataModel)
-		if err != nil {
-			return nil, err
-		}
-
-		// Validate that it returned a map type (this is required because oneof subtypes need to be objects)
-		// With a special case for values from the providers, which are map[string]any instead of map[any]any
-		// The output must be copied since it could be referenced several times.
-		var outputData map[any]any
-		switch subTypeObjectMap := subTypeResolution.(type) {
-		case map[string]any:
-			outputData = make(map[any]any, len(subTypeObjectMap))
-			for k, v := range subTypeObjectMap {
-				outputData[k] = v
-			}
-		case map[any]any:
-			outputData = make(map[any]any, len(subTypeObjectMap))
-			for k, v := range subTypeObjectMap {
-				outputData[k] = v
-			}
-		default:
-			return nil, fmt.Errorf("sub-type for oneof is not the serialized version of an object (a map); got %T", subTypeResolution)
-		}
-		// Now add the discriminator
-		outputData[expr.Discriminator] = optionID
-
-		return outputData, nil
+		return l.resolveOneOfExpression(expr, dataModel)
 	}
 
 	v := reflect.ValueOf(inputData)
@@ -771,6 +718,63 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 	default:
 		return inputData, nil
 	}
+}
+
+func (l *loopState) resolveOneOfExpression(expr *infer.OneOfExpression, dataModel any) (any, error) {
+	l.logger.Debugf("Evaluating oneof expression %s...", expr.String())
+
+	// Get the node the OneOf uses to check which Or dependency resolved first (the others will either not be
+	// in the resolved list, or they will be obviated)
+	oneOfNode, err := l.dag.GetNodeByID(expr.NodePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node to resolve oneof expression (%w)", err)
+	}
+	dependencies := oneOfNode.ResolvedDependencies()
+	firstResolvedDependency := ""
+	for dependency, dependencyType := range dependencies {
+		if dependencyType == dgraph.OrDependency {
+			firstResolvedDependency = dependency
+			break
+		} else if dependencyType == dgraph.ObviatedDependency {
+			l.logger.Infof("Multiple OR cases triggered; skipping %q", dependency)
+		}
+	}
+	if firstResolvedDependency == "" {
+		return nil, fmt.Errorf("could not find resolved dependency for oneof expression %q", expr.String())
+	}
+	optionID := strings.Replace(firstResolvedDependency, expr.NodePath+".", "", 1)
+	optionExpr, found := expr.Options[optionID]
+	if !found {
+		return nil, fmt.Errorf("could not find oneof option %q for oneof %q", optionID, expr)
+	}
+	// Still pass the current node in due to the possibility of a foreach within a foreach.
+	subTypeResolution, err := l.resolveExpressions(optionExpr, dataModel)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate that it returned a map type (this is required because oneof subtypes need to be objects)
+	// With a special case for values from the providers, which are map[string]any instead of map[any]any
+	// The output must be copied since it could be referenced several times.
+	var outputData map[any]any
+	switch subTypeObjectMap := subTypeResolution.(type) {
+	case map[string]any:
+		outputData = make(map[any]any, len(subTypeObjectMap))
+		for k, v := range subTypeObjectMap {
+			outputData[k] = v
+		}
+	case map[any]any:
+		outputData = make(map[any]any, len(subTypeObjectMap))
+		for k, v := range subTypeObjectMap {
+			outputData[k] = v
+		}
+	default:
+		return nil, fmt.Errorf("sub-type for oneof is not the serialized version of an object (a map); got %T", subTypeResolution)
+	}
+	// Now add the discriminator
+	outputData[expr.Discriminator] = optionID
+
+	return outputData, nil
 }
 
 // stageChangeHandler is implementing step.StageChangeHandler.

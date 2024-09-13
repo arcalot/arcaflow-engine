@@ -1382,6 +1382,8 @@ func TestShorthandGracefullyDisabledStepWorkflow(t *testing.T) {
 	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
 		"step_enabled": false,
 	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "both")
 	assert.Equals(t, outputData.(map[any]any), map[any]any{
 		"all_output_output": map[any]any{
 			"result":  "disabled",
