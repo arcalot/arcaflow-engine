@@ -3,6 +3,7 @@ package workflow
 import (
 	"fmt"
 	"go.flow.arcalot.io/engine/internal/infer"
+	"regexp"
 	"strings"
 
 	"go.flow.arcalot.io/engine/internal/step"
@@ -50,6 +51,9 @@ func (y yamlConverter) FromYAML(data []byte) (*Workflow, error) {
 	return workflow, nil
 }
 
+// YamlExprTag is the key to specify that the following code should be interpreted as an expression.
+const YamlExprTag = "!expr"
+
 // YamlOneOfKey is the key to specify the oneof options within a !oneof section.
 const YamlOneOfKey = "one_of"
 
@@ -58,6 +62,21 @@ const YamlDiscriminatorKey = "discriminator"
 
 // YamlOneOfTag is the yaml tag that allows the section to be interpreted as a OneOf.
 const YamlOneOfTag = "!oneof"
+
+// OrDisabledTag is the key to specify that the following code should be interpreted as a `oneof` type with
+// two possible outputs: the expr specified or the disabled output.
+const OrDisabledTag = "!ordisabled"
+
+func buildExpression(data yaml.Node, path []string, tag string) (expressions.Expression, error) {
+	if data.Type() != yaml.TypeIDString {
+		return nil, fmt.Errorf("%s found on non-string node at %s", tag, strings.Join(path, " -> "))
+	}
+	expr, err := expressions.New(data.Value())
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile expression at %s (%w)", strings.Join(path, " -> "), err)
+	}
+	return expr, nil
+}
 
 func buildOneOfExpressions(data yaml.Node, path []string) (any, error) {
 	if data.Type() != yaml.TypeIDMap {
@@ -103,19 +122,47 @@ func buildOneOfExpressions(data yaml.Node, path []string) (any, error) {
 	}, nil
 }
 
+var stepPathRegex = regexp.MustCompile(`((?:\$.)?steps\.[^.]+)(\..+)`)
+
+// Builds a oneof for the given path, or the step disabled output.
+// Requires this to be a valid step output. But it is flexible to support all outputs,
+// a specific output, or a field within a specific output.
+func buildResultOrDisabledExpression(data yaml.Node, path []string) (any, error) {
+	successExpr, err := buildExpression(data, path, OrDisabledTag)
+	if err != nil {
+		return nil, err
+	}
+	// Parse the step
+	capturedParts := stepPathRegex.FindStringSubmatch(data.Value())
+	if len(capturedParts) != 3 {
+		return nil, fmt.Errorf("unable to parse expression in %s at %s; got %s; must be in format $.steps.step_name.outputs.output",
+			OrDisabledTag, strings.Join(path, " -> "), data.Value())
+	}
+	// Index 0 is the entire capture, index 1 is the step path, and index 2 is the present case
+	stepPath := capturedParts[1]
+	disabledPath := stepPath + ".disabled.output"
+	disabledExpr, err := expressions.New(disabledPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile auto-generated disable case for %s expression at %s; is %q a valid path? (%w)", OrDisabledTag, strings.Join(path, " -> "), disabledPath, err)
+	}
+	// Now create a `oneof` expression that handles this situation.
+	return &infer.OneOfExpression{
+		Discriminator: "result",
+		Options: map[string]any{
+			"enabled":  successExpr,
+			"disabled": disabledExpr,
+		},
+	}, nil
+}
+
 func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
 	switch data.Tag() {
-	case "!expr":
-		if data.Type() != yaml.TypeIDString {
-			return nil, fmt.Errorf("!expr found on non-string node at %s", strings.Join(path, " -> "))
-		}
-		expr, err := expressions.New(data.Value())
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile expression at %s (%w)", strings.Join(path, " -> "), err)
-		}
-		return expr, nil
+	case YamlExprTag:
+		return buildExpression(data, path, YamlExprTag)
 	case YamlOneOfTag:
 		return buildOneOfExpressions(data, path)
+	case OrDisabledTag:
+		return buildResultOrDisabledExpression(data, path)
 	}
 	switch data.Type() {
 	case yaml.TypeIDString:

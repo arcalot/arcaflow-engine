@@ -1327,6 +1327,75 @@ func TestGracefullyDisabledStepWorkflow(t *testing.T) {
 	assert.Equals(t, outputDataMap["result"], "disabled_wait_output")
 }
 
+var shorthandGracefullyDisabledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_enabled
+outputs:
+  both:
+    all_output_output: !ordisabled $.steps.simple_wait.outputs
+    success_output: !ordisabled $.steps.simple_wait.outputs.success
+`
+
+func TestShorthandGracefullyDisabledStepWorkflow(t *testing.T) {
+	// Run a workflow where the output uses the !ordisabledexpr tag to create a `oneof` expression
+	// to allow the step to be disabled while still resolving the output.
+	// Since it's referencing the simple_wait output twice with oneof, but in different ways,
+	// this is also testing that the oneof doesn't incorrectly mutate the original data source.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, shorthandGracefullyDisabledStepWorkflow),
+	)
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "both")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"all_output_output": map[any]any{
+			"result": "enabled",
+			"success": map[any]any{
+				"message": "Plugin slept for 0 ms.",
+			},
+		},
+		"success_output": map[any]any{
+			"result":  "enabled",
+			"message": "Plugin slept for 0 ms.",
+		},
+	})
+	// Test step disabled case
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "both")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"all_output_output": map[any]any{
+			"result":  "disabled",
+			"message": "Step simple_wait/wait disabled",
+		},
+		"success_output": map[any]any{
+			"result":  "disabled",
+			"message": "Step simple_wait/wait disabled",
+		},
+	})
+}
+
 var oneofWithOneOptionWorkflow = `
 version: v0.2.0
 input:
