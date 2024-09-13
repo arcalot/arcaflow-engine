@@ -148,6 +148,10 @@ output: []`),
 }
 
 func TestE2E(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e test in short mode due to container pulling")
+	}
+
 	content := map[string][]byte{
 		"workflow.yaml": []byte(`version: v0.2.0
 input:
@@ -184,6 +188,10 @@ output:
 }
 
 func TestE2EMultipleOutputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e test in short mode due to container pulling")
+	}
+
 	content := map[string][]byte{
 		"workflow.yaml": []byte(`version: v0.2.0
 input:
@@ -220,6 +228,10 @@ outputs:
 }
 
 func TestE2EWorkflowDefaultInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e test in short mode due to container pulling")
+	}
+
 	content := map[string][]byte{
 		"workflow.yaml": []byte(`version: v0.2.0
 input:
@@ -262,6 +274,10 @@ outputs:
 // referenced in the main workflow is incorporated into the
 // workflow's execution.
 func Test_CacheSubworkflows(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e test in short mode due to container pulling")
+	}
+
 	fileCache, err := loadfile.NewFileCacheUsingContext(
 		"fixtures/test-subworkflow",
 		map[string]string{
