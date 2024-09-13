@@ -718,14 +718,29 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 		if err != nil {
 			return nil, err
 		}
+
 		// Validate that it returned a map type (this is required because oneof subtypes need to be objects)
-		subTypeObjectMap, ok := subTypeResolution.(map[any]any)
-		if !ok {
-			return nil, fmt.Errorf("sub-type for oneof is not an object; got %T", subTypeResolution)
+		// With a special case for values from the providers, which are map[string]any instead of map[any]any
+		// The output must be copied since it could be referenced several times.
+		var outputData map[any]any
+		switch subTypeObjectMap := subTypeResolution.(type) {
+		case map[string]any:
+			outputData = make(map[any]any, len(subTypeObjectMap))
+			for k, v := range subTypeObjectMap {
+				outputData[k] = v
+			}
+		case map[any]any:
+			outputData = make(map[any]any, len(subTypeObjectMap))
+			for k, v := range subTypeObjectMap {
+				outputData[k] = v
+			}
+		default:
+			return nil, fmt.Errorf("sub-type for oneof is not the serialized version of an object (a map); got %T", subTypeResolution)
 		}
 		// Now add the discriminator
-		subTypeObjectMap[expr.Discriminator] = optionID
-		return subTypeObjectMap, nil
+		outputData[expr.Discriminator] = optionID
+
+		return outputData, nil
 	}
 
 	v := reflect.ValueOf(inputData)

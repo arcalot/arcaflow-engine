@@ -101,5 +101,75 @@ func TestBuildOneOfExpression_InputValidation(t *testing.T) {
 	_, err = oneofResult.(*infer.OneOfExpression).Type(nil, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not an object")
+}
 
+func TestBuildResultOrDisabledExpression_Simple(t *testing.T) {
+	// Test without root $
+	yamlInput := []byte(`!ordisabled steps.test.outputs`)
+	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	result, err := buildResultOrDisabledExpression(input, make([]string, 0))
+	assert.NoError(t, err)
+	assert.InstanceOf[*infer.OneOfExpression](t, result)
+	oneOfResult := result.(*infer.OneOfExpression)
+	assert.Equals(t, oneOfResult.Discriminator, "result")
+	assert.Equals(t, oneOfResult.Options, map[string]any{
+		"enabled":  lang.Must2(expressions.New("steps.test.outputs")),
+		"disabled": lang.Must2(expressions.New("steps.test.disabled.output")),
+	})
+
+	// Test with all outputs
+	yamlInput = []byte(`!ordisabled $.steps.test.outputs`)
+	input = assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	result, err = buildResultOrDisabledExpression(input, make([]string, 0))
+	assert.NoError(t, err)
+	assert.InstanceOf[*infer.OneOfExpression](t, result)
+	oneOfResult = result.(*infer.OneOfExpression)
+	assert.Equals(t, oneOfResult.Discriminator, "result")
+	assert.Equals(t, oneOfResult.Options, map[string]any{
+		"enabled":  lang.Must2(expressions.New("$.steps.test.outputs")),
+		"disabled": lang.Must2(expressions.New("$.steps.test.disabled.output")),
+	})
+
+	// Test with a specific output
+	yamlInput = []byte(`!ordisabled $.steps.test.outputs.success`)
+	input = assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	result, err = buildResultOrDisabledExpression(input, make([]string, 0))
+	assert.NoError(t, err)
+	assert.InstanceOf[*infer.OneOfExpression](t, result)
+	oneOfResult = result.(*infer.OneOfExpression)
+	assert.Equals(t, oneOfResult.Discriminator, "result")
+	assert.Equals(t, oneOfResult.Options, map[string]any{
+		"enabled":  lang.Must2(expressions.New("$.steps.test.outputs.success")),
+		"disabled": lang.Must2(expressions.New("$.steps.test.disabled.output")),
+	})
+}
+
+func TestBuildResultOrDisabledExpression_InvalidPattern(t *testing.T) {
+	// Missing the output
+	yamlInput := []byte(`!ordisabled $.steps.test`)
+	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	_, err := buildResultOrDisabledExpression(input, make([]string, 0))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to parse expression")
+	// Trailing period. This could either trigger an unable to parse expression error
+	// or a token not found error depending on the order of the function under test.
+	yamlInput = []byte(`!ordisabled $.steps.test.`)
+	input = assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	_, err = buildResultOrDisabledExpression(input, make([]string, 0))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "token not found")
+	// Misspelled steps
+	yamlInput = []byte(`!ordisabled $.stepswrong.test`)
+	input = assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	_, err = buildResultOrDisabledExpression(input, make([]string, 0))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to parse expression")
+}
+
+func TestBuildExpression_WrongType(t *testing.T) {
+	yamlInput := []byte(`!expr {}`) // A map
+	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	_, err := buildExpression(input, make([]string, 0), YamlExprTag)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "found on non-string node")
 }
