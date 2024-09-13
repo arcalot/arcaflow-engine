@@ -149,8 +149,7 @@ output: []`),
 
 func TestE2E(t *testing.T) {
 	if testing.Short() {
-		// This test requires pulling containers; it must not be used when count > 2
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode due to container pulling")
 	}
 
 	content := map[string][]byte{
@@ -190,8 +189,7 @@ output:
 
 func TestE2EMultipleOutputs(t *testing.T) {
 	if testing.Short() {
-		// This test requires pulling containers; it must not be used when count > 2
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode due to container pulling")
 	}
 
 	content := map[string][]byte{
@@ -231,8 +229,7 @@ outputs:
 
 func TestE2EWorkflowDefaultInput(t *testing.T) {
 	if testing.Short() {
-		// This test requires pulling containers; it must not be used when count > 2
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode due to container pulling")
 	}
 
 	content := map[string][]byte{
@@ -278,8 +275,7 @@ outputs:
 // workflow's execution.
 func Test_CacheSubworkflows(t *testing.T) {
 	if testing.Short() {
-		// This test requires pulling containers; it must not be used when count > 2
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode due to container pulling")
 	}
 
 	fileCache, err := loadfile.NewFileCacheUsingContext(
