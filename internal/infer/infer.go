@@ -82,6 +82,8 @@ func Type(
 			return nil, fmt.Errorf("failed to evaluate type of expression %s (%w)", expr.String(), err)
 		}
 		return oneOfType, nil
+	case *OptionalExpression:
+		return Type(expr.Expr, internalDataModel, functions, workflowContext)
 	}
 
 	v := reflect.ValueOf(data)
@@ -198,14 +200,17 @@ func objectType(
 ) (schema.Type, error) {
 	properties := make(map[string]*schema.PropertySchema, value.Len())
 	for _, keyValue := range value.MapKeys() {
-		propertyType, err := Type(value.MapIndex(keyValue).Interface(), internalDataModel, functions, workflowContext)
+		inferredValue := value.MapIndex(keyValue).Interface()
+		propertyType, err := Type(inferredValue, internalDataModel, functions, workflowContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to infer property %s type (%w)", keyValue.Interface(), err)
 		}
+		_, isOptionalExpr := inferredValue.(*OptionalExpression)
+
 		properties[keyValue.Interface().(string)] = schema.NewPropertySchema(
 			propertyType,
 			nil,
-			true,
+			!isOptionalExpr,
 			nil,
 			nil,
 			nil,

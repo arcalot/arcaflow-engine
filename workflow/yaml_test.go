@@ -107,10 +107,8 @@ func TestBuildResultOrDisabledExpression_Simple(t *testing.T) {
 	// Test without root $
 	yamlInput := []byte(`!ordisabled steps.test.outputs`)
 	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
-	result, err := buildResultOrDisabledExpression(input, make([]string, 0))
+	oneOfResult, err := buildResultOrDisabledExpression(input, make([]string, 0))
 	assert.NoError(t, err)
-	assert.InstanceOf[*infer.OneOfExpression](t, result)
-	oneOfResult := result.(*infer.OneOfExpression)
 	assert.Equals(t, oneOfResult.Discriminator, "result")
 	assert.Equals(t, oneOfResult.Options, map[string]any{
 		"enabled":  lang.Must2(expressions.New("steps.test.outputs")),
@@ -120,10 +118,8 @@ func TestBuildResultOrDisabledExpression_Simple(t *testing.T) {
 	// Test with all outputs
 	yamlInput = []byte(`!ordisabled $.steps.test.outputs`)
 	input = assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
-	result, err = buildResultOrDisabledExpression(input, make([]string, 0))
+	oneOfResult, err = buildResultOrDisabledExpression(input, make([]string, 0))
 	assert.NoError(t, err)
-	assert.InstanceOf[*infer.OneOfExpression](t, result)
-	oneOfResult = result.(*infer.OneOfExpression)
 	assert.Equals(t, oneOfResult.Discriminator, "result")
 	assert.Equals(t, oneOfResult.Options, map[string]any{
 		"enabled":  lang.Must2(expressions.New("$.steps.test.outputs")),
@@ -133,10 +129,8 @@ func TestBuildResultOrDisabledExpression_Simple(t *testing.T) {
 	// Test with a specific output
 	yamlInput = []byte(`!ordisabled $.steps.test.outputs.success`)
 	input = assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
-	result, err = buildResultOrDisabledExpression(input, make([]string, 0))
+	oneOfResult, err = buildResultOrDisabledExpression(input, make([]string, 0))
 	assert.NoError(t, err)
-	assert.InstanceOf[*infer.OneOfExpression](t, result)
-	oneOfResult = result.(*infer.OneOfExpression)
 	assert.Equals(t, oneOfResult.Discriminator, "result")
 	assert.Equals(t, oneOfResult.Options, map[string]any{
 		"enabled":  lang.Must2(expressions.New("$.steps.test.outputs.success")),
@@ -169,7 +163,42 @@ func TestBuildResultOrDisabledExpression_InvalidPattern(t *testing.T) {
 func TestBuildExpression_WrongType(t *testing.T) {
 	yamlInput := []byte(`!expr {}`) // A map
 	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
-	_, err := buildExpression(input, make([]string, 0), YamlExprTag)
+	_, err := buildExpression(input, make([]string, 0))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "found on non-string node")
+}
+
+func TestBuildWaitOptionalExpr_Simple(t *testing.T) {
+	yamlInput := []byte(`!wait-optional some_expr`)
+	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	optionalResult, err := buildOptionalExpression(input, make([]string, 0))
+	assert.NoError(t, err)
+	assert.Equals(t, optionalResult.WaitForCompletion, true)
+	assert.Equals(t, optionalResult.Expr, lang.Must2(expressions.New("some_expr")))
+}
+
+func TestBuildSoftOptionalExpr_Simple(t *testing.T) {
+	yamlInput := []byte(`!soft-optional some_expr`)
+	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	optionalResult, err := buildOptionalExpression(input, make([]string, 0))
+	assert.NoError(t, err)
+	assert.Equals(t, optionalResult.WaitForCompletion, false)
+	assert.Equals(t, optionalResult.Expr, lang.Must2(expressions.New("some_expr")))
+}
+
+func TestBuildWaitOptionalExpr_InvalidExpr(t *testing.T) {
+	yamlInput := []byte(`!wait-optional ....`)
+	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	_, err := buildOptionalExpression(input, make([]string, 0))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "placed in invalid configuration")
+}
+
+func TestBuildWaitOptionalExpr_InvalidTag(t *testing.T) {
+	// It should never get there outside the unit test.
+	yamlInput := []byte(`!invalid some_expr`)
+	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
+	_, err := buildOptionalExpression(input, make([]string, 0))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported tag")
 }

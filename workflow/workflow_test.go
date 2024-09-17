@@ -2111,6 +2111,402 @@ outputs:
     toggled_wait_output: !expr $.steps.toggled_wait.disabled.output
 `
 
+var optionalFieldGracefullyDisabledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_enabled
+outputs:
+  workflow-success:
+    success_output: !wait-optional $.steps.simple_wait.outputs.success
+`
+
+func TestOptionalFieldGracefullyDisabledStepWorkflow(t *testing.T) {
+	// Run a workflow where the output uses the !wait-optional tag to allow
+	// the step to be disabled without breaking the output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, optionalFieldGracefullyDisabledStepWorkflow),
+	)
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"success_output": map[any]any{
+			"message": "Plugin slept for 0 ms.",
+		},
+	})
+	// Test step disabled case
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{})
+}
+
+var optionalFieldWithFailureStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        fail_purposefully:
+          type:
+            type_id: bool
+steps:
+  hello_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr $.input.fail_purposefully
+  wait_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+outputs:
+  workflow-success:
+    hello_output: !wait-optional $.steps.hello_step.outputs.success
+    wait_output: !expr $.steps.wait_step.outputs.success
+`
+
+func TestOptionalFieldWithFailureStepWorkflow(t *testing.T) {
+	// Test a workflow where one of the steps can fail without
+	// causing a failure of the output.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, optionalFieldWithFailureStepWorkflow),
+	)
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"fail_purposefully": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"wait_output": map[any]any{
+			"message": "Plugin slept for 0 ms.",
+		},
+		"hello_output": map[any]any{},
+	})
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"fail_purposefully": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"wait_output": map[any]any{
+			"message": "Plugin slept for 0 ms.",
+		},
+	})
+}
+
+var softOptionalFieldWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        wait_1_ms:
+          type:
+            type_id: integer
+        wait_2_ms:
+          type:
+            type_id: integer
+        wait_1_enabled:
+          type:
+            type_id: bool
+        wait_2_enabled:
+          type:
+            type_id: bool
+steps:
+  wait_step_1:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: !expr $.input.wait_1_ms
+    enabled: !expr $.input.wait_1_enabled
+  wait_step_2:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: !expr $.input.wait_2_ms
+    enabled: !expr $.input.wait_2_enabled
+outputs:
+  workflow-success:
+    required_output: !expr $.steps.wait_step_1.outputs.success
+    optional_output: !soft-optional $.steps.wait_step_2.outputs.success
+`
+
+func TestSoftOptionalFieldWorkflow(t *testing.T) {
+	// Test the wait time resulting in the soft-optional not being included.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, softOptionalFieldWorkflow),
+	)
+	// Test case where step 1 will be ready before step 2, and will therefore not
+	// be present in the output.
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"wait_1_ms":      0,
+		"wait_2_ms":      15,
+		"wait_1_enabled": true,
+		"wait_2_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"required_output": map[any]any{
+			"message": "Plugin slept for 0 ms.",
+		},
+	})
+	// Test case where step 1 is going to take so much longer that we can all but
+	// guarantee that step 2's output will be present before step 1 completes.
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"wait_1_ms":      15,
+		"wait_2_ms":      0,
+		"wait_1_enabled": true,
+		"wait_2_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"required_output": map[any]any{
+			"message": "Plugin slept for 15 ms.",
+		},
+		"optional_output": map[any]any{
+			"message": "Plugin slept for 0 ms.",
+		},
+	})
+	// Test case where step 2 is just disabled, and will therefore be not present in
+	// the output due to being unresolvable.
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"wait_1_ms":      5,
+		"wait_2_ms":      5,
+		"wait_1_enabled": true,
+		"wait_2_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "workflow-success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"required_output": map[any]any{
+			"message": "Plugin slept for 5 ms.",
+		},
+	})
+	// Test proper failure handling of the required step. The optional value will be available,
+	// but should not be used.
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"wait_1_ms":      0,
+		"wait_2_ms":      0,
+		"wait_1_enabled": false,
+		"wait_2_enabled": true,
+	})
+	assert.Error(t, err)
+	assert.Equals(t, outputID, "")
+	var typedError *workflow.ErrNoMorePossibleOutputs
+	if !errors.As(err, &typedError) {
+		t.Fatalf("incorrect error type returned: %T (%s)", err, err)
+	}
+}
+
+var forEachWithOptionalWf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        step_to_run:
+          type:
+            type_id: string
+steps:
+  step_a:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+    enabled: !expr $.input.step_to_run == "a"
+  step_b:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.step_to_run == "b"
+  subwf_step:
+    kind: foreach
+    items:
+    - input_1: !wait-optional $.steps.step_a.outputs.success
+      input_2: !wait-optional $.steps.step_b.outputs.success
+    workflow: subworkflow.yaml
+outputs:
+  success:
+    subwf_result: !expr $.steps.subwf_step.outputs
+`
+
+var forEachWithOptionalSubWf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        input_1:
+          required: false
+          type:
+            type_id: object
+            id: hello-output
+            properties: {}
+        input_2:
+          required: false
+          type:
+            type_id: object
+            id: output
+            properties:
+              message:
+                type:
+                  type_id: string
+steps:
+  placeholder_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: hello
+    input:
+      fail: !expr false
+outputs:
+  success: !expr $.input
+`
+
+func TestForeachWithOptional(t *testing.T) {
+	// This test tests the optional tag `!wait-optional` being used to create an input to
+	// a subworkflow.
+	// Since the subworkflow schema must match the input, this also validates that
+	// the inferred schema is correct.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(forEachWithOptionalWf)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(forEachWithOptionalSubWf),
+	}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_to_run": "a",
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_result": map[string]any{
+			"success": map[string]any{
+				"data": []any{
+					map[string]any{
+						"input_1": map[string]any{},
+					},
+				},
+			},
+		},
+	})
+
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_to_run": "b",
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_result": map[string]any{
+			"success": map[string]any{
+				"data": []any{
+					map[string]any{
+						"input_2": map[string]any{
+							"message": "Plugin slept for 0 ms.",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_to_run": "non-existent",
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_result": map[string]any{
+			"success": map[string]any{
+				"data": []any{
+					map[string]any{},
+				},
+			},
+		},
+	})
+}
+
 func TestDelayedDisabledStepWorkflow(t *testing.T) {
 	// Run a workflow where the step is disabled by a value that isn't available
 	// at the start of the workflow; in this case the step is disabled from

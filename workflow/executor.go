@@ -577,13 +577,13 @@ func (e *executor) createTypeStructure(rootSchema schema.Scope, inputField any, 
 		return inputField.Type(rootSchema, e.callableFunctionSchemas, workflowContext)
 	case *infer.OneOfExpression:
 		return inputField.Type(rootSchema, e.callableFunctionSchemas, workflowContext)
+	case *infer.OptionalExpression:
+		return e.createTypeStructure(rootSchema, inputField.Expr, workflowContext)
 	}
 
 	v := reflect.ValueOf(inputField)
 	switch v.Kind() {
 	case reflect.Slice:
-		// Okay. Construct the list of schemas, and pass it into the
-
 		result := make([]any, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			value := v.Index(i).Interface()
@@ -917,6 +917,8 @@ func (e *executor) prepareDependencies(
 			return e.prepareExprDependencies(s, workflowContext, currentNode, outputSchema, dag)
 		case *infer.OneOfExpression:
 			return e.prepareOneOfExprDependencies(s, workflowContext, currentNode, pathInCurrentNode, outputSchema, dag)
+		case *infer.OptionalExpression:
+			return e.prepareOptionalExprDependencies(s, workflowContext, currentNode, pathInCurrentNode, outputSchema, dag)
 		default:
 			return &ErrInvalidWorkflow{fmt.Errorf("unsupported struct/pointer type in workflow input: %T", stepData)}
 		}
@@ -1006,6 +1008,56 @@ func (e *executor) prepareExprDependencies(
 	return nil
 }
 
+func (e *executor) createGroupNode(
+	currentNode dgraph.Node[*DAGItem],
+	pathInCurrentNode []string,
+	dag dgraph.DirectedGraph[*DAGItem],
+	dependencyType dgraph.DependencyType,
+) (dgraph.Node[*DAGItem], error) {
+	groupNodeType := &DAGItem{
+		Kind: DagItemKindDependencyGroup,
+	}
+	groupedDagNode, err := dag.AddNode(
+		currentNode.ID()+"."+strings.Join(pathInCurrentNode, "."), groupNodeType)
+	if err != nil {
+		return nil, err
+	}
+	err = currentNode.ConnectDependency(groupedDagNode.ID(), dependencyType)
+	if err != nil {
+		return nil, err
+	}
+	return groupedDagNode, nil
+}
+
+func (e *executor) prepareOptionalExprDependencies(
+	expr *infer.OptionalExpression,
+	workflowContext map[string][]byte,
+	currentNode dgraph.Node[*DAGItem],
+	pathInCurrentNode []string,
+	outputSchema *schema.ScopeSchema,
+	dag dgraph.DirectedGraph[*DAGItem],
+) error {
+	var dependencyType dgraph.DependencyType
+	if expr.WaitForCompletion {
+		dependencyType = dgraph.CompletionAndDependency
+	} else {
+		dependencyType = dgraph.OptionalDependency
+	}
+
+	// The way that this will work is the current node will depend on the grouped
+	// node to isolate the optional dependencies. The current node will depend on it
+	// with either optional or completion dependencies
+	optionalDagNode, err := e.createGroupNode(currentNode, pathInCurrentNode, dag, dependencyType)
+	if err != nil {
+		return err
+	}
+
+	expr.GroupNodePath = optionalDagNode.ID()
+	expr.ParentNodePath = currentNode.ID()
+
+	return e.prepareExprDependencies(expr.Expr, workflowContext, optionalDagNode, outputSchema, dag)
+}
+
 func (e *executor) prepareOneOfExprDependencies(
 	expr *infer.OneOfExpression,
 	workflowContext map[string][]byte,
@@ -1020,25 +1072,21 @@ func (e *executor) prepareOneOfExprDependencies(
 	if len(expr.Options) == 0 {
 		return fmt.Errorf("oneof %s has no options", expr.String())
 	}
+	groupNodeType := &DAGItem{
+		Kind: DagItemKindDependencyGroup,
+	}
 	// In case there are multiple OneOfs, each oneof needs its own node.
-	orNodeType := &DAGItem{
-		Kind: DagItemKindOrGroup,
-	}
-	oneofDagNode, err := dag.AddNode(
-		currentNode.ID()+"."+strings.Join(pathInCurrentNode, "."), orNodeType)
+	oneofDagNode, err := e.createGroupNode(currentNode, pathInCurrentNode, dag, dgraph.AndDependency)
 	if err != nil {
 		return err
 	}
-	err = currentNode.ConnectDependency(oneofDagNode.ID(), dgraph.AndDependency)
-	if err != nil {
-		return err
-	}
+
 	// Mark the node ID on the OneOfExpression. This mutates the expression, so make sure
 	// this is not operating on a copy of the schema for the data to be retained.
 	expr.NodePath = oneofDagNode.ID()
 	for optionID, optionData := range expr.Options {
 		optionDagNode, err := dag.AddNode(
-			oneofDagNode.ID()+"."+optionID, orNodeType)
+			oneofDagNode.ID()+"."+optionID, groupNodeType)
 		if err != nil {
 			return err
 		}

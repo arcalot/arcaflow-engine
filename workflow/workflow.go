@@ -521,7 +521,7 @@ func (l *loopState) notifySteps() { //nolint:gocognit
 		inputData := nodeItem.Data
 		if inputData == nil {
 			switch nodeItem.Kind {
-			case DagItemKindOrGroup:
+			case DagItemKindDependencyGroup:
 				if err := node.ResolveNode(dgraph.Resolved); err != nil {
 					panic(fmt.Errorf("error occurred while resolving workflow OR group node (%s)", err.Error()))
 				}
@@ -688,6 +688,8 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 		return expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
 	case *infer.OneOfExpression:
 		return l.resolveOneOfExpression(expr, dataModel)
+	case *infer.OptionalExpression:
+		return l.resolveOptionalExpression(expr, dataModel)
 	}
 
 	v := reflect.ValueOf(inputData)
@@ -712,7 +714,9 @@ func (l *loopState) resolveExpressions(inputData any, dataModel any) (any, error
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve workflow map expressions (%w)", err)
 			}
-			result[key] = newValue
+			if newValue != nil { // In case it's an optional field.
+				result[key] = newValue
+			}
 		}
 		return result, nil
 	default:
@@ -725,6 +729,9 @@ func (l *loopState) resolveOneOfExpression(expr *infer.OneOfExpression, dataMode
 
 	// Get the node the OneOf uses to check which Or dependency resolved first (the others will either not be
 	// in the resolved list, or they will be obviated)
+	if expr.NodePath == "" {
+		return nil, fmt.Errorf("node path is empty in oneof expression %s", expr.String())
+	}
 	oneOfNode, err := l.dag.GetNodeByID(expr.NodePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node to resolve oneof expression (%w)", err)
@@ -775,6 +782,27 @@ func (l *loopState) resolveOneOfExpression(expr *infer.OneOfExpression, dataMode
 	outputData[expr.Discriminator] = optionID
 
 	return outputData, nil
+}
+
+func (l *loopState) resolveOptionalExpression(expr *infer.OptionalExpression, dataModel any) (any, error) {
+	l.logger.Debugf("Evaluating oneof expression %s...", expr.Expr.String())
+	if expr.ParentNodePath == "" {
+		return nil, fmt.Errorf("ParentNodePath is empty in resolve optional expression %s", expr.Expr.String())
+	}
+	if expr.GroupNodePath == "" {
+		return nil, fmt.Errorf("GroupNodePath is empty in resolve optional expression %s", expr.Expr.String())
+	}
+	// Check to see if the group node is resolved within the parent node
+	parentDagNode, err := l.dag.GetNodeByID(expr.ParentNodePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get parent node to resolve optional expression (%w)", err)
+	}
+	resolvedDependencies := parentDagNode.ResolvedDependencies()
+	_, dependencyGroupResolved := resolvedDependencies[expr.GroupNodePath]
+	if !dependencyGroupResolved {
+		return nil, nil // It's nil to indicate that the optional field is not present.
+	}
+	return expr.Expr.Evaluate(dataModel, l.callableFunctions, l.workflowContext)
 }
 
 // stageChangeHandler is implementing step.StageChangeHandler.
