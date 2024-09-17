@@ -2320,7 +2320,7 @@ func TestSoftOptionalFieldWorkflow(t *testing.T) {
 	})
 	// Test proper failure handling of the required step. The optional value will be available,
 	// but should not be used.
-	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
 		"wait_1_ms":      0,
 		"wait_2_ms":      0,
 		"wait_1_enabled": false,
