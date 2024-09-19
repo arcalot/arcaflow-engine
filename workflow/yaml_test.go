@@ -195,7 +195,8 @@ func TestBuildWaitOptionalExpr_InvalidExpr(t *testing.T) {
 }
 
 func TestBuildWaitOptionalExpr_InvalidTag(t *testing.T) {
-	// It should never get there outside the unit test.
+	// This code tests an invalid tag used with buildOptionalExpressions that
+	// should not be possible in production code due to other checks.
 	yamlInput := []byte(`!invalid some_expr`)
 	input := assert.NoErrorR[yaml.Node](t)(yaml.New().Parse(yamlInput))
 	_, err := buildOptionalExpression(input, make([]string, 0))

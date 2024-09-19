@@ -1044,9 +1044,8 @@ func (e *executor) prepareOptionalExprDependencies(
 		dependencyType = dgraph.OptionalDependency
 	}
 
-	// The way that this will work is the current node will depend on the grouped
-	// node to isolate the optional dependencies. The current node will depend on it
-	// with either optional or completion dependencies
+	// Creates a new group node to isolate the optional dependencies.
+	// The current node will depend on the group node with the dependency type set in `dependencyType`.
 	optionalDagNode, err := e.createGroupNode(currentNode, pathInCurrentNode, dag, dependencyType)
 	if err != nil {
 		return err
