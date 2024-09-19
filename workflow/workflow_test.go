@@ -2266,7 +2266,10 @@ outputs:
 `
 
 func TestSoftOptionalFieldWorkflow(t *testing.T) {
-	// Test the wait time resulting in the soft-optional not being included.
+	// This test case handles the soft optional dependency. It uses timing and step
+	// enablement. Timing is used since there are no order guarantees provided by
+	// `!soft-optional` alone. If this proves to be fragile, consider utilizing
+	// multiple steps that wait for each other in a way that ensures proper ordering.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, softOptionalFieldWorkflow),
 	)
