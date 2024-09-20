@@ -63,13 +63,21 @@ const YamlDiscriminatorKey = "discriminator"
 // YamlOneOfTag is the yaml tag that allows the section to be interpreted as a OneOf.
 const YamlOneOfTag = "!oneof"
 
-// OrDisabledTag is the key to specify that the following code should be interpreted as a `oneof` type with
-// two possible outputs: the expr specified or the disabled output.
+// OrDisabledTag is the yaml tag to specify that the following code should be interpreted
+// as a `oneof` type with two possible outputs: the expr specified or the disabled output.
 const OrDisabledTag = "!ordisabled"
 
-func buildExpression(data yaml.Node, path []string, tag string) (expressions.Expression, error) {
+// WaitOptionalTag is the tag to specify that the field, when used in an object,
+// should be optional with a completion DAG dependency.
+const WaitOptionalTag = "!wait-optional"
+
+// SoftOptionalTag is the tag to specify that the field, when used in an object,
+// should be optional with an optional DAG dependency.
+const SoftOptionalTag = "!soft-optional"
+
+func buildExpression(data yaml.Node, path []string) (expressions.Expression, error) {
 	if data.Type() != yaml.TypeIDString {
-		return nil, fmt.Errorf("%s found on non-string node at %s", tag, strings.Join(path, " -> "))
+		return nil, fmt.Errorf("%s found on non-string node at %s", data.Tag(), strings.Join(path, " -> "))
 	}
 	expr, err := expressions.New(data.Value())
 	if err != nil {
@@ -127,8 +135,8 @@ var stepPathRegex = regexp.MustCompile(`((?:\$.)?steps\.[^.]+)(\..+)`)
 // Builds a oneof for the given path, or the step disabled output.
 // Requires this to be a valid step output. But it is flexible to support all outputs,
 // a specific output, or a field within a specific output.
-func buildResultOrDisabledExpression(data yaml.Node, path []string) (any, error) {
-	successExpr, err := buildExpression(data, path, OrDisabledTag)
+func buildResultOrDisabledExpression(data yaml.Node, path []string) (*infer.OneOfExpression, error) {
+	successExpr, err := buildExpression(data, path)
 	if err != nil {
 		return nil, err
 	}
@@ -155,14 +163,40 @@ func buildResultOrDisabledExpression(data yaml.Node, path []string) (any, error)
 	}, nil
 }
 
+func buildOptionalExpression(data yaml.Node, path []string) (*infer.OptionalExpression, error) {
+	var waitForCompletion bool
+	switch data.Tag() {
+	case SoftOptionalTag:
+		waitForCompletion = false
+	case WaitOptionalTag:
+		waitForCompletion = true
+	default:
+		return nil, fmt.Errorf(
+			"unsupported tag %q in buildOptionalExpression at %s",
+			data.Tag(),
+			strings.Join(path, " -> "),
+		)
+	}
+	expr, err := buildExpression(data, path)
+	if err != nil {
+		return nil, err
+	}
+	return &infer.OptionalExpression{
+		Expr:              expr,
+		WaitForCompletion: waitForCompletion,
+	}, nil
+}
+
 func yamlBuildExpressions(data yaml.Node, path []string) (any, error) {
 	switch data.Tag() {
 	case YamlExprTag:
-		return buildExpression(data, path, YamlExprTag)
+		return buildExpression(data, path)
 	case YamlOneOfTag:
 		return buildOneOfExpressions(data, path)
 	case OrDisabledTag:
 		return buildResultOrDisabledExpression(data, path)
+	case SoftOptionalTag, WaitOptionalTag:
+		return buildOptionalExpression(data, path)
 	}
 	switch data.Type() {
 	case yaml.TypeIDString:
