@@ -393,60 +393,6 @@ func (r *runnableStep) StartedSchema() *schema.StepOutputSchema {
 	)
 }
 
-func (r *runnableStep) EnabledOutputSchema() *schema.StepOutputSchema {
-	return schema.NewStepOutputSchema(
-		schema.NewScopeSchema(
-			schema.NewObjectSchema(
-				"EnabledOutput",
-				map[string]*schema.PropertySchema{
-					"enabled": schema.NewPropertySchema(
-						schema.NewBoolSchema(),
-						schema.NewDisplayValue(
-							schema.PointerTo("enabled"),
-							schema.PointerTo("Whether the step was enabled"),
-							nil),
-						true,
-						nil,
-						nil,
-						nil,
-						nil,
-						nil,
-					),
-				},
-			),
-		),
-		nil,
-		false,
-	)
-}
-
-func (r *runnableStep) DisabledOutputSchema() *schema.StepOutputSchema {
-	return schema.NewStepOutputSchema(
-		schema.NewScopeSchema(
-			schema.NewObjectSchema(
-				"DisabledMessageOutput",
-				map[string]*schema.PropertySchema{
-					"message": schema.NewPropertySchema(
-						schema.NewStringSchema(nil, nil, nil),
-						schema.NewDisplayValue(
-							schema.PointerTo("message"),
-							schema.PointerTo("A human readable message stating that the step was disabled."),
-							nil),
-						true,
-						nil,
-						nil,
-						nil,
-						nil,
-						nil,
-					),
-				},
-			),
-		),
-		nil,
-		false,
-	)
-}
-
 const defaultClosureTimeout = 5000
 
 func closureTimeoutSchema() *schema.PropertySchema {
@@ -584,7 +530,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 					),
 				},
 				Outputs: map[string]*schema.StepOutputSchema{
-					"resolved": r.EnabledOutputSchema(),
+					"resolved": step.EnabledOutputSchema(),
 				},
 			},
 			{
@@ -636,7 +582,7 @@ func (r *runnableStep) Lifecycle(input map[string]any) (result step.Lifecycle[st
 				LifecycleStage: disabledLifecycleStage,
 				InputSchema:    nil,
 				Outputs: map[string]*schema.StepOutputSchema{
-					"output": r.DisabledOutputSchema(),
+					"output": step.DisabledOutputSchema(),
 				},
 			},
 			{
@@ -865,6 +811,8 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 	case string(StageIDCrashed):
 		return nil
 	case string(StageIDOutput):
+		return nil
+	case string(StageIDDisabled):
 		return nil
 	default:
 		return fmt.Errorf("bug: invalid stage: %s", stage)

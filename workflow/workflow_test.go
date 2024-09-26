@@ -1327,6 +1327,125 @@ func TestGracefullyDisabledStepWorkflow(t *testing.T) {
 	assert.Equals(t, outputDataMap["result"], "disabled_wait_output")
 }
 
+var gracefullyDisabledForeachStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  subwf_step:
+    kind: foreach
+    items:
+    - {}
+    workflow: subworkflow.yaml
+    enabled: !expr $.input.step_enabled
+outputs:
+  parent_success:
+    subwf_output: !ordisabled $.steps.subwf_step.outputs
+`
+
+var simpleSubWf = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+outputs:
+  success: !expr $.steps.simple_wait.outputs.success
+`
+
+func TestGracefullyDisabledForeachStepWorkflow(t *testing.T) {
+	// Run a workflow where both the disabled output and the success output
+	// result in a single valid workflow output, but use
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(gracefullyDisabledForeachStepWorkflow)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(simpleSubWf),
+	}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "parent_success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_output": map[any]any{
+			"result": "enabled",
+			"success": map[string]any{
+				"data": []any{
+					map[any]any{
+						"message": "Plugin slept for 0 ms.",
+					},
+				},
+			},
+		},
+	})
+	// Test step disabled case
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "parent_success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_output": map[any]any{
+			"result":  "disabled",
+			"message": "Step foreach subwf_step disabled",
+		},
+	})
+}
+
 var shorthandGracefullyDisabledStepWorkflow = `
 version: v0.2.0
 input:
