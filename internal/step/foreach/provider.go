@@ -772,7 +772,6 @@ func (r *runningStep) runOnInput() {
 }
 
 func (r *runningStep) processInput(inputData []any) {
-	// TODO: Transition to reusable functions
 	r.logger.Debugf("Executing subworkflow for step %s...", r.runID)
 	outputs, errors := r.executeSubWorkflows(inputData)
 
