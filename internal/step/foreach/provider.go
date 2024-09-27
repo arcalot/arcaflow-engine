@@ -540,9 +540,11 @@ func (r *runningStep) State() step.RunningStepState {
 }
 
 func (r *runningStep) Close() error {
-	r.lock.Lock()
-	r.closed.Load()
-	r.lock.Unlock()
+	closedAlready := r.closed.Swap(true)
+	if closedAlready {
+		r.wg.Wait()
+		return nil
+	}
 	r.cancel()
 	r.wg.Wait()
 	r.logger.Debugf("Closing inputData channel in foreach step provider")
