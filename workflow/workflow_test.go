@@ -1372,7 +1372,7 @@ outputs:
 
 func TestGracefullyDisabledForeachStepWorkflow(t *testing.T) {
 	// Run a workflow where both the disabled output and the success output
-	// result in a single valid workflow output, but use
+	// result in a single valid workflow output. This tests a foreach step.
 	logConfig := log.Config{
 		Level:       log.LevelDebug,
 		Destination: log.DestinationStdout,
