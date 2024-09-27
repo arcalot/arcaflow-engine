@@ -1327,6 +1327,125 @@ func TestGracefullyDisabledStepWorkflow(t *testing.T) {
 	assert.Equals(t, outputDataMap["result"], "disabled_wait_output")
 }
 
+var gracefullyDisabledForeachStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        step_enabled:
+          type:
+            type_id: bool
+steps:
+  subwf_step:
+    kind: foreach
+    items:
+    - {}
+    workflow: subworkflow.yaml
+    enabled: !expr $.input.step_enabled
+outputs:
+  parent_success:
+    subwf_output: !ordisabled $.steps.subwf_step.outputs
+`
+
+var simpleSubWf = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+outputs:
+  success: !expr $.steps.simple_wait.outputs.success
+`
+
+func TestGracefullyDisabledForeachStepWorkflow(t *testing.T) {
+	// Run a workflow where both the disabled output and the success output
+	// result in a single valid workflow output. This tests a foreach step.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(gracefullyDisabledForeachStepWorkflow)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(simpleSubWf),
+	}))
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "parent_success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_output": map[any]any{
+			"result": "enabled",
+			"success": map[string]any{
+				"data": []any{
+					map[any]any{
+						"message": "Plugin slept for 0 ms.",
+					},
+				},
+			},
+		},
+	})
+	// Test step disabled case
+	outputID, outputData, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"step_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "parent_success")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"subwf_output": map[any]any{
+			"result":  "disabled",
+			"message": "Step foreach subwf_step disabled",
+		},
+	})
+}
+
 var shorthandGracefullyDisabledStepWorkflow = `
 version: v0.2.0
 input:
@@ -3096,6 +3215,99 @@ func TestMultiDependencyDependOnContextDoneDeployment(t *testing.T) {
 	assert.Equals(t, outputData.(map[any]any), map[any]any{
 		"closed_output": map[any]any{
 			"cancelled":       false,
+			"close_requested": true,
+		},
+	})
+	t.Logf("MultiDependency DependOnClosedStep finished in %d ms", duration.Milliseconds())
+}
+
+var multiDependencyDependOnContextDoneForEachDeployment = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties: {}
+steps:
+  wait_step:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    closure_wait_timeout: 0
+    input:
+      wait_time_ms: 1000
+  not_enabled_step:
+    kind: foreach
+    items:
+    - {}
+    workflow: subworkflow.yaml
+    enabled: !expr $.steps.wait_step.outputs.success.message == "Plugin slept for 100 ms."
+outputs:
+  finished:
+    cancelled_step_output: !expr $.steps.not_enabled_step.outputs
+  closed: # The workflow needs to keep running after the cancelled step exits.
+    closed_output: !expr $.steps.not_enabled_step.closed.result
+`
+
+func TestMultiDependencyDependOnContextDoneForEachDeployment(t *testing.T) {
+	// A scenario where you close the context but still expect an output by
+	// depending on the closed output for a foreach.
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML(
+		[]byte(multiDependencyDependOnContextDoneForEachDeployment)),
+	)
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(simpleSubWf),
+	}))
+
+	ctx, timeout := context.WithTimeout(context.Background(), time.Millisecond*10)
+	startTime := time.Now() // Right before execution to not include pre-processing time.
+	outputID, outputData, err := preparedWorkflow.Execute(ctx, map[string]any{})
+	duration := time.Since(startTime)
+	assert.NoError(t, err)
+	timeout()
+	assert.Equals(t, outputID, "closed")
+	assert.Equals(t, outputData.(map[any]any), map[any]any{
+		"closed_output": map[any]any{
 			"close_requested": true,
 		},
 	})
