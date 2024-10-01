@@ -971,7 +971,7 @@ func (r *runningStep) ForceClose() error {
 	}
 	// Wait for the run to finish to ensure that it's not running after closing.
 	r.wg.Wait()
-	r.logger.Warningf("Step %s/%s force closed.", r.runID, r.pluginStepID)
+	r.logger.Infof("Step %s/%s force closed.", r.runID, r.pluginStepID)
 	return nil
 }
 

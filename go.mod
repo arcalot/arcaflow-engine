@@ -14,7 +14,7 @@ require (
 	go.flow.arcalot.io/expressions v0.4.4
 	go.flow.arcalot.io/kubernetesdeployer v0.9.3
 	go.flow.arcalot.io/pluginsdk v0.13.0
-	go.flow.arcalot.io/podmandeployer v0.11.3
+	go.flow.arcalot.io/podmandeployer v0.11.4
 	go.flow.arcalot.io/pythondeployer v0.6.1
 	go.flow.arcalot.io/testdeployer v0.6.2
 	gopkg.in/yaml.v3 v3.0.1
@@ -26,7 +26,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v27.1.2+incompatible // indirect
+	github.com/docker/docker v27.3.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
@@ -68,8 +68,8 @@ require (
 	go.opentelemetry.io/proto/otlp v1.2.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
-	golang.org/x/term v0.23.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/term v0.24.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
