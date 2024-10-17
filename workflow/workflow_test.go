@@ -186,7 +186,7 @@ steps:
 outputs:
   # If not properly cancelled, fail_case will have output.
   fail_case:
-    unattainable: !expr $.steps.last_step.outputs
+    unattainable: !expr $.steps.last_step.outputs.success
   correct_case:
     a: !expr $.steps.end_wait.outputs
 `
