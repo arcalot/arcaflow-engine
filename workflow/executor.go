@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"go.flow.arcalot.io/engine/internal/util"
+	"golang.org/x/sync/errgroup"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.arcalot.io/dgraph"
 	"go.arcalot.io/log/v2"
@@ -253,68 +255,81 @@ func (e *executor) processSteps(
 	stepOutputProperties = make(map[string]*schema.PropertySchema, len(workflow.Steps))
 	stepLifecycles = make(map[string]step.Lifecycle[step.LifecycleStageWithSchema], len(workflow.Steps))
 	stepRunData = make(map[string]map[string]any, len(workflow.Steps))
+	errs, _ := errgroup.WithContext(context.Background())
+	errs.SetLimit(2)
+	lock := &sync.Mutex{}
 	for stepID, stepData := range workflow.Steps {
-		stepDataMap, ok := stepData.(map[any]any)
-		if !ok {
-			return nil, nil, nil, nil, &ErrInvalidWorkflow{fmt.Errorf("step %s has an invalid type: %T, expected: map", stepID, stepData)}
-		}
-		kind, ok := stepDataMap["kind"]
-		if !ok {
-			// For backwards compatibility
-			kind = "plugin"
-		}
-		kindString, ok := kind.(string)
-		if !ok {
-			return nil, nil, nil, nil, fmt.Errorf("step %s is invalid ('kind' field should be a string, %T found)", stepID, kind)
-		}
-		stepKind, err := e.stepRegistry.GetByKind(kindString)
-		if err != nil {
-			return nil, nil, nil, nil, &ErrInvalidWorkflow{fmt.Errorf("step %s is invalid (%w)", stepID, err)}
-		}
+		errs.Go(func() error {
+			e.logger.Infof("Processing step %s", stepID)
+			stepDataMap, ok := stepData.(map[any]any)
+			if !ok {
+				return &ErrInvalidWorkflow{fmt.Errorf("step %s has an invalid type: %T, expected: map", stepID, stepData)}
+			}
+			kind, ok := stepDataMap["kind"]
+			if !ok {
+				// For backwards compatibility
+				kind = "plugin"
+			}
+			kindString, ok := kind.(string)
+			if !ok {
+				return fmt.Errorf("step %s is invalid ('kind' field should be a string, %T found)", stepID, kind)
+			}
+			stepKind, err := e.stepRegistry.GetByKind(kindString)
+			if err != nil {
+				return &ErrInvalidWorkflow{fmt.Errorf("step %s is invalid (%w)", stepID, err)}
+			}
 
-		// Stage 1: unserialize the data with only the provider properties known.
-		runnableStep, err := e.loadSchema(stepKind, stepID, stepDataMap, workflowContext)
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-		runnableSteps[stepID] = runnableStep
+			// Stage 1: unserialize the data with only the provider properties known.
+			runnableStep, err := e.loadSchema(stepKind, stepID, stepDataMap, workflowContext)
+			if err != nil {
+				return err
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			runnableSteps[stepID] = runnableStep
 
-		// Stage 2: unserialize the data with the provider and runnable properties being known.
-		runData, err := e.getRunData(stepKind, runnableStep, stepID, stepDataMap)
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-		stepRunData[stepID] = runData
+			// Stage 2: unserialize the data with the provider and runnable properties being known.
+			runData, err := e.getRunData(stepKind, runnableStep, stepID, stepDataMap)
+			if err != nil {
+				return err
+			}
+			stepRunData[stepID] = runData
 
-		typedLifecycle, err := runnableStep.Lifecycle(runData)
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf(
-				"failed to get lifecycle for step %s (%w)",
-				stepID,
-				err,
+			typedLifecycle, err := runnableStep.Lifecycle(runData)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to get lifecycle for step %s (%w)",
+					stepID,
+					err,
+				)
+			}
+			stepLifecycles[stepID] = typedLifecycle
+
+			// Stage 3: construct a schema for the outputs of each stage that the expressions can query.
+			outputProperties, err := e.buildOutputProperties(typedLifecycle, stepID, runnableStep, dag)
+			if err != nil {
+				return err
+			}
+
+			stepOutputProperties[stepID] = schema.NewPropertySchema(
+				schema.NewObjectSchema(
+					stepID,
+					outputProperties,
+				),
+				nil,
+				true,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
 			)
-		}
-		stepLifecycles[stepID] = typedLifecycle
-
-		// Stage 3: construct a schema for the outputs of each stage that the expressions can query.
-		outputProperties, err := e.buildOutputProperties(typedLifecycle, stepID, runnableStep, dag)
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-
-		stepOutputProperties[stepID] = schema.NewPropertySchema(
-			schema.NewObjectSchema(
-				stepID,
-				outputProperties,
-			),
-			nil,
-			true,
-			nil,
-			nil,
-			nil,
-			nil,
-			nil,
-		)
+			return nil
+		})
+	}
+	err = errs.Wait()
+	if err != nil {
+		return nil, nil, nil, nil, err
 	}
 
 	return runnableSteps, stepOutputProperties, stepLifecycles, stepRunData, nil
