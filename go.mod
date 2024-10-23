@@ -9,7 +9,7 @@ require (
 	go.arcalot.io/log/v2 v2.2.0
 	go.flow.arcalot.io/deployer v0.6.1
 	go.flow.arcalot.io/dockerdeployer v0.7.3
-	go.flow.arcalot.io/expressions v0.4.4
+	go.flow.arcalot.io/expressions v0.4.5
 	go.flow.arcalot.io/kubernetesdeployer v0.9.3
 	go.flow.arcalot.io/pluginsdk v0.13.0
 	go.flow.arcalot.io/podmandeployer v0.11.4
@@ -75,9 +75,9 @@ require (
 	google.golang.org/protobuf v1.35.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.31.1 // indirect
-	k8s.io/apimachinery v0.31.1 // indirect
-	k8s.io/client-go v0.31.1 // indirect
+	k8s.io/api v0.31.2 // indirect
+	k8s.io/apimachinery v0.31.2 // indirect
+	k8s.io/client-go v0.31.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241009091222-67ed5848f094 // indirect
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6 // indirect
