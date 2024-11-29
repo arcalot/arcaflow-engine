@@ -16,7 +16,7 @@ steps:
       deployment_type: image
     step: wait
     input:
-      wait_time_ms: !expr $.input.seconds * 1000
+      wait_time_ms: !expr floatToInt($.input.seconds * 1000.0)
 outputs:
   success:
     a: !expr $.steps.wait_1.outputs
