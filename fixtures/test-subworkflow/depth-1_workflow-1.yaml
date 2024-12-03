@@ -12,11 +12,11 @@ input:
 steps:
   wait_1:
     plugin:
-      src: quay.io/arcalot/arcaflow-plugin-wait:0.2.0
+      src: quay.io/arcalot/arcaflow-plugin-utilities:0.6.1
       deployment_type: image
     step: wait
     input:
-      seconds: !expr $.input.seconds
+      wait_time_ms: !expr floatToInt($.input.seconds * 1000.0)
 outputs:
   success:
     a: !expr $.steps.wait_1.outputs
