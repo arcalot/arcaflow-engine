@@ -13,7 +13,7 @@ require (
 	go.flow.arcalot.io/kubernetesdeployer v0.10.0
 	go.flow.arcalot.io/pluginsdk v0.13.0
 	go.flow.arcalot.io/podmandeployer v0.11.4
-	go.flow.arcalot.io/pythondeployer v0.6.1
+	go.flow.arcalot.io/pythondeployer v0.6.2
 	go.flow.arcalot.io/testdeployer v0.6.2
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -65,13 +65,13 @@ require (
 	go.opentelemetry.io/otel/sdk v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
-	golang.org/x/net v0.31.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
-	golang.org/x/sys v0.27.0 // indirect
-	golang.org/x/term v0.26.0 // indirect
-	golang.org/x/text v0.20.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
-	google.golang.org/grpc v1.68.0-dev // indirect
+	google.golang.org/grpc v1.68.1 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.31.3 // indirect
