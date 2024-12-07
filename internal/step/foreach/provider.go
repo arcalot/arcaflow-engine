@@ -454,7 +454,7 @@ func (r *runnableStep) Start(_ map[string]any, runID string, stageChangeHandler 
 }
 
 type executeInput struct {
-	inputData   []any
+	data        []any
 	parallelism int64
 }
 
@@ -517,7 +517,7 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 		r.executionInputAvailable = true
 		// Send before unlock to ensure that it never gets closed before sending.
 		r.executeInput <- executeInput{
-			inputData:   subworkflowInputs,
+			data:        subworkflowInputs,
 			parallelism: parallelism,
 		}
 		return nil
@@ -808,7 +808,7 @@ func (r *runningStep) processInput(input executeInput) {
 		unresolvableStage = StageIDOutputs
 		unresolvableError = fmt.Errorf("foreach subworkflow failed with errors (%v)", errors)
 		outputID = "error"
-		dataMap := make(map[int]any, len(input.inputData))
+		dataMap := make(map[int]any, len(input.data))
 		for i, entry := range outputs {
 			if entry != nil {
 				dataMap[i] = entry
@@ -853,12 +853,12 @@ func (r *runningStep) processInput(input executeInput) {
 
 // returns true if there is an error.
 func (r *runningStep) executeSubWorkflows(input executeInput) ([]any, map[int]string) {
-	itemOutputs := make([]any, len(input.inputData))
-	itemErrors := make(map[int]string, len(input.inputData))
+	itemOutputs := make([]any, len(input.data))
+	itemErrors := make(map[int]string, len(input.data))
 	wg := &sync.WaitGroup{}
-	wg.Add(len(input.inputData))
+	wg.Add(len(input.data))
 	sem := make(chan struct{}, input.parallelism)
-	for i, input := range input.inputData {
+	for i, input := range input.data {
 		i := i
 		input := input
 		go func() {
