@@ -602,6 +602,89 @@ func TestWaitForSerial_Foreach(t *testing.T) {
 	}
 }
 
+var parallelismForeachWf = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        parallelism:
+          type:
+            type_id: integer
+steps:
+  subwf_step:
+    kind: foreach
+    items:
+    - wait_time_ms: 0
+    - wait_time_ms: 0
+    - wait_time_ms: 0
+    workflow: subworkflow.yaml
+    parallelism: !expr $.input.parallelism
+outputs:
+  success:
+    first_step_output: !expr $.steps.subwf_step.outputs
+`
+
+func TestForeachWithParallelismExpr(t *testing.T) {
+	// This test involves a workflow where the parallelism value is
+	// set by an expression as opposed to a literal.
+
+	logConfig := log.Config{
+		Level:       log.LevelDebug,
+		Destination: log.DestinationStdout,
+	}
+	logger := log.New(
+		logConfig,
+	)
+	cfg := &config.Config{
+		Log: logConfig,
+	}
+	factories := workflowFactory{
+		config: cfg,
+	}
+	deployerRegistry := deployerregistry.New(
+		deployer.Any(testimpl.NewFactory()),
+	)
+
+	pluginProvider := assert.NoErrorR[step.Provider](t)(
+		plugin.New(logger, deployerRegistry, map[string]interface{}{
+			"builtin": map[string]any{
+				"deployer_name": "test-impl",
+				"deploy_time":   "0",
+			},
+		}),
+	)
+	stepRegistry, err := stepregistry.New(
+		pluginProvider,
+		lang.Must2(foreach.New(logger, factories.createYAMLParser, factories.createWorkflow)),
+	)
+	assert.NoError(t, err)
+
+	factories.stepRegistry = stepRegistry
+	executor := lang.Must2(workflow.NewExecutor(
+		logger,
+		cfg,
+		stepRegistry,
+		builtinfunctions.GetFunctions(),
+	))
+	wf := lang.Must2(workflow.NewYAMLConverter(stepRegistry).FromYAML([]byte(parallelismForeachWf)))
+	preparedWorkflow := lang.Must2(executor.Prepare(wf, map[string][]byte{
+		"subworkflow.yaml": []byte(waitForSerialForeachSubwf),
+	}))
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"parallelism": 1,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"parallelism": 10,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+}
+
 var waitForStartedForeachWf = `
 version: v0.2.0
 input:
