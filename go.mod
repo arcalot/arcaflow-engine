@@ -11,7 +11,7 @@ require (
 	go.flow.arcalot.io/dockerdeployer v0.7.3
 	go.flow.arcalot.io/expressions v0.4.5
 	go.flow.arcalot.io/kubernetesdeployer v0.10.0
-	go.flow.arcalot.io/pluginsdk v0.13.0
+	go.flow.arcalot.io/pluginsdk v0.14.0
 	go.flow.arcalot.io/podmandeployer v0.11.4
 	go.flow.arcalot.io/pythondeployer v0.6.2
 	go.flow.arcalot.io/testdeployer v0.6.2
@@ -64,7 +64,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
+	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
 	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
@@ -74,13 +74,13 @@ require (
 	google.golang.org/grpc v1.68.1 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/api v0.31.3 // indirect
-	k8s.io/apimachinery v0.31.3 // indirect
-	k8s.io/client-go v0.31.3 // indirect
+	k8s.io/api v0.31.4 // indirect
+	k8s.io/apimachinery v0.31.4 // indirect
+	k8s.io/client-go v0.31.4 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241127205056-99599406b04f // indirect
 	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/json cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.3 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
