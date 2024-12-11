@@ -293,12 +293,14 @@ func TestProvider_HappyError(t *testing.T) {
 	// unserialize malformed input schema
 	assert.Error(t, running.ProvideStageInput(
 		string(plugin.StageIDStarting),
-		map[string]any{"input": 1},
+		// The schema must be for the object with the field wait_time_ms, which is an integer.
+		map[string]any{"input": "not a valid value"},
 	))
 
 	waitTimeMs := 50
 	assert.NoError(t, running.ProvideStageInput(
 		string(plugin.StageIDStarting),
+		// It is also valid to inline waitTimeMs.
 		map[string]any{"input": map[string]any{"wait_time_ms": waitTimeMs}},
 	))
 
