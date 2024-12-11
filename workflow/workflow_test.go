@@ -1464,7 +1464,7 @@ outputs:
 `
 
 func TestMultiStepWaitForGracefullyDisabledStepWorkflow(t *testing.T) {
-	// Run a workflow where two steps can be disabled, and the second step only waits for one.
+	// Run a workflow where two steps can be disabled, and the second step only waits for one of either.
 	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
 		getTestImplPreparedWorkflow(t, multiStepGracefullyDisabledStepWorkflow),
 	)
