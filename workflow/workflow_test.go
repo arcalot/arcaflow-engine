@@ -1410,6 +1410,90 @@ func TestGracefullyDisabledStepWorkflow(t *testing.T) {
 	assert.Equals(t, outputDataMap["result"], "disabled_wait_output")
 }
 
+var multiStepGracefullyDisabledStepWorkflow = `
+version: v0.2.0
+input:
+  root: WorkflowInput
+  objects:
+    WorkflowInput:
+      id: WorkflowInput
+      properties:
+        a_enabled:
+          type:
+            type_id: bool
+        b_enabled:
+          type:
+            type_id: bool
+steps:
+  a:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.a_enabled
+  b:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    enabled: !expr $.input.b_enabled
+  simple_wait:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    wait_for: !oneof
+      discriminator: "n/a"
+      one_of:
+        a: !expr $.steps.a.outputs.success
+        b: !expr $.steps.b.outputs.success
+outputs:
+  success:
+    a_output: !wait-optional $.steps.a.outputs.success
+    b_output: !wait-optional $.steps.b.outputs.success
+    simple_wait_output: !expr $.steps.simple_wait.outputs.success
+  all_disabled:
+    a_disabled: !expr $.steps.a.disabled.output
+    b_disabled: !expr $.steps.b.disabled.output
+`
+
+func TestMultiStepWaitForGracefullyDisabledStepWorkflow(t *testing.T) {
+	// Run a workflow where two steps can be disabled, and the second step only waits for one of either.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, multiStepGracefullyDisabledStepWorkflow),
+	)
+	outputID, _, err := preparedWorkflow.Execute(context.Background(), map[string]any{
+		"a_enabled": false,
+		"b_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "all_disabled")
+	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"a_enabled": true,
+		"b_enabled": false,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"a_enabled": false,
+		"b_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	outputID, _, err = preparedWorkflow.Execute(context.Background(), map[string]any{
+		"a_enabled": true,
+		"b_enabled": true,
+	})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+}
+
 var gracefullyDisabledForeachStepWorkflow = `
 version: v0.2.0
 input:
