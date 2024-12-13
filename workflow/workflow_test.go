@@ -411,6 +411,65 @@ func TestWaitForSerial(t *testing.T) {
 	}
 }
 
+var waitForMultipleWorkflowDefinition = `
+version: v0.2.0
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties: {}
+steps:
+  wait_a:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 5
+  wait_b:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 5
+  wait_c:
+    plugin:
+      src: "n/a"
+      deployment_type: "builtin"
+    step: wait
+    input:
+      wait_time_ms: 0
+    wait_for: # The map creates a dependency link for every property.
+      a: !expr $.steps.wait_a.outputs
+      b: !expr $.steps.wait_b.outputs
+outputs:
+  success:
+    wait_a: !soft-optional $.steps.wait_a.outputs
+    wait_b: !soft-optional $.steps.wait_b.outputs
+    wait_c: !expr $.steps.wait_c.outputs
+`
+
+func TestWaitForMultiple(t *testing.T) {
+	// For this test, a step waits for multiple independent steps with `wait_for`.
+	preparedWorkflow := assert.NoErrorR[workflow.ExecutableWorkflow](t)(
+		getTestImplPreparedWorkflow(t, waitForMultipleWorkflowDefinition),
+	)
+	outputID, outputData, err := preparedWorkflow.Execute(context.Background(), map[string]any{})
+	assert.NoError(t, err)
+	assert.Equals(t, outputID, "success")
+	// As an added check that the wait is actually occurring, C has no delay, but A and B do,
+	// and the output has a soft optional dependency on a and b, so if the values for A and B
+	// are present that means that C completed after A and B completed.
+	// This can be validated by commenting out the wait_for
+	// Soft optional does not enforce order, but wait_for does. This test should not be flaky
+	// as long as wait_for is working correctly.
+	typedOutputData := outputData.(map[interface{}]interface{})
+	assert.NotNil(t, typedOutputData["wait_a"])
+	assert.NotNil(t, typedOutputData["wait_b"])
+}
+
 var waitForStartedWorkflowDefinition = `
 version: v0.2.0
 input:
