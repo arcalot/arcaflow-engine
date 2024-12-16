@@ -253,7 +253,13 @@ func (e *executableWorkflow) Execute(ctx context.Context, serializedInput any) (
 			return "", nil, lastErrors
 		case <-timedContext.Done():
 			lastErrors := l.handleErrors()
-			return "", nil, fmt.Errorf("workflow execution aborted (%w) (%s)", ctx.Err(), lastErrors.Error())
+			var errMsg string
+			if lastErrors == nil {
+				errMsg = ""
+			} else {
+				errMsg = lastErrors.Error()
+			}
+			return "", nil, fmt.Errorf("workflow execution aborted (%w) (%s)", ctx.Err(), errMsg)
 		}
 
 	}
