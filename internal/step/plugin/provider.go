@@ -803,7 +803,8 @@ func (r *runningStep) ProvideStageInput(stage string, input map[string]any) erro
 	case string(StageIDRunning):
 		return nil
 	case string(StageIDCancelled):
-		return r.provideCancelledInput(input)
+		r.provideCancelledInput(input)
+		return nil
 	case string(StageIDClosed):
 		return nil
 	case string(StageIDDeployFailed):
@@ -909,17 +910,16 @@ func (r *runningStep) provideStartingInput(input map[string]any) error {
 	return nil
 }
 
-func (r *runningStep) provideCancelledInput(input map[string]any) error {
+func (r *runningStep) provideCancelledInput(input map[string]any) {
 	// Note: The calling function must have the step mutex locked
 	// Cancel if the step field is present and isn't false
 	if input["stop_if"] == nil {
-		return nil
+		return
 	}
 	if input["stop_if"] != false {
 		r.cancelled = true
 		r.cancelStep()
 	}
-	return nil
 }
 
 func (r *runningStep) hasCancellationHandler() bool {

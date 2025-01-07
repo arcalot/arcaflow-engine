@@ -338,7 +338,7 @@ func getCeilFunction() schema.CallableFunction {
 				// Description based on documentation for math.Ceil
 				"Returns the least integer value greater than or equal to the input.\n"+
 					"For example `ceil(1.5)` outputs `2.0`, and `ceil(-1.5)` outputs `-1.0`"+
-					"Special cases are:\n"+ //nolint:goconst
+					"Special cases are:\n"+
 					" ceil(±0) = ±0.0"+
 					" ceil(±Inf) = ±Inf\n"+
 					" ceil(NaN) = NaN",
