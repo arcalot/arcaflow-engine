@@ -741,8 +741,6 @@ func (r *runningStep) transitionStageWithOutput(
 	)
 }
 
-//nolint:unparam // Currently only gets state finished, but that's okay.
-//nolint:nolintlint // Differing versions of the linter do or do not care.
 func (r *runningStep) completeStep(currentStage StageID, state step.RunningStepState, outputID *string, previousStageOutput *any) {
 	r.lock.Lock()
 	previousStage := string(r.currentStage)

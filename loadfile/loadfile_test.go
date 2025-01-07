@@ -18,7 +18,7 @@ import (
 // disregard (not throw an error) files with a type it cannot read.
 func Test_LoadContext(t *testing.T) {
 	testdir := filepath.Join(TestDir, "load-ctx")
-	assert.NoError(t, os.MkdirAll(testdir, os.ModePerm))
+	assert.NoError(t, os.MkdirAll(testdir, 0750))
 
 	// create a directory
 	dirPath, err := os.MkdirTemp(testdir, "mydir")
@@ -191,7 +191,7 @@ var TestDir = filepath.Join(os.TempDir(), "loadfile-tests")
 func TestMain(m *testing.M) {
 	// cleanup directory even if it's there
 	_ = os.RemoveAll(TestDir)
-	err := os.MkdirAll(TestDir, os.ModePerm)
+	err := os.MkdirAll(TestDir, 0750)
 	if err != nil {
 		log.Fatalf("failed to make directory %s %v", TestDir, err)
 	}
