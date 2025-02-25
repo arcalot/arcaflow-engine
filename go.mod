@@ -58,7 +58,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.arcalot.io/exex v0.2.0 // indirect
-	go.flow.arcalot.io/testplugin v0.4.2 // indirect
+	go.flow.arcalot.io/testplugin v0.4.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	go.opentelemetry.io/otel v1.34.0 // indirect

@@ -143,8 +143,8 @@ go.flow.arcalot.io/pythondeployer v0.6.3 h1:PfmP8KyJJDLYqTMljVLulxIwDJUT+KfWH06j
 go.flow.arcalot.io/pythondeployer v0.6.3/go.mod h1:o3ToovO15Efztx4qIT/wcV+3ti49nVpYZWJIGBBXTuA=
 go.flow.arcalot.io/testdeployer v0.6.3 h1:sACiVz3UvVbJKoUlAbvFMKHrH3evpgzTLVtZa0kFPQU=
 go.flow.arcalot.io/testdeployer v0.6.3/go.mod h1:u6DLQiq0uHKtQQmqR3W1mNuOBvgiEingdijwVWHQ4IY=
-go.flow.arcalot.io/testplugin v0.4.2 h1:JTS8AIXntJOuwTfXwUmrXV2v2Wk7z48TYvC52fJPdkE=
-go.flow.arcalot.io/testplugin v0.4.2/go.mod h1:yU+8dTuaqPlxNkceLN9AOAwe5lG+nsztCZYgEMmw3sc=
+go.flow.arcalot.io/testplugin v0.4.3 h1:qQedlcYuUmQ7sw+WIKSUOQ4uZHvl/V1OGGwEPXMnuow=
+go.flow.arcalot.io/testplugin v0.4.3/go.mod h1:xsuIbrYGYS8RNACJzhMxWp56d4Jqo5x73JWu5sZ2cOw=
 go.opentelemetry.io/auto/sdk v1.1.0 h1:cH53jehLUN6UFLY71z+NDOiNJqDdPRaXzTel0sJySYA=
 go.opentelemetry.io/auto/sdk v1.1.0/go.mod h1:3wSPjt5PWp2RhlCcmmOial7AvC4DQqZb7a7wCow3W8A=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 h1:CV7UdSGJt/Ao6Gp4CXckLxVRRsRgDHoI8XjbL3PDl8s=
