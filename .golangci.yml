@@ -50,8 +50,6 @@ linters:
     # Check for duplicate code. You may want to disable this with // nolint:dupl if the source code is the same, but
     # legitimately exists for different reasons.
     - dupl
-    # Check for pointers in loops. This is a typical bug source.
-    - exportloopref
     # Prevent dogsledding (mass-ignoring return values). This typically indicates missing error handling.
     - dogsled
     # Enforce consistent import aliases across all files.
@@ -88,7 +86,6 @@ linters-settings:
           - golang.org/
   govet:
     enable-all: true
-    check-shadowing: false
     disable:
       # We don't care about variable shadowing.
       - shadow
