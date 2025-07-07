@@ -15,7 +15,7 @@ help:
 	@echo "Usage: make setup && make all"
 
 setup: 
-	pip3.9 install wheel setuptools twine
+	python3 -m pip install wheel setuptools twine
 
 
 build_unix: 
@@ -23,14 +23,14 @@ build_unix:
 	for i in $${unix_archs[@]};\
 	do cp ${ARTIFACTS_PATH}/arcaflow_$${i}*/arcaflow ${BIN_PATH};\
 	chmod +x ${BIN_PATH}/arcaflow;\
-	python3.9 setup.py bdist_wheel --plat-name $${!i};\
+	python3 setup.py bdist_wheel --plat-name $${!i};\
 	rm -rf ${BIN_PATH}/*;\
 	rm -rf ${BUILD_PATH}/*;\
 	done;\
 
 build_windows:
 	cp ${ARTIFACTS_PATH}/arcaflow_windows_amd64*/arcaflow.exe ${BIN_PATH}
-	python3.9 setup.py bdist_wheel --plat-name win_amd64
+	python3 setup.py bdist_wheel --plat-name win_amd64
 	rm -rf ${BIN_PATH}/*
 	rm -rf ${BUILD_PATH}/*
 
