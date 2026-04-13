@@ -28,7 +28,7 @@ func Marshal(v any) ([]byte, error) {
 
 // toYAMLNode recursively converts a Go value into a yaml.Node tree
 // with explicit tags, ensuring type-faithful YAML output.
-func toYAMLNode(v any) (*yaml.Node, error) { //nolint:gocognit,cyclop
+func toYAMLNode(v any) (*yaml.Node, error) { //nolint:cyclop
 	if v == nil {
 		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"}, nil
 	}
