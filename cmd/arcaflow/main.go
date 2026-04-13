@@ -8,6 +8,7 @@ import (
 	"go.arcalot.io/log/v2"
 	"go.flow.arcalot.io/engine"
 	"go.flow.arcalot.io/engine/config"
+	internalyaml "go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/engine/loadfile"
 	"go.flow.arcalot.io/engine/workflow"
 	"gopkg.in/yaml.v3"
@@ -216,7 +217,7 @@ func runWorkflow(flow engine.WorkflowEngine, fileCtx loadfile.FileCache, workflo
 		logger.Errorf("Workflow execution failed (%v)", err)
 		return ExitCodeWorkflowFailed
 	}
-	data, err := yaml.Marshal(
+	data, err := internalyaml.Marshal(
 		map[string]any{
 			"output_id":   outputID,
 			"output_data": outputData,
