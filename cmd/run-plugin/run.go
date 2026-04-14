@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"go.flow.arcalot.io/deployer"
+	internalyaml "go.flow.arcalot.io/engine/internal/yaml"
 	"go.flow.arcalot.io/pluginsdk/plugin"
 	"go.flow.arcalot.io/pluginsdk/schema"
 	podman "go.flow.arcalot.io/podmandeployer"
@@ -162,7 +163,7 @@ func main() {
 		"outputData": result.OutputData,
 		"err":        result.Error,
 	}
-	resultStr, err := yaml.Marshal(output)
+	resultStr, err := internalyaml.Marshal(output)
 	if err != nil {
 		panic(err)
 	}
