@@ -1,0 +1,147 @@
+2024-07-11T12:42:26+02:00	debug	source=deployer	checking whether image exists with command [/usr/bin/podman image ls --format {{.Repository}}:{{.Tag}}]
+2024-07-11T12:42:35+02:00	debug	source=deployer	quay.io/arcalot/arcaflow-plugin-example:0.5.0: image already present skipping pull
+2024-07-11T12:42:35+02:00	debug	source=deployer	Deploying with command [/usr/bin/podman run -i -a stdin -a stdout -a stderr --name arcaflow_podman_ljHGi0J9iy quay.io/arcalot/arcaflow-plugin-example:0.5.0 --atp]
+2024-07-11T12:42:35+02:00	debug	source=atp-client	Reading plugin schema...
+2024-07-11T12:42:35+02:00	debug	source=atp-client	Hello message read, ATP version 3.
+2024-07-11T12:42:35+02:00	debug	source=atp-client	Schema unserialization complete.
+2024-07-11T12:42:35+02:00	debug	source=deployer	Killing with command [/usr/bin/podman kill arcaflow_podman_ljHGi0J9iy]
+2024-07-11T12:42:35+02:00	info	source=deployer	failed to kill pod arcaflow_podman_ljHGi0J9iy, probably the execution terminated earlier
+2024-07-11T12:42:35+02:00	debug	source=deployer	removing container arcaflow_podman_ljHGi0J9iy with command [/usr/bin/podman rm --force arcaflow_podman_ljHGi0J9iy]
+2024-07-11T12:42:35+02:00	info	source=deployer	successfully removed container arcaflow_podman_ljHGi0J9iy
+2024-07-11T12:42:35+02:00	info	source=deployer	stdin pipe successfully closed
+2024-07-11T12:42:35+02:00	info	source=deployer	stdout pipe successfully closed
+2024-07-11T12:42:35+02:00	debug	source=executor	Evaluating expression $.input.nickname...
+2024-07-11T12:42:35+02:00	debug	source=executor	Launching step example...
+2024-07-11T12:42:35+02:00	debug	source=executor	Starting workflow execution...
+%% Mermaid markdown workflow
+flowchart LR
+%% Success path
+input-->steps.example.starting
+steps.example.cancelled-->steps.example.outputs
+steps.example.deploy-->steps.example.starting
+steps.example.disabled-->steps.example.disabled.output
+steps.example.enabling-->steps.example.disabled
+steps.example.enabling-->steps.example.enabling.resolved
+steps.example.enabling-->steps.example.starting
+steps.example.outputs-->steps.example.outputs.success
+steps.example.outputs.success-->outputs.success
+steps.example.running-->steps.example.outputs
+steps.example.starting-->steps.example.running
+steps.example.starting-->steps.example.starting.started
+%% Error path
+steps.example.cancelled-->steps.example.crashed
+steps.example.cancelled-->steps.example.deploy_failed
+steps.example.crashed-->steps.example.crashed.error
+steps.example.deploy-->steps.example.deploy_failed
+steps.example.deploy_failed-->steps.example.deploy_failed.error
+steps.example.enabling-->steps.example.crashed
+steps.example.outputs-->steps.example.outputs.error
+steps.example.running-->steps.example.crashed
+steps.example.starting-->steps.example.crashed
+%% Mermaid end
+2024-07-11T12:42:35+02:00	debug	source=workflow	Currently 4 DAG nodes are ready. Now processing them.
+2024-07-11T12:42:35+02:00	debug	source=workflow	Processing step node steps.example.enabling
+2024-07-11T12:42:35+02:00	debug	source=workflow	Providing stage input for steps.example.enabling...
+2024-07-11T12:42:35+02:00	debug	source=plugin-provider	ProvideStageInput START
+2024-07-11T12:42:35+02:00	debug	source=plugin-provider	ProvideStageInput END
+2024-07-11T12:42:35+02:00	debug	source=workflow	Processing step node input
+2024-07-11T12:42:35+02:00	debug	source=workflow	Processing step node steps.example.cancelled
+2024-07-11T12:42:35+02:00	debug	source=workflow	Providing stage input for steps.example.cancelled...
+2024-07-11T12:42:35+02:00	debug	source=plugin-provider	ProvideStageInput START
+2024-07-11T12:42:35+02:00	debug	source=plugin-provider	ProvideStageInput END
+2024-07-11T12:42:35+02:00	debug	source=workflow	Processing step node steps.example.deploy
+2024-07-11T12:42:35+02:00	debug	source=workflow	Providing stage input for steps.example.deploy...
+2024-07-11T12:42:35+02:00	debug	source=plugin-provider	ProvideStageInput START
+2024-07-11T12:42:35+02:00	debug	source=plugin-provider	ProvideStageInput END
+2024-07-11T12:42:35+02:00	debug	source=plugin-provider	Deploying stage for step example/hello-world
+2024-07-11T12:42:35+02:00	debug	source=executor	START Stage change for step example to deploy...
+2024-07-11T12:42:35+02:00	debug	source=executor	DONE Stage change for step example to deploy...
+2024-07-11T12:42:35+02:00	debug	source=deployer	checking whether image exists with command [/usr/bin/podman image ls --format {{.Repository}}:{{.Tag}}]
+2024-07-11T12:42:41+02:00	debug	source=deployer	quay.io/arcalot/arcaflow-plugin-example:0.5.0: image already present skipping pull
+2024-07-11T12:42:41+02:00	debug	source=deployer	Deploying with command [/usr/bin/podman run -i -a stdin -a stdout -a stderr --name arcaflow_podman_VlrHgBMsVz quay.io/arcalot/arcaflow-plugin-example:0.5.0 --atp]
+2024-07-11T12:42:41+02:00	debug	source=plugin-provider	Successfully deployed container with ID 'arcaflow_podman_VlrHgBMsVz' for step example/hello-world
+2024-07-11T12:42:41+02:00	debug	source=plugin-provider	Checking to see if step example/hello-world is enabled
+2024-07-11T12:42:41+02:00	debug	source=executor	START Stage change for step example to enabling...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.deploy" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Currently 0 DAG nodes are ready. Now processing them.
+2024-07-11T12:42:41+02:00	debug	source=workflow	Step example is currently waiting.
+2024-07-11T12:42:41+02:00	info	source=workflow	There are currently 0 steps starting, 1 waiting, 0 running, 0 finished. HasReadyNodes: false
+2024-07-11T12:42:41+02:00	warning	source=workflow	No running steps. Rechecking...
+2024-07-11T12:42:41+02:00	debug	source=executor	DONE Stage change for step example to enabling...
+2024-07-11T12:42:41+02:00	debug	source=plugin-provider	Step example/hello-world enablement state: true
+2024-07-11T12:42:41+02:00	debug	source=executor	Step "example" stage "disabled" declared that it will not produce an output
+2024-07-11T12:42:41+02:00	debug	source=workflow	Will mark node example.disabled.output in the DAG as unresolvable
+2024-07-11T12:42:41+02:00	debug	source=workflow	Will mark node example.disabled in the DAG as unresolvable
+2024-07-11T12:42:41+02:00	debug	source=workflow	Currently 1 DAG nodes are ready. Now processing them.
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.disabled.output
+2024-07-11T12:42:41+02:00	debug	source=workflow	Disregarding failed node steps.example.disabled.output with type stepStageOutput
+2024-07-11T12:42:41+02:00	debug	source=plugin-provider	Starting stage for step example/hello-world
+2024-07-11T12:42:41+02:00	debug	source=executor	START Stage change for step example to starting and is waiting for input...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.enabling" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.enabling.resolved" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Currently 3 DAG nodes are ready. Now processing them.
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.disabled
+2024-07-11T12:42:41+02:00	debug	source=workflow	Disregarding failed node steps.example.disabled with type stepStage
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.enabling.resolved
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.starting
+2024-07-11T12:42:41+02:00	debug	source=workflow	Evaluating expression $.input.nickname...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Providing stage input for steps.example.starting...
+2024-07-11T12:42:41+02:00	debug	source=plugin-provider	ProvideStageInput START
+2024-07-11T12:42:41+02:00	debug	source=plugin-provider	ProvideStageInput END
+2024-07-11T12:42:41+02:00	debug	source=workflow	Step example is currently waiting.
+2024-07-11T12:42:41+02:00	info	source=workflow	There are currently 0 steps starting, 1 waiting, 0 running, 0 finished. HasReadyNodes: false
+2024-07-11T12:42:41+02:00	warning	source=workflow	No running steps. Rechecking...
+2024-07-11T12:42:41+02:00	debug	source=executor	DONE Stage change for step example to starting and is waiting for input...
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Reading plugin schema...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Step example is currently running.
+2024-07-11T12:42:41+02:00	info	source=workflow	There are currently 0 steps starting, 0 waiting, 1 running, 0 finished. HasReadyNodes: false
+2024-07-11T12:42:41+02:00	debug	source=workflow	Step example is currently running.
+2024-07-11T12:42:41+02:00	info	source=workflow	There are currently 0 steps starting, 0 waiting, 1 running, 0 finished. HasReadyNodes: false
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Hello message read, ATP version 3.
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Schema unserialization complete.
+2024-07-11T12:42:41+02:00	debug	source=plugin-provider	Running stage for step example/hello-world
+2024-07-11T12:42:41+02:00	debug	source=executor	START Stage change for step example to running and is waiting for input...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.starting" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.starting.started" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Currently 2 DAG nodes are ready. Now processing them.
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.starting.started
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.running
+2024-07-11T12:42:41+02:00	debug	source=workflow	Step example is currently running.
+2024-07-11T12:42:41+02:00	info	source=workflow	There are currently 0 steps starting, 0 waiting, 1 running, 0 finished. HasReadyNodes: false
+2024-07-11T12:42:41+02:00	debug	source=executor	DONE Stage change for step example to running and is waiting for input...
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Executing plugin step example/hello-world...
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Preparing result channels for step with run ID "example"
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Step 'hello-world' started, waiting for response...
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Step with run ID 'example' completed with output ID 'success'.
+2024-07-11T12:42:41+02:00	debug	source=atp-client	Sending results for run ID 'example'
+2024-07-11T12:42:41+02:00	info	source=atp-client	Closing signal channel for finished step
+2024-07-11T12:42:41+02:00	debug	source=executor	START Stage change for step example to outputs and is waiting for input...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.running" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Currently 0 DAG nodes are ready. Now processing them.
+2024-07-11T12:42:41+02:00	debug	source=workflow	Step example is currently running.
+2024-07-11T12:42:41+02:00	info	source=workflow	There are currently 0 steps starting, 0 waiting, 1 running, 0 finished. HasReadyNodes: false
+2024-07-11T12:42:41+02:00	debug	source=executor	DONE Stage change for step example to outputs and is waiting for input...
+2024-07-11T12:42:41+02:00	debug	source=executor	Step example completed with stage 'outputs', output 'success'...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.outputs" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Resolving node "steps.example.outputs.success" in the DAG
+2024-07-11T12:42:41+02:00	debug	source=workflow	Will mark node example.outputs.error in the DAG as unresolvable
+2024-07-11T12:42:41+02:00	debug	source=workflow	Currently 3 DAG nodes are ready. Now processing them.
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.outputs.success
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node outputs.success
+2024-07-11T12:42:41+02:00	debug	source=workflow	Evaluating expression $.steps.example.outputs.success...
+2024-07-11T12:42:41+02:00	debug	source=workflow	Constructing workflow output.
+2024-07-11T12:42:41+02:00	debug	source=workflow	Processing step node steps.example.outputs.error
+2024-07-11T12:42:41+02:00	info	source=atp-client	ATP signal loop done
+2024-07-11T12:42:41+02:00	debug	source=workflow	Disregarding failed node steps.example.outputs.error with type stepStageOutput
+2024-07-11T12:42:41+02:00	debug	source=workflow	Step example is currently finished.
+2024-07-11T12:42:41+02:00	info	source=workflow	There are currently 0 steps starting, 0 waiting, 0 running, 1 finished. HasReadyNodes: false
+2024-07-11T12:42:41+02:00	debug	source=executor	Output complete.
+2024-07-11T12:42:41+02:00	debug	source=executor	Terminating all steps...
+2024-07-11T12:42:41+02:00	debug	source=executor	Terminating step example...
+2024-07-11T12:42:41+02:00	debug	source=deployer	Killing with command [/usr/bin/podman kill arcaflow_podman_VlrHgBMsVz]
+2024-07-11T12:42:41+02:00	info	source=deployer	failed to kill pod arcaflow_podman_VlrHgBMsVz, probably the execution terminated earlier
+2024-07-11T12:42:41+02:00	debug	source=deployer	removing container arcaflow_podman_VlrHgBMsVz with command [/usr/bin/podman rm --force arcaflow_podman_VlrHgBMsVz]
+2024-07-11T12:42:41+02:00	info	source=deployer	successfully removed container arcaflow_podman_VlrHgBMsVz
+2024-07-11T12:42:41+02:00	info	source=deployer	stdin pipe successfully closed
+2024-07-11T12:42:41+02:00	info	source=deployer	stdout pipe successfully closed
+2024-07-11T12:42:41+02:00	warning	source=plugin-provider	Step example/hello-world force closed.

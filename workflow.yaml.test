@@ -1,0 +1,30 @@
+input:
+  root: RootObject
+  objects:
+    RootObject:
+      id: RootObject
+      properties:
+        kubeconfig:
+          display:
+            description: The complete kubeconfig file as a string
+            name: Kubeconfig file contents
+          type:
+            type_id: string
+        name:
+          type:
+            type_id: string
+steps:
+  read_kubeconfig:
+    #plugin: quay.io/arcalot/arcaflow-plugin-kubeconfig:latest
+    plugin: kubeconfig:latest
+    input:
+      kubeconfig: !expr $.input.kubeconfig
+  example:
+    plugin: ghcr.io/janosdebugs/arcaflow-example-plugin
+    input:
+      name: !expr $.input.name
+    deploy:
+      type: kubernetes
+      connection: !expr $.steps.read_kubeconfig.outputs.success.connection
+output:
+  message: !expr $.steps.example.outputs.success.message
