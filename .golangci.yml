@@ -1,12 +1,10 @@
+version: "2"
 run:
   timeout: 5m
 linters:
   enable:
     # region General
 
-    # Add depguard to prevent adding additional dependencies. This is a client library, we really don't want
-    # additional dependencies.
-    - depguard
     # Prevent improper directives in go.mod.
     - gomoddirectives
     # Prevent improper nolint directives.
@@ -20,15 +18,12 @@ linters:
     # Inspect source code for potential security problems. This check has a fairly high false positive rate,
     # comment with // nolint:gosec where not relevant.
     - gosec
-    # Replace golint.
-    - revive
     # Complain about deeply nested if cases.
     - nestif
     # Prevent naked returns in long functions.
     - nakedret
     # Make Go code more readable.
     - gocritic
-    # We don't want hidden global scope, so disallow global variables. You can disable this with
     # Check if comments end in a period. This helps prevent incomplete comment lines, such as half-written sentences.
     - godot
     # Complain about comments as these indicate incomplete code.
@@ -54,8 +49,6 @@ linters:
     - dogsled
     # Enforce consistent import aliases across all files.
     - importas
-    # Make code properly formatted.
-    - gofmt
     # Prevent faulty error checks.
     - nilerr
     # Prevent direct error checks that won't work with wrapped errors.
@@ -68,30 +61,14 @@ linters:
     - testpackage
 
     # endregion
-linters-settings:
-  depguard:
-    rules:
-      main:
-        list-mode: strict
-        allow:
-          - $gostd
-          - go.flow.arcalot.io/
-          - go.arcalot.io/
-          - github.com/docker/
-          - github.com/opencontainers/
-          - gopkg.in/yaml.v3
-          - github.com/fxamacker/cbor
-          - k8s.io/
-          - sigs.k8s.io/
-          - golang.org/
-  govet:
-    enable-all: true
-    disable:
-      # We don't care about variable shadowing.
-      - shadow
-      - fieldalignment
-  stylecheck:
-    checks:
-      - all
-issues:
-  exclude-use-default: false
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        # We don't care about variable shadowing.
+        - shadow
+        - fieldalignment
+formatters:
+  enable:
+    # Make code properly formatted.
+    - gofmt

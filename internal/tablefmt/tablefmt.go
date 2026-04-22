@@ -14,7 +14,7 @@ import "sort"
 // each group is associated with a list of values.
 func UnnestLongerSorted(twoColDf map[string][]string) [][]string {
 	df := [][]string{}
-	groupNames := []string{}
+	groupNames := make([]string, 0, len(twoColDf))
 	for name := range twoColDf {
 		groupNames = append(groupNames, name)
 	}
