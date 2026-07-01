@@ -60,6 +60,7 @@ func main() {
 	workflowFile := "workflow.yaml"
 	printVersion := false
 	getNamespaces := false
+	debug := false
 
 	const (
 		versionUsage       = "Print Arcaflow Engine version and exit."
@@ -68,6 +69,7 @@ func main() {
 		contextUsage       = "The path to the workflow directory to run from."
 		workflowUsage      = "The path to the workflow file to load."
 		getNamespacesUsage = "Show the namespaces available to this workflow."
+		debugUsage         = "Enable debug-level logging (overrides the config log level)."
 	)
 	flag.BoolVar(&printVersion, "version", printVersion, versionUsage)
 	flag.StringVar(&configFile, "config", configFile, configUsage)
@@ -75,6 +77,7 @@ func main() {
 	flag.StringVar(&dir, "context", dir, contextUsage)
 	flag.StringVar(&workflowFile, "workflow", workflowFile, workflowUsage)
 	flag.BoolVar(&getNamespaces, "get-namespaces", getNamespaces, getNamespacesUsage)
+	flag.BoolVar(&debug, "debug", debug, debugUsage)
 
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
@@ -148,6 +151,10 @@ func main() {
 		tempLogger.Errorf("Failed to load configuration file %s (%v)", configFile, err)
 		flag.Usage()
 		os.Exit(ExitCodeInvalidData)
+	}
+
+	if debug {
+		cfg.Log.Level = log.LevelDebug
 	}
 
 	// now we are ready to instantiate our main logger
